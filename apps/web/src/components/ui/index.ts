@@ -6,3 +6,5 @@ export { Chart } from './chart';
 export { ScrollArea } from './scroll-area';
 export { Tabs, TabsList, TabsTrigger, TabsContent } from './tabs';
 export { Toaster } from './sonner';
+export { Avatar, AvatarFallback, AvatarImage } from './avatar';
+export { Textarea } from './textarea';
