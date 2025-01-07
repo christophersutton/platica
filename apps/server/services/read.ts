@@ -20,14 +20,15 @@ export class ReadService {
   private channelRepo: ChannelRepository;
   private db: DatabaseService;
 
-  constructor(serviceId: string = 'read') {
+  constructor() {
     // Get a read-only database instance for this service
-    this.db = DatabaseService.getReadInstance(serviceId);
+    const dbService = DatabaseService.getReadInstance('read');
+    this.db = dbService;
     
     this.router = new Hono();
-    this.auth = new AuthMiddleware(this.db);
-    this.messageRepo = new MessageRepository(this.db);
-    this.channelRepo = new ChannelRepository(this.db);
+    this.auth = new AuthMiddleware(dbService);
+    this.messageRepo = new MessageRepository(dbService);
+    this.channelRepo = new ChannelRepository(dbService);
     
     this.setupMiddleware();
     this.setupRoutes();

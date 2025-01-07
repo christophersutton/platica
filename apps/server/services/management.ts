@@ -18,11 +18,13 @@ export class ManagementService {
   private channelRepo: ChannelRepository;
   private readonly db: Database;
 
-  constructor(db: Database | DatabaseService) {
+  constructor() {
     this.router = new Hono();
-    this.db = db instanceof DatabaseService ? db.db : db;
-    this.auth = new AuthMiddleware(db);
-    this.channelRepo = new ChannelRepository(db);
+    // Use the singleton write instance
+    const dbService = DatabaseService.getWriteInstance();
+    this.db = dbService.db;
+    this.auth = new AuthMiddleware(dbService);
+    this.channelRepo = new ChannelRepository(dbService);
     this.setupMiddleware();
     this.setupRoutes();
   }

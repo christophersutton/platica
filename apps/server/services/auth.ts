@@ -23,9 +23,11 @@ export class AuthService {
   public router: Hono;
   private readonly db: Database;
 
-  constructor(db: Database | DatabaseService) {
+  constructor() {
     this.router = new Hono();
-    this.db = db instanceof DatabaseService ? db.db : db;
+    // Use the singleton write instance
+    const dbService = DatabaseService.getWriteInstance();
+    this.db = dbService.db;
     this.setupDatabase();
     this.setupRoutes();
   }

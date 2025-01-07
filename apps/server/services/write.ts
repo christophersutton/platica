@@ -1,6 +1,7 @@
 import type { ServerWebSocket } from 'bun';
 import { MessageRepository } from '../db/messages-repository';
 import { DatabaseService } from '../db/database';
+import type { WSEventType } from '@platica/shared/types';
 
 interface Message {
   type: 'message' | 'reaction' | 'typing';
@@ -17,11 +18,13 @@ interface WebSocketData {
   authToken: string;
 }
 
-class WriteService {
+export class WriteService {
   private messageRepository: MessageRepository;
   private wsClients: Map<number, ServerWebSocket<WebSocketData>[]> = new Map(); // workspace_id -> clients
   
-  constructor(dbService: DatabaseService) {
+  constructor() {
+    // Use the singleton write instance
+    const dbService = DatabaseService.getWriteInstance();
     this.messageRepository = new MessageRepository(dbService);
   }
 
