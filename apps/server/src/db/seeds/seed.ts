@@ -23,9 +23,9 @@ async function seed() {
       // Create a demo workspace
       console.log("Creating demo workspace...");
       db.run(`
-        INSERT INTO workspaces (name, created_at, updated_at)
-        VALUES ('Demo Workspace', unixepoch(), unixepoch())
-      `);
+        INSERT INTO workspaces (name, slug, owner_id, created_at, updated_at)
+        VALUES ('Demo Workspace', 'demo-workspace', ?, unixepoch(), unixepoch())
+      `, [testUser.id]);
 
       const result = db.query("SELECT last_insert_rowid() as id").get() as { id: number };
       const workspaceId = result.id;
@@ -73,14 +73,14 @@ async function seed() {
       // Add all users to the general channel
       console.log("Adding users to general channel...");
       db.run(`
-        INSERT INTO channel_members (channel_id, user_id, created_at)
-        VALUES (?, ?, unixepoch())
+        INSERT INTO channel_members (channel_id, user_id, created_at, updated_at)
+        VALUES (?, ?, unixepoch(), unixepoch())
       `, [channelId.id, testUser.id]);
 
       users.forEach(userId => {
         db.run(`
-          INSERT INTO channel_members (channel_id, user_id, created_at)
-          VALUES (?, ?, unixepoch())
+          INSERT INTO channel_members (channel_id, user_id, created_at, updated_at)
+          VALUES (?, ?, unixepoch(), unixepoch())
         `, [channelId.id, userId]);
       });
     })();

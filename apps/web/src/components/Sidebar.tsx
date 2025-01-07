@@ -9,12 +9,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useChannels } from "@/hooks/use-channels";
 
-const channels = [
-  { name: "general", unread: 2 },
-  { name: "random", unread: 0 },
-  { name: "announcements", unread: 1 },
-];
+// TODO: Replace with real workspace ID from context/route
+const TEMP_WORKSPACE_ID = 1;
 
 const directMessages = [
   { name: "Sarah Wilson", status: "online" },
@@ -24,6 +22,7 @@ const directMessages = [
 
 export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const { channels, isLoading } = useChannels(TEMP_WORKSPACE_ID);
 
   return (
     <div 
@@ -59,9 +58,17 @@ export function Sidebar() {
               {!isCollapsed && <h2 className="text-white font-semibold text-xs">Channels</h2>}
               <CreateChannelModal />
             </div>
-            {channels.map((channel) => (
+            {isLoading ? (
+              // Show loading skeleton
+              Array.from({ length: 3 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-7 mb-0.5 px-1.5 animate-pulse bg-slack-purple-dark/50 rounded"
+                />
+              ))
+            ) : channels?.map((channel) => (
               <Button
-                key={channel.name}
+                key={channel.id}
                 variant="ghost"
                 className={cn(
                   "w-full justify-start text-gray-300 hover:bg-slack-purple-dark mb-0.5 py-1 px-1.5 h-7 text-sm",
@@ -72,9 +79,9 @@ export function Sidebar() {
                 {!isCollapsed && (
                   <>
                     {channel.name}
-                    {channel.unread > 0 && (
+                    {channel.unread_count > 0 && (
                       <span className="ml-auto bg-white text-slack-purple text-xs font-bold px-1.5 rounded-full">
-                        {channel.unread}
+                        {channel.unread_count}
                       </span>
                     )}
                   </>

@@ -16,28 +16,50 @@ const contentTypes: Record<string, string> = {
   '.svg': 'image/svg+xml',
 };
 
+const API_SERVER = "http://localhost:3000";
+
 // Set up the dev server
 const server = Bun.serve({
-  port: 3000,
+  port: 5173,
   async fetch(req) {
     const url = new URL(req.url);
-    const filePath = url.pathname === "/" ? "/index.html" : url.pathname;
-    const ext = extname(filePath);
     
-    // Try root directory first (for index.html)
-    let file = Bun.file(join(".", filePath));
-    if (!await file.exists()) {
-      // Then try build directory
-      file = Bun.file(join("./dist", filePath));
-      if (!await file.exists()) {
-        // Fall back to index.html for SPA routing
-        file = Bun.file("./index.html");
-      }
+    // Proxy API requests to the API server
+    if (url.pathname.startsWith('/api')) {
+      const apiUrl = new URL(url.pathname + url.search, API_SERVER);
+      return fetch(apiUrl, {
+        method: req.method,
+        headers: req.headers,
+        body: req.body
+      });
     }
     
-    return new Response(file, {
+    const filePath = url.pathname;
+    const ext = extname(filePath);
+    
+    // If requesting a file with a known extension (like .js, .css, etc)
+    if (ext && contentTypes[ext]) {
+      // Try root directory first
+      let file = Bun.file(join(".", filePath));
+      if (!await file.exists()) {
+        // Then try build directory
+        file = Bun.file(join("./dist", filePath));
+        if (!await file.exists()) {
+          return new Response("Not Found", { status: 404 });
+        }
+      }
+      return new Response(file, {
+        headers: {
+          "Content-Type": contentTypes[ext]
+        }
+      });
+    }
+    
+    // For all other requests (routes), serve index.html
+    const indexFile = Bun.file("./index.html");
+    return new Response(indexFile, {
       headers: {
-        "Content-Type": contentTypes[ext] || "application/octet-stream"
+        "Content-Type": "text/html"
       }
     });
   },

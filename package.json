@@ -2,11 +2,13 @@
   "name": "platica",
   "private": true,
   "scripts": {
-    "dev": "bun run --cwd apps/server dev & bun run --cwd apps/web dev",
+    "dev": "bun --filter '@platica/*' dev",
     "build": "bun run --cwd apps/server build && bun run --cwd apps/web build",
     "lint": "eslint \"**/*.{ts,tsx}\"",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "clean": "rm -rf node_modules && rm -rf apps/*/node_modules"
+    "clean": "rm -rf node_modules && rm -rf apps/*/node_modules",
+    "db:setup": "bun run --cwd apps/server db:setup",
+    "db:seed": "bun run --cwd apps/server db:seed"
   },
   "devDependencies": {
     "@types/bun": "^1.1.14",

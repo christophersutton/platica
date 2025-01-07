@@ -11,16 +11,37 @@ import {
 import { Input } from "@/components/ui/input";
 import { Plus } from "lucide-react";
 import { useState } from "react";
+import { useChannels } from "@/hooks/use-channels";
+import { useToast } from "@/components/ui/use-toast";
+
+// TODO: Replace with real workspace ID from context/route
+const TEMP_WORKSPACE_ID = 1;
 
 export function CreateChannelModal() {
   const [channelName, setChannelName] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const { createChannel, isCreating } = useChannels(TEMP_WORKSPACE_ID);
+  const { toast } = useToast();
 
-  const handleCreateChannel = () => {
-    // TODO: Implement channel creation logic
-    console.log("Creating channel:", channelName);
-    setChannelName("");
-    setIsOpen(false);
+  const handleCreateChannel = async () => {
+    try {
+      await createChannel({ 
+        name: channelName.toLowerCase(),
+        is_private: false
+      });
+      setChannelName("");
+      setIsOpen(false);
+      toast({
+        title: "Channel created",
+        description: `#${channelName} has been created successfully.`
+      });
+    } catch (error) {
+      toast({
+        title: "Error creating channel",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -48,7 +69,7 @@ export function CreateChannelModal() {
               id="channel-name"
               placeholder="e.g. marketing"
               value={channelName}
-              onChange={(e) => setChannelName(e.target.value.toLowerCase())}
+              onChange={(e) => setChannelName((e.target as HTMLInputElement).value.toLowerCase())}
               className="col-span-3"
             />
           </div>
@@ -56,10 +77,10 @@ export function CreateChannelModal() {
         <DialogFooter>
           <Button
             onClick={handleCreateChannel}
-            disabled={!channelName.trim()}
+            disabled={!channelName.trim() || isCreating}
             className="bg-slack-green hover:bg-slack-green/90"
           >
-            Create Channel
+            {isCreating ? "Creating..." : "Create Channel"}
           </Button>
         </DialogFooter>
       </DialogContent>
