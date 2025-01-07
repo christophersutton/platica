@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useChannelMessages, useChannels, useTypingIndicator, useAuth, useWorkspace } from "@/hooks";
+import { usePresence } from "@/hooks/use-presence";
 import { api, type Channel } from "@/lib/api";
 
 const Index = () => {
@@ -18,6 +19,9 @@ const Index = () => {
   const { user, logout } = useAuth();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  
+  // Initialize presence tracking at the top level
+  usePresence();
   
   // Only fetch messages if we have a valid channel
   const {

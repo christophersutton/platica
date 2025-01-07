@@ -17,10 +17,21 @@ interface Client {
 export class WebSocketService {
   private clients: Map<ServerWebSocket<WebSocketData>, Client> = new Map();
   private typingTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  private lastPresenceBroadcast: Map<string, number> = new Map();
 
   constructor() {
     // Clean up inactive clients periodically
     setInterval(() => this.cleanupInactiveClients(), 60000);
+  }
+
+  private getOnlineUsersInWorkspace(workspaceId: number): number[] {
+    const onlineUsers = new Set<number>();
+    for (const [_, client] of this.clients.entries()) {
+      if (client.workspaceId === workspaceId) {
+        onlineUsers.add(client.userId);
+      }
+    }
+    return Array.from(onlineUsers);
   }
 
   public handleConnect(ws: ServerWebSocket<WebSocketData>) {
@@ -36,12 +47,44 @@ export class WebSocketService {
       userId,
       lastActivity: getCurrentUnixTimestamp()
     });
+
+    // Broadcast initial presence state to the new client
+    const onlineUsers = this.getOnlineUsersInWorkspace(workspaceId);
+    ws.send(JSON.stringify({
+      type: 'presence_sync',
+      onlineUsers
+    }));
+
+    // Then broadcast this user's presence to others, but only if we haven't recently
+    const key = `${workspaceId}:${userId}`;
+    const now = Date.now();
+    const lastBroadcast = this.lastPresenceBroadcast.get(key) || 0;
+    
+    if (now - lastBroadcast > 5000) { // Only broadcast if more than 5 seconds since last broadcast
+      this.lastPresenceBroadcast.set(key, now);
+      this.broadcastPresence(workspaceId, userId, 'online');
+    }
   }
 
   public handleDisconnect(ws: ServerWebSocket<WebSocketData>) {
     const client = this.clients.get(ws);
     if (client) {
       this.clients.delete(ws);
+      
+      // Check if this was the last connection for this user in this workspace
+      let hasOtherConnections = false;
+      for (const [_, otherClient] of this.clients.entries()) {
+        if (otherClient.workspaceId === client.workspaceId && 
+            otherClient.userId === client.userId) {
+          hasOtherConnections = true;
+          break;
+        }
+      }
+      
+      // Only broadcast offline status if this was the last connection
+      if (!hasOtherConnections) {
+        this.broadcastPresence(client.workspaceId, client.userId, 'offline');
+      }
     }
   }
 

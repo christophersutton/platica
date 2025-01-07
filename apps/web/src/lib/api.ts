@@ -47,6 +47,18 @@ interface Workspace {
   role: string;
 }
 
+interface WorkspaceUser {
+  workspace_id: number;
+  user_id: number;
+  role: string;
+  settings: Record<string, unknown>;
+  created_at: number;
+  updated_at: number;
+  user_name: string;
+  user_email: string;
+  user_avatar_url: string | null;
+}
+
 interface ApiError {
   error: string;
   status: number;
@@ -135,6 +147,9 @@ export const api = {
     
     list: () =>
       fetchApi<{ workspaces: Workspace[] }>('/workspaces'),
+
+    getUsers: (workspaceId: number) =>
+      fetchApi<WorkspaceUser[]>(`/workspaces/${workspaceId}/users`),
   },
 };
 

@@ -1,14 +1,15 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import { useAuth } from './use-auth.ts';
 
-interface WebSocketMessage {
-  type: 'chat' | 'typing' | 'presence' | 'error';
+export interface WebSocketMessage {
+  type: 'chat' | 'typing' | 'presence' | 'presence_sync' | 'error';
   workspaceId?: number;
   channelId?: number;
   content?: string;
   userId?: number;
   status?: 'online' | 'offline';
   message?: string;
+  onlineUsers?: number[];
 }
 
 interface UseWebSocketOptions {
@@ -45,13 +46,22 @@ export function useWebSocket({
 
   // Only attempt connection if we have all required data
   const shouldConnect = useMemo(() => {
+    const conditions = {
+      isInitialized,
+      notLoading: !isLoading,
+      hasUser: Boolean(user),
+      hasToken: Boolean(token),
+      hasWorkspaceId: Boolean(workspaceId && workspaceId > 0)
+    };
+    
+    console.log('[WebSocket] Connection conditions:', conditions);
+    
     return Boolean(
-      isInitialized && 
-      !isLoading && 
-      user && 
-      token && 
-      workspaceId && 
-      workspaceId > 0
+      conditions.isInitialized && 
+      conditions.notLoading && 
+      conditions.hasUser && 
+      conditions.hasToken && 
+      conditions.hasWorkspaceId
     );
   }, [isInitialized, isLoading, user, token, workspaceId]);
 
@@ -193,22 +203,28 @@ export function useWebSocket({
             }
           }
 
+          // First pass message to general handler if provided
+          handlers.onMessage?.(data);
+
+          // Then handle specific message types
           switch (data.type) {
             case 'chat':
-              onMessage?.(data);
               break;
             case 'presence':
               if (data.userId && data.status) {
-                onPresenceChange?.(data.userId, data.status);
+                handlers.onPresenceChange?.(data.userId, data.status);
               }
+              break;
+            case 'presence_sync':
+              // Already handled by onMessage
               break;
             case 'typing':
               if (data.channelId && data.userId) {
-                onTypingIndicator?.(data.channelId, data.userId);
+                handlers.onTypingIndicator?.(data.channelId, data.userId);
               }
               break;
             case 'error':
-              onError?.(data.message || 'Unknown error');
+              handlers.onError?.(data.message || 'Unknown error');
               break;
           }
         } catch (error) {

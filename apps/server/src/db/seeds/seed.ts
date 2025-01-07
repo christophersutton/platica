@@ -5,10 +5,10 @@ const db = new Database(join(import.meta.dir, "../../../data/db.sqlite"));
 const TEST_EMAIL = process.env.TEST_EMAIL || "test@example.com";
 
 const DEMO_USERS = [
-  { email: 'sarah@demo.com', name: 'Sarah Wilson', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah' },
-  { email: 'mike@demo.com', name: 'Mike Johnson', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mike' },
+  { email: 'sofia@demo.com', name: 'Sofia Ramirez', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sofia' },
+  { email: 'mike@demo.com', name: 'Miguel Hernandez', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Miguel' },
   { email: 'alex@demo.com', name: 'Alex Chen', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex' },
-  { email: 'emily@demo.com', name: 'Emily Brown', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Emily' },
+  { email: 'carmen@demo.com', name: 'Carmen Rodriguez', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Carmen' },
   { email: 'david@demo.com', name: 'David Kim', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=David' },
 ];
 
