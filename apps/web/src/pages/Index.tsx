@@ -1,9 +1,5 @@
-import { ChatInput } from "@/components/ChatInput";
-import { ChatMessage } from "@/components/ChatMessage";
-import { Sidebar } from "@/components/Sidebar";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
+import { ChatInput, ChatMessage, Sidebar } from "@/components";
+import { ScrollArea, Tabs, TabsList, TabsTrigger, TabsContent, Button } from "@/components/ui";
 import { MessageSquare, File, Users, Pin, Star, Bell, LogOut } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";

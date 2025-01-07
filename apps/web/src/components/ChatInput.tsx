@@ -1,5 +1,4 @@
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { Button, Textarea } from "@/components/ui";
 import { Bold, Italic, Link, Send } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useTypingIndicator } from "@/hooks/use-typing-indicator";
