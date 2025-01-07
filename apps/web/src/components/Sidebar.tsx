@@ -75,9 +75,11 @@ export function Sidebar() {
                   key={channel.id}
                   variant="ghost"
                   className={cn(
-                    "w-full justify-start text-gray-300 hover:bg-slack-purple-dark hover:text-white hover:font-semibold mb-0.5 py-1 px-1.5 h-7 text-sm transition-all duration-200 ease-in-out",
+                    "w-full justify-start text-gray-300 hover:text-white hover:font-semibold mb-0.5 py-1 px-1.5 h-7 text-sm relative overflow-hidden",
+                    "transition-colors duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
                     isCollapsed && "px-1.5",
-                    Number(channelId) === channel.id && "bg-slack-purple-dark text-white font-semibold"
+                    Number(channelId) === channel.id && "bg-slack-purple-dark text-white font-semibold",
+                    "hover:bg-slack-purple-dark/50"
                   )}
                   onClick={() => navigate(`/w/${workspaceId}/c/${channel.id}`)}
                 >
@@ -114,8 +116,10 @@ export function Sidebar() {
                 key={u.id}
                 variant="ghost"
                 className={cn(
-                  "w-full justify-start text-gray-300 hover:bg-slack-purple-dark hover:text-white hover:font-semibold mb-0.5 py-1 px-1.5 h-7 text-sm transition-all duration-200 ease-in-out",
-                  isCollapsed && "px-1.5"
+                  "w-full justify-start text-gray-300 hover:text-white hover:font-semibold mb-0.5 py-1 px-1.5 h-7 text-sm relative overflow-hidden",
+                  "transition-colors duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
+                  isCollapsed && "px-1.5",
+                  "hover:bg-slack-purple-dark/50"
                 )}
               >
                 <div className={cn(
@@ -135,8 +139,10 @@ export function Sidebar() {
             <Button
               variant="ghost"
               className={cn(
-                "w-full text-left text-gray-300 hover:bg-slack-purple-dark py-1 transition-all duration-200 ease-in-out",
-                isCollapsed ? "justify-center" : "justify-start"
+                "w-full text-left text-gray-300 py-1 relative overflow-hidden",
+                "transition-colors duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
+                isCollapsed ? "justify-center" : "justify-start",
+                "hover:bg-slack-purple-dark/50"
               )}
             >
               <div className="flex items-center space-x-1.5">
