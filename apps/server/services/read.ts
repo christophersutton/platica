@@ -37,14 +37,17 @@ export class ReadService {
   private setupMiddleware() {
     this.router.use('/*', cors());
     
-    // Rate limits
+    // Apply JWT auth middleware first
+    this.router.use('/*', this.auth.jwtAuth);
+    
+    // Rate limits (after JWT auth since it needs user info)
     this.router.use('/channels/*/messages', rateLimit(this.db, {
       windowMs: 60 * 1000,
       max: 120,
       keyGenerator: (c: Context) => `read:${c.get('user').userId}`
     }));
 
-    // Apply auth middleware to route groups
+    // Apply route-specific auth middleware
     this.router.use('/channels/:channelId/*', this.auth.channelAuth);
     this.router.use('/workspaces/:workspaceId/*', this.auth.workspaceAuth);
   }

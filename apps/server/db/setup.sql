@@ -1,14 +1,5 @@
 -- Database Schema
-
--- Search Architecture
---
--- The system uses a separate read replica database for search functionality. 
--- This replica is kept up-to-date via Litestream replication from the main database.
--- FTS triggers are only implemented on the search replica, preventing any impact
--- on write performance in the main database while maintaining robust search capabilities.
-
 -- Core Tables
-
 -- Channel invites table
 CREATE TABLE channel_invites (
     id INTEGER PRIMARY KEY,
@@ -167,41 +158,6 @@ CREATE TABLE mentions (
     FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
--- Search Database Tables and Triggers
--- The following tables and triggers exist only in the search replica database:
-
--- FTS Tables
-CREATE VIRTUAL TABLE messages_fts USING fts5(content, content='messages', content_rowid='id');
-CREATE VIRTUAL TABLE files_fts USING fts5(name, content='files', content_rowid='id');
-
--- Message FTS sync triggers
-CREATE TRIGGER messages_ai AFTER INSERT ON messages BEGIN
-  INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
-END;
-
-CREATE TRIGGER messages_ad AFTER DELETE ON messages BEGIN
-  INSERT INTO messages_fts(messages_fts, rowid, content) VALUES('delete', old.id, old.content);
-END;
-
-CREATE TRIGGER messages_au AFTER UPDATE ON messages BEGIN
-  INSERT INTO messages_fts(messages_fts, rowid, content) VALUES('delete', old.id, old.content);
-  INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
-END;
-
--- File FTS sync triggers
-CREATE TRIGGER files_ai AFTER INSERT ON files BEGIN
-  INSERT INTO files_fts(rowid, name) VALUES (new.id, new.name);
-END;
-
-CREATE TRIGGER files_ad AFTER DELETE ON files BEGIN
-  INSERT INTO files_fts(files_fts, rowid, name) VALUES('delete', old.id, old.name);
-END;
-
-CREATE TRIGGER files_au AFTER UPDATE ON files BEGIN
-  INSERT INTO files_fts(files_fts, rowid, name) VALUES('delete', old.id, old.name);
-  INSERT INTO files_fts(rowid, name) VALUES (new.id, new.name);
-END;
-
 -- Performance indexes
 CREATE INDEX idx_messages_channel_created ON messages(channel_id, created_at);
 CREATE INDEX idx_messages_workspace_created ON messages(workspace_id, created_at);
@@ -209,8 +165,3 @@ CREATE INDEX idx_messages_thread_created ON messages(thread_id, created_at);
 CREATE INDEX idx_channel_members_user ON channel_members(user_id);
 CREATE INDEX idx_files_workspace ON files(workspace_id);
 CREATE INDEX idx_mentions_user ON mentions(user_id);
-
--- Search indexes (using SQLite FTS5)
--- Note: These require triggers to keep in sync with source tables
-CREATE VIRTUAL TABLE messages_fts USING fts5(content, content='messages', content_rowid='id');
-CREATE VIRTUAL TABLE files_fts USING fts5(name, content='files', content_rowid='id');

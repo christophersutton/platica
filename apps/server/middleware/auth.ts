@@ -28,7 +28,14 @@ export class AuthMiddleware {
     try {
       const token = authHeader.split(' ')[1];
       const payload = await verify(token, JWT_SECRET);
-      c.set('user', payload);
+      
+      // Map the payload to the expected user structure
+      c.set('user', {
+        id: payload.id,
+        userId: payload.id, // Map id to userId for compatibility
+        email: payload.email
+      });
+      
       await next();
     } catch (e) {
       return c.json({ error: 'Invalid token' }, 401);

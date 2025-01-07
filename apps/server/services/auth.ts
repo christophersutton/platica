@@ -6,6 +6,7 @@ import { randomBytes } from "crypto";
 import type { User } from "@platica/shared/types";
 import { rateLimit } from "../middleware/rate-limiter";
 import { DatabaseService } from "../db/database";
+import { EmailService } from "./email";
 import type { Context } from "hono";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
@@ -30,6 +31,9 @@ export class AuthService {
     this.db = dbService.db;
     this.setupDatabase();
     this.setupRoutes();
+    
+    // Clean up expired tokens periodically
+    setInterval(() => this.cleanupTokens(), 60 * 60 * 1000); // Every hour
   }
 
   private setupDatabase() {
@@ -52,128 +56,150 @@ export class AuthService {
     this.router.post("/magic-link", async (c) => {
       const { email } = await c.req.json();
 
-      // Find or create user
-      let user = this.db
-        .prepare("SELECT * FROM users WHERE email = ?")
-        .get(email) as User | undefined;
-      if (!user) {
-        const result = this.db
-          .prepare(
-            "INSERT INTO users (email, name, created_at, updated_at) VALUES (?, ?, unixepoch(), unixepoch())"
-          )
-          .run(email, email.split("@")[0]);
-        user = {
-          id: result.lastInsertRowid as number,
-          email,
-          name: email.split("@")[0],
-          created_at: Math.floor(Date.now() / 1000),
-          updated_at: Math.floor(Date.now() / 1000),
-        };
+      if (!email || typeof email !== 'string' || !email.includes('@')) {
+        return c.json({ error: "Invalid email address" }, 400);
       }
 
-      // Generate and store token
-      const token = randomBytes(32).toString("hex");
-      const expiresAt = Date.now() + MAGIC_LINK_EXPIRY;
+      try {
+        // Find or create user
+        let user = this.db
+          .prepare("SELECT * FROM users WHERE email = ?")
+          .get(email) as User | undefined;
+        
+        if (!user) {
+          const result = this.db
+            .prepare(
+              "INSERT INTO users (email, name, created_at, updated_at) VALUES (?, ?, unixepoch(), unixepoch())"
+            )
+            .run(email, email.split("@")[0]);
+          user = {
+            id: result.lastInsertRowid as number,
+            email,
+            name: email.split("@")[0],
+            created_at: Math.floor(Date.now() / 1000),
+            updated_at: Math.floor(Date.now() / 1000),
+          };
+        }
 
-      this.db
-        .prepare(
-          `
-        INSERT INTO auth_tokens (token, user_id, expires_at, created_at)
-        VALUES (?, ?, ?, unixepoch())
-      `
-        )
-        .run(token, user.id, expiresAt);
+        // Generate and store token
+        const token = randomBytes(32).toString("hex");
+        const expiresAt = Date.now() + MAGIC_LINK_EXPIRY;
 
-      // Send magic link email
-      const magicLink = `${process.env.APP_URL}/auth/verify?token=${token}`;
-      // TODO: Implement email sending
-      console.log("Magic link:", magicLink);
+        this.db
+          .prepare(
+            `
+          INSERT INTO auth_tokens (token, user_id, expires_at, created_at)
+          VALUES (?, ?, ?, unixepoch())
+        `
+          )
+          .run(token, user.id, expiresAt);
 
-      return c.json({ message: "Magic link sent" });
+        // Send magic link email
+        const magicLink = `${process.env.APP_URL}/auth/verify?token=${token}`;
+        
+        // In development, return the magic link directly
+        if (process.env['NODE_ENV'] !== 'production') {
+          return c.json({ 
+            message: "Magic link generated (development mode)",
+            magicLink,
+            token // Include token directly for testing
+          });
+        }
+        
+        // In production, send email
+        await EmailService.sendMagicLink(email, magicLink);
+        return c.json({ message: "Magic link sent" });
+      } catch (error) {
+        console.error('Failed to send magic link:', error);
+        return c.json({ error: "Failed to send magic link" }, 500);
+      }
     });
 
     // Verify magic link and issue JWT
     this.router.post("/verify", async (c) => {
       const { token } = await c.req.json();
 
-      const authToken = this.db
-        .prepare(
-          `
-        SELECT * FROM auth_tokens 
-        WHERE token = ? 
-        AND used = 0 
-        AND expires_at > ?
-      `
-        )
-        .get(token, Date.now()) as AuthToken | undefined;
-
-      if (!authToken) {
-        return c.json({ error: "Invalid or expired token" }, 400);
+      if (!token || typeof token !== 'string') {
+        return c.json({ error: "Invalid token" }, 400);
       }
 
-      // Mark token as used
-      this.db
-        .prepare("UPDATE auth_tokens SET used = 1 WHERE token = ?")
-        .run(token);
+      try {
+        const authToken = this.db
+          .prepare(
+            `
+          SELECT * FROM auth_tokens 
+          WHERE token = ? 
+          AND used = 0 
+          AND expires_at > ?
+        `
+          )
+          .get(token, Date.now()) as AuthToken | undefined;
 
-      // Get user info
-      const user = this.db
-        .prepare("SELECT * FROM users WHERE id = ?")
-        .get(authToken.user_id) as User;
+        if (!authToken) {
+          return c.json({ error: "Invalid or expired token" }, 400);
+        }
 
-      // Generate JWT
-      const jwt = await sign(
-        {
-          userId: user.id,
-          email: user.email,
-        },
-        JWT_SECRET
-      );
+        // Mark token as used
+        this.db
+          .prepare("UPDATE auth_tokens SET used = 1 WHERE token = ?")
+          .run(token);
 
-      return c.json({ token: jwt, user });
+        // Get user info
+        const user = this.db
+          .prepare("SELECT * FROM users WHERE id = ?")
+          .get(authToken.user_id) as User;
+
+        // Generate JWT
+        const jwt = await sign(
+          {
+            id: user.id,
+            email: user.email,
+          },
+          JWT_SECRET
+        );
+
+        return c.json({ token: jwt, user });
+      } catch (error) {
+        console.error('Failed to verify token:', error);
+        return c.json({ error: "Failed to verify token" }, 500);
+      }
     });
   }
 
   private setupMiddleware() {
     this.router.use("/*", cors());
 
-    // Stricter rate limits for auth endpoints
+    // Rate limit for magic link requests
     this.router.use(
-      "/login",
+      "/magic-link",
       rateLimit(this.db, {
         windowMs: 15 * 60 * 1000, // 15 minutes
-        max: 5, // 5 login attempts
+        max: 5, // 5 attempts per IP
         keyGenerator: (c: Context) =>
-          `auth:login:${c.req.header("x-forwarded-for") || "unknown"}`,
+          `auth:magic-link:${c.req.header("x-forwarded-for") || "unknown"}`,
       })
     );
 
+    // Rate limit for token verification
     this.router.use(
-      "/register",
+      "/verify",
       rateLimit(this.db, {
-        windowMs: 60 * 60 * 1000, // 1 hour
-        max: 3, // 3 registration attempts
+        windowMs: 15 * 60 * 1000, // 15 minutes
+        max: 10, // 10 attempts per IP
         keyGenerator: (c: Context) =>
-          `auth:register:${c.req.header("x-forwarded-for") || "unknown"}`,
-      })
-    );
-
-    // Rate limit for password reset attempts
-    this.router.use(
-      "/reset-password",
-      rateLimit(this.db, {
-        windowMs: 60 * 60 * 1000, // 1 hour
-        max: 3, // 3 reset attempts
-        keyGenerator: (c: Context) =>
-          `auth:reset:${c.req.header("x-forwarded-for") || "unknown"}`,
+          `auth:verify:${c.req.header("x-forwarded-for") || "unknown"}`,
       })
     );
   }
 
   // Helper to clean up expired tokens
   private async cleanupTokens() {
-    this.db
-      .prepare("DELETE FROM auth_tokens WHERE expires_at < ?")
-      .run(Date.now());
+    try {
+      this.db
+        .prepare("DELETE FROM auth_tokens WHERE expires_at < ?")
+        .run(Date.now());
+    } catch (error) {
+      console.error('Failed to cleanup expired tokens:', error);
+    }
   }
 }

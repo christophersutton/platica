@@ -1,10 +1,9 @@
-import { Database } from 'bun:sqlite';
+import { DatabaseService } from './db/database';
 import httpServer from './http-server';
 import { startWebSocketServer } from './websocket-server';
 
-// Initialize database
-const db = new Database('main.sqlite', { create: true });
-db.run('PRAGMA journal_mode = WAL');
+// Initialize database using our service
+const db = DatabaseService.getWriteInstance();
 
 // HTTP Server
 const HTTP_PORT = process.env.HTTP_PORT ? parseInt(process.env.HTTP_PORT) : 3000;
@@ -27,7 +26,7 @@ console.log(`✅ HTTP server running at http://localhost:${HTTP_PORT}`);
 process.on('SIGINT', async () => {
   console.log('\n🛑 Shutting down servers...');
   
-  // Close database connection
+  // Close database connection using the service
   db.close();
   
   console.log('👋 Shutdown complete');

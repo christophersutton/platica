@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun run --watch src/index.ts",
-    "start": "bun run src/index.ts",
-    "build": "bun build src/index.ts --outdir ./dist",
+    "dev": "bun run --watch index.ts",
+    "start": "bun run index.ts",
+    "build": "bun build index.ts --outdir ./dist",
     "test": "bun test",
     "lint": "eslint src/",
     "db:init": "cat db/setup.sql | sqlite3 data/db.sqlite",
@@ -23,5 +23,8 @@
     "hono": "^4.0.5",
     "sharp": "^0.33.2",
     "mime-types": "^2.1.35"
+  },
+  "dependencies": {
+    "resend": "^4.0.1"
   }
 }

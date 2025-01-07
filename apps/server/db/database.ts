@@ -20,7 +20,11 @@ export class DatabaseService {
     private readonly isReadOnly: boolean = false,
     private readonly serviceId: string = 'default'
   ) {
-    this.db = new Database("platica.db", { readonly: isReadOnly });
+    this.db = new Database("data/db.sqlite", { 
+        readonly: isReadOnly,
+        create: true,
+        readwrite: !isReadOnly
+    });
     
     if (!isReadOnly) {
       // Optimize for write performance with WAL mode

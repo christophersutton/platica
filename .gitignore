@@ -139,3 +139,19 @@ jspm_packages/
 
 #aider
 .aider*
+
+# Database files
+/apps/server/data/*.sqlite
+/apps/server/data/*.sqlite-journal
+
+# Environment files
+.env
+.env.local
+.env.*.local
+apps/*/.env
+apps/*/.env.local
+apps/*/.env.*.local
+
+# Keep example files
+!.env.example
+!apps/*/.env.example
