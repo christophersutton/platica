@@ -99,9 +99,9 @@ export function ChatInput({ channelId, onSendMessage, disabled }: ChatInputProps
             onKeyDown={handleKeyDown}
             placeholder="Message #general"
             className="w-full resize-none rounded-lg border border-gray-300 p-3 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-            rows={1}
+            rows={2}
             disabled={disabled}
-            style={{ minHeight: '44px', maxHeight: '200px' }}
+            style={{ minHeight: '66px', maxHeight: '200px' }}
           />
         </div>
         <button
