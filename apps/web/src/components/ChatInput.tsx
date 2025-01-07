@@ -90,7 +90,7 @@ export function ChatInput({ channelId, onSendMessage, disabled }: ChatInputProps
           {typingMessage}
         </div>
       )}
-      <form onSubmit={handleSubmit} className="flex items-end gap-2">
+      <form onSubmit={handleSubmit} className="flex items-start gap-2">
         <div className="flex-1">
           <textarea
             ref={textareaRef}
@@ -107,7 +107,7 @@ export function ChatInput({ channelId, onSendMessage, disabled }: ChatInputProps
         <button
           type="submit"
           disabled={!message.trim() || disabled}
-          className="rounded-lg bg-purple-600 px-4 py-2 text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50"
+          className="h-[44px] rounded-lg bg-purple-600 px-4 py-2 text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50"
         >
           Send
         </button>
