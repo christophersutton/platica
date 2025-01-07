@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { CreateChannelModal } from "./CreateChannelModal";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
+import { useWorkspaceUsers } from "@/hooks/use-workspace-users";
 import {
   Popover,
   PopoverContent,
@@ -16,21 +17,16 @@ import { useChannels } from "@/hooks/use-channels";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 
-// TODO: Replace with real workspace ID from context/route
-const TEMP_WORKSPACE_ID = 1;
-
-const directMessages = [
-  { name: "Sarah Wilson", status: "online" },
-  { name: "Mike Johnson", status: "offline" },
-  { name: "Emma Davis", status: "online" },
-];
-
 export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { workspaceId = "1", channelId } = useParams();
   const navigate = useNavigate();
-  const { channels, isLoading } = useChannels(Number(workspaceId));
+  const { channels, isLoading: isLoadingChannels } = useChannels(Number(workspaceId));
+  const { users, isLoading: isLoadingUsers } = useWorkspaceUsers();
   const { user } = useAuth();
+
+  // Filter out current user from DM list
+  const otherUsers = users.filter(u => u.id !== user?.id);
 
   return (
     <div 
@@ -66,7 +62,7 @@ export function Sidebar() {
               {!isCollapsed && <h2 className="text-white font-semibold text-xs">Channels</h2>}
               <CreateChannelModal />
             </div>
-            {isLoading ? (
+            {isLoadingChannels ? (
               // Show loading skeleton
               Array.from({ length: 3 }).map((_, i) => (
                 <div
@@ -105,17 +101,28 @@ export function Sidebar() {
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
-            {directMessages.map((dm) => (
+            {isLoadingUsers ? (
+              // Show loading skeleton
+              Array.from({ length: 3 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-7 mb-0.5 px-1.5 animate-pulse bg-slack-purple-dark/50 rounded"
+                />
+              ))
+            ) : otherUsers.map((u) => (
               <Button
-                key={dm.name}
+                key={u.id}
                 variant="ghost"
                 className={cn(
                   "w-full justify-start text-gray-300 hover:bg-slack-purple-dark mb-0.5 py-1 px-1.5 h-7 text-sm",
                   isCollapsed && "px-1.5"
                 )}
               >
-                <div className="h-2 w-2 rounded-full mr-1.5 bg-slack-green" />
-                {!isCollapsed && dm.name}
+                <div className={cn(
+                  "h-2 w-2 rounded-full mr-1.5",
+                  u.isOnline ? "bg-slack-green" : "bg-gray-400"
+                )} />
+                {!isCollapsed && (u.name || u.email)}
               </Button>
             ))}
           </div>
@@ -142,12 +149,6 @@ export function Sidebar() {
                 {!isCollapsed && (
                   <div className="flex-1 min-w-0">
                     <p className="text-white text-sm truncate">{user?.name}</p>
-                    <p className="text-xs text-gray-300 truncate">
-                      {user?.status === 'online' && '🟢 Active'}
-                      {user?.status === 'away' && '🟡 Away'}
-                      {user?.status === 'dnd' && '🔴 Do Not Disturb'}
-                      {user?.status === 'offline' && '⚪ Offline'}
-                    </p>
                   </div>
                 )}
               </div>
