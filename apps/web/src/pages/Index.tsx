@@ -7,12 +7,8 @@ import { Button } from "@/components/ui/button";
 import { MessageSquare, File, Users, Pin, Star, Bell, LogOut } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useChannelMessages } from "@/hooks/use-channel-messages";
-import { useChannels } from "@/hooks/use-channels";
 import { useQueryClient } from "@tanstack/react-query";
-import { useTypingIndicator } from "@/hooks/use-typing-indicator";
-import { useAuth } from "@/hooks/use-auth";
-import { useWorkspace } from "@/hooks/use-workspace";
+import { useChannelMessages, useChannels, useTypingIndicator, useAuth, useWorkspace } from "@/hooks";
 import { api, type Channel } from "@/lib/api";
 
 const Index = () => {
