@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -11,12 +11,13 @@ export function CreateChannelModal() {
   const [channelName, setChannelName] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const { workspaceId = "1" } = useParams();
+  const navigate = useNavigate();
   const { createChannel, isCreating } = useChannels(Number(workspaceId));
   const { toast } = useToast();
 
   const handleCreateChannel = async () => {
     try {
-      await createChannel({ 
+      const newChannel = await createChannel({ 
         name: channelName.toLowerCase(),
         is_private: false
       });
@@ -26,6 +27,7 @@ export function CreateChannelModal() {
         title: "Channel created",
         description: `#${channelName} has been created successfully.`
       });
+      navigate(`/w/${workspaceId}/c/${newChannel.id}`);
     } catch (error) {
       toast({
         title: "Error creating channel",
