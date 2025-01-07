@@ -1,11 +1,21 @@
 // websocket-server.ts
 import type { Server } from 'bun';
-import { DatabaseService } from './db/database';
-import WriteService from './services/write';
-import { WebSocketService } from './services/websockets';
+import { verify } from 'hono/jwt';
+import { DatabaseService } from '../db/core/database';
+import WriteService from '../services/write';
+import { WebSocketService } from '../services/websockets';
+import { WebSocketRateLimiter } from '../middleware/websocket-rate-limiter';
 
-// Initialize write service with shared database instance
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+// Initialize services
 const dbService = DatabaseService.getWriteInstance();
+const writeService = new WriteService();
+const wsService = new WebSocketService();
+const rateLimiter = new WebSocketRateLimiter();
+
+// Clean up rate limiter periodically
+setInterval(() => rateLimiter.cleanup(), 60000);
 
 interface WebSocketData {
   workspaceId: number;
@@ -14,12 +24,9 @@ interface WebSocketData {
 }
 
 export function startWebSocketServer(port: number) {
-  const writeService = new WriteService(dbService);
-  const wsService = new WebSocketService();
-
   const server = Bun.serve<WebSocketData>({
     port,
-    fetch(req, server) {
+    async fetch(req, server) {
       try {
         const url = new URL(req.url);
         const params = url.searchParams;
@@ -28,6 +35,16 @@ export function startWebSocketServer(port: number) {
         const authToken = req.headers.get('Authorization')?.split(' ')[1];
         if (!authToken) {
           return new Response('Unauthorized', { status: 401 });
+        }
+
+        // Verify JWT token
+        try {
+          const payload = await verify(authToken, JWT_SECRET);
+          if (!payload || typeof payload.id !== 'number') {
+            return new Response('Invalid token payload', { status: 401 });
+          }
+        } catch (error) {
+          return new Response('Invalid token', { status: 401 });
         }
 
         const workspaceId = Number(params.get('workspace_id'));
@@ -58,6 +75,15 @@ export function startWebSocketServer(port: number) {
       },
       message(ws, message) {
         try {
+          // Check rate limit
+          if (rateLimiter.isRateLimited(ws.data.userId.toString())) {
+            ws.send(JSON.stringify({
+              type: 'error',
+              message: 'Rate limit exceeded. Please wait before sending more messages.'
+            }));
+            return;
+          }
+
           const data = JSON.parse(String(message));
           
           switch (data.type) {

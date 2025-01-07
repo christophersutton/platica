@@ -1,5 +1,71 @@
 -- Database Schema
+
+-- Drop existing tables if they exist
+DROP TABLE IF EXISTS mentions;
+DROP TABLE IF EXISTS files;
+DROP TABLE IF EXISTS reactions;
+DROP TABLE IF EXISTS direct_messages;
+DROP TABLE IF EXISTS messages;
+DROP TABLE IF EXISTS channel_members;
+DROP TABLE IF EXISTS channels;
+DROP TABLE IF EXISTS workspace_users;
+DROP TABLE IF EXISTS auth_tokens;
+DROP TABLE IF EXISTS workspace_invites;
+DROP TABLE IF EXISTS channel_invites;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS workspaces;
+
 -- Core Tables
+
+-- Users table (no dependencies)
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    avatar_url TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+-- Auth tokens table (depends on users)
+CREATE TABLE auth_tokens (
+    id INTEGER PRIMARY KEY,
+    token TEXT UNIQUE NOT NULL,
+    user_id INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL,
+    used BOOLEAN NOT NULL DEFAULT false,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users (id)
+);
+
+-- Workspaces table (no dependencies)
+CREATE TABLE workspaces (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    slug TEXT NOT NULL UNIQUE,
+    owner_id INTEGER NOT NULL,
+    icon_url TEXT,
+    settings TEXT NOT NULL DEFAULT '{}',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (owner_id) REFERENCES users (id)
+);
+
+-- Workspace invites table
+CREATE TABLE workspace_invites (
+    id INTEGER PRIMARY KEY,
+    workspace_id INTEGER NOT NULL,
+    inviter_id INTEGER NOT NULL,
+    email TEXT NOT NULL,
+    role TEXT NOT NULL, -- 'owner', 'admin', 'member', 'guest'
+    status TEXT NOT NULL, -- 'pending', 'accepted', 'rejected'
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (workspace_id) REFERENCES workspaces (id),
+    FOREIGN KEY (inviter_id) REFERENCES users (id)
+);
+
 -- Channel invites table
 CREATE TABLE channel_invites (
     id INTEGER PRIMARY KEY,
@@ -14,49 +80,12 @@ CREATE TABLE channel_invites (
     FOREIGN KEY (invitee_id) REFERENCES users (id)
 );
 
--- Workspace invites table
-CREATE TABLE workspace_invites (
-    id INTEGER PRIMARY KEY,
-    workspace_id INTEGER NOT NULL,
-    inviter_id INTEGER NOT NULL,
-    email TEXT NOT NULL,
-    status TEXT NOT NULL, -- 'pending', 'accepted', 'rejected'
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    FOREIGN KEY (workspace_id) REFERENCES workspaces (id),
-    FOREIGN KEY (inviter_id) REFERENCES users (id)
-);
-
--- Workspaces table
-CREATE TABLE workspaces (
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL,
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    file_size_limit INTEGER,
-    default_message_retention_days INTEGER,
-    notification_defaults TEXT
-);
-
--- Users table
-CREATE TABLE users (
-    id INTEGER PRIMARY KEY,
-    email TEXT UNIQUE NOT NULL,
-    name TEXT NOT NULL,
-    avatar_url TEXT,
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
-);
-
 -- Workspace users table
 CREATE TABLE workspace_users (
     workspace_id INTEGER NOT NULL,
     user_id INTEGER NOT NULL,
-    role TEXT NOT NULL, -- 'admin' or 'member'
-    display_name TEXT,
-    status TEXT,        -- online status
-    status_message TEXT,
-    notification_preferences TEXT,
+    role TEXT NOT NULL, -- 'owner', 'admin', 'member', 'guest'
+    settings TEXT NOT NULL DEFAULT '{}',
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     PRIMARY KEY (workspace_id, user_id),
@@ -70,9 +99,11 @@ CREATE TABLE channels (
     workspace_id INTEGER NOT NULL,
     name TEXT NOT NULL,
     description TEXT,
+    topic TEXT,
     is_private BOOLEAN NOT NULL DEFAULT false,
     is_archived BOOLEAN NOT NULL DEFAULT false,
     created_by INTEGER NOT NULL,
+    settings TEXT NOT NULL DEFAULT '{}',
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     FOREIGN KEY (workspace_id) REFERENCES workspaces (id),
@@ -83,9 +114,12 @@ CREATE TABLE channels (
 CREATE TABLE channel_members (
     channel_id INTEGER NOT NULL,
     user_id INTEGER NOT NULL,
+    role TEXT NOT NULL DEFAULT 'member', -- 'owner', 'admin', 'member'
     is_muted BOOLEAN NOT NULL DEFAULT false,
     last_read_at INTEGER,
+    settings TEXT NOT NULL DEFAULT '{}',
     created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
     PRIMARY KEY (channel_id, user_id),
     FOREIGN KEY (channel_id) REFERENCES channels (id),
     FOREIGN KEY (user_id) REFERENCES users (id)
@@ -99,10 +133,12 @@ CREATE TABLE messages (
     sender_id INTEGER NOT NULL,
     thread_id INTEGER,            -- NULL for top-level messages
     content TEXT NOT NULL,
+    attachments TEXT,             -- JSON array of attachment objects
     is_edited BOOLEAN NOT NULL DEFAULT false,
     edited_at INTEGER,
     deleted_at INTEGER,           -- Soft delete
     created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
     FOREIGN KEY (workspace_id) REFERENCES workspaces (id),
     FOREIGN KEY (channel_id) REFERENCES channels (id),
     FOREIGN KEY (sender_id) REFERENCES users (id),

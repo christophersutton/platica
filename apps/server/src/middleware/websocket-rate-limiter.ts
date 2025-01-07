@@ -1,4 +1,4 @@
-class WebSocketRateLimiter {
+export class WebSocketRateLimiter {
     private limits: Map<string, number[]> = new Map();
     
     constructor(

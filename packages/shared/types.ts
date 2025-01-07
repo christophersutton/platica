@@ -1,17 +1,19 @@
-// Time types
-export type UnixTimestamp = number; // Seconds since Unix epoch
+import type { BaseModel, SoftDeletableModel, VersionedModel } from './src/models/base';
+
+// Base Types
+export type UnixTimestamp = number;
+
+// Re-export base models
+export type { BaseModel, SoftDeletableModel, VersionedModel };
 
 // User and Authentication
-export interface User {
-  id: number;
+export interface User extends BaseModel {
   email: string;
   name: string;
-  avatar_url?: string;
-  created_at: UnixTimestamp;
-  updated_at: UnixTimestamp;
+  avatar_url?: string | null;
 }
 
-export interface WorkspaceUser {
+export interface WorkspaceUser extends BaseModel {
   workspace_id: number;
   user_id: number;
   role: UserRole;
@@ -19,36 +21,47 @@ export interface WorkspaceUser {
   status?: UserStatus;
   status_message?: string;
   notification_preferences?: NotificationPreferences;
-  created_at: UnixTimestamp;
-  updated_at: UnixTimestamp;
 }
 
 // Workspace and Channels
-export interface Workspace {
-  id: number;
+export interface Workspace extends BaseModel {
   name: string;
-  created_at: UnixTimestamp;
-  updated_at: UnixTimestamp;
   file_size_limit?: number;
   default_message_retention_days?: number;
   notification_defaults?: NotificationPreferences;
+  slug: string;
+  owner_id: number;
+  settings: Record<string, unknown>;
 }
 
-export interface Channel {
-  id: number;
+export interface Channel extends BaseModel {
   workspace_id: number;
   name: string;
   description?: string;
+  topic?: string | null;
   is_private: boolean;
   is_archived: boolean;
   created_by: number;
-  created_at: UnixTimestamp;
-  updated_at: UnixTimestamp;
+  settings?: Record<string, unknown>;
+}
+
+export interface ChannelMember extends BaseModel {
+  channel_id: number;
+  user_id: number;
+  role: 'owner' | 'admin' | 'member';
+  last_read_at: number;
+  settings: Record<string, unknown>;
+}
+
+export interface WorkspaceMember extends BaseModel {
+  workspace_id: number;
+  user_id: number;
+  role: 'owner' | 'admin' | 'member' | 'guest';
+  settings: Record<string, unknown>;
 }
 
 // Messages and Files
-export interface Message {
-  id: number;
+export interface Message extends SoftDeletableModel {
   workspace_id: number;
   channel_id?: number;  // Optional for DMs
   sender_id: number;
@@ -56,12 +69,9 @@ export interface Message {
   content: string;
   is_edited: boolean;
   edited_at?: UnixTimestamp;
-  deleted_at?: UnixTimestamp;
-  created_at: UnixTimestamp;
 }
 
-export interface File {
-  id: number;
+export interface File extends BaseModel {
   workspace_id: number;
   uploader_id: number;
   message_id: number;
@@ -69,7 +79,12 @@ export interface File {
   size: number;
   mime_type: string;
   s3_key: string;
-  created_at: UnixTimestamp;
+}
+
+export interface MessageCreateDTO extends Omit<Message, keyof BaseModel | 'attachments'> {
+  attachments?: string; // JSON string
+  deleted_at: UnixTimestamp | null;
+  is_edited: boolean;
 }
 
 // Enums
@@ -91,6 +106,7 @@ export enum MessageType {
   SYSTEM = 'system'
 }
 
+// WebSocket Types
 export enum WSEventType {
   MESSAGE = 'message',
   TYPING = 'typing',
@@ -98,13 +114,12 @@ export enum WSEventType {
   REACTION = 'reaction'
 }
 
-// WebSocket Types
-export interface WSMessage {
+export interface WSEvent<T = unknown> {
   type: WSEventType;
   workspace_id: number;
   channel_id?: number;
   user_id: number;
-  data: any;
+  data: T;
 }
 
 export interface TypingEvent {
@@ -127,3 +142,6 @@ export interface NotificationPreferences {
   sound_enabled: boolean;
   muted_channels?: number[];
 }
+
+export type ChannelCreateDTO = Omit<Channel, keyof BaseModel>;
+export type WorkspaceCreateDTO = Omit<Workspace, keyof BaseModel>;

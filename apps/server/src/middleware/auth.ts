@@ -1,7 +1,7 @@
 import type { Context, Next } from 'hono';
 import { verify } from 'hono/jwt';
 import { Database } from 'bun:sqlite';
-import { DatabaseService } from '../db/database';
+import { DatabaseService } from '../db/core/database';
 import type { User, UserRole } from '@platica/shared/types';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -31,8 +31,7 @@ export class AuthMiddleware {
       
       // Map the payload to the expected user structure
       c.set('user', {
-        id: payload.id,
-        userId: payload.id, // Map id to userId for compatibility
+        userId: payload.id,
         email: payload.email
       });
       

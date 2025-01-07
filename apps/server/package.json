@@ -1,30 +1,28 @@
 {
   "name": "@platica/server",
-  "version": "0.1.0",
-  "private": true,
+  "module": "index.ts",
   "type": "module",
   "scripts": {
-    "dev": "bun run --watch index.ts",
-    "start": "bun run index.ts",
-    "build": "bun build index.ts --outdir ./dist",
-    "test": "bun test",
-    "lint": "eslint src/",
-    "db:init": "cat db/setup.sql | sqlite3 data/db.sqlite",
-    "db:seed": "bun run db/seed.ts",
-    "db:reset": "rm -f data/db.sqlite && bun run db:init && bun run db:seed"
-  },
-  "devDependencies": {
-    "@types/mime-types": "^2.1.4",
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5.0.0",
-    "@platica/shared": "workspace:*",
-    "hono": "^4.0.5",
-    "sharp": "^0.33.2",
-    "mime-types": "^2.1.35"
+    "dev": "NODE_ENV=development bun run --watch src/index.ts",
+    "db:setup": "bun run ../../scripts/setup.ts",
+    "db:seed": "bun run src/db/seeds/seed.ts",
+    "test:endpoints": "NODE_ENV=development bun run ../../scripts/test-endpoints.ts",
+    "start:test": "NODE_ENV=development bun run src/index.ts & sleep 2 && bun run test:endpoints; kill $!",
+    "test": "bun test tests/{unit,integration,benchmarks}/**/*.test.ts",
+    "test:unit": "bun test tests/unit/**/*.test.ts",
+    "test:integration": "bun test tests/integration/**/*.test.ts",
+    "test:benchmarks": "bun test tests/benchmarks/**/*.test.ts",
+    "test:watch": "bun test --watch tests/{unit,integration,benchmarks}/**/*.test.ts",
+    "test:coverage": "bun test --coverage tests/{unit,integration,benchmarks}/**/*.test.ts"
   },
   "dependencies": {
-    "resend": "^4.0.1"
+    "@platica/shared": "workspace:*",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
   }
 }

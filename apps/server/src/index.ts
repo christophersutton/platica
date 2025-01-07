@@ -1,8 +1,8 @@
-import { DatabaseService } from './db/database';
-import httpServer from './http-server';
-import { startWebSocketServer } from './websocket-server';
+import { DatabaseService } from './db/core/database';
+import httpServer from './core/http-server';
+import { startWebSocketServer } from './core/websocket-server';
 
-// Initialize database using our service
+// Initialize database
 const db = DatabaseService.getWriteInstance();
 
 // HTTP Server

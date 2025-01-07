@@ -13,7 +13,7 @@ async function testEndpoints() {
 
   // Test health endpoint
   console.log("Testing health endpoint...");
-  const healthResponse = await fetch(`${API_URL}/health`);
+  const healthResponse = await fetch(`${API_URL}/api/health`);
   console.log("Health status:", healthResponse.status);
   console.log("Response:", await healthResponse.json());
   console.log();
@@ -27,15 +27,17 @@ async function testEndpoints() {
   });
   console.log("Magic link status:", magicLinkResponse.status);
   const magicLinkData = await magicLinkResponse.json() as {
-    message: string;
-    magicLink?: string;
-    token?: string;
+    data: {
+      message: string;
+      magicLink?: string;
+      token?: string;
+    }
   };
   console.log("Response:", magicLinkData);
   console.log();
 
   // Get token directly from response in development mode
-  const token = magicLinkData.token;
+  const token = magicLinkData.data?.token;
   if (!token) {
     throw new Error("No token received from magic link endpoint");
   }
@@ -49,27 +51,61 @@ async function testEndpoints() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token }),
   });
-  const { token: jwt, user } = (await verifyResponse.json()) as {
-    token: string;
-    user: { id: number; email: string; name: string };
+  const verifyData = await verifyResponse.json() as {
+    data: {
+      token: string;
+      user: { id: number; email: string; name: string };
+    }
   };
+  const { token: jwt, user } = verifyData.data;
   console.log("Verify status:", verifyResponse.status);
   console.log("JWT:", jwt);
   console.log("User:", user);
   console.log();
 
-  // Test protected endpoint
-  console.log("Testing protected endpoint...");
-  const channelsResponse = await fetch(
-    `${API_URL}/api/read/workspaces/1/channels`,
-    {
-      headers: {
-        Authorization: `Bearer ${jwt}`,
-      },
+  // Test protected endpoints
+  console.log("Testing protected endpoints...");
+  
+  // First get list of workspaces
+  console.log("\nGetting workspaces list...");
+  const workspacesResponse = await fetch(`${API_URL}/api/workspaces`, {
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+    },
+  });
+
+  console.log("Workspaces status:", workspacesResponse.status);
+  const workspacesText = await workspacesResponse.text();
+  
+  try {
+    const workspacesData = JSON.parse(workspacesText);
+    console.log("Workspaces:", workspacesData);
+
+    // Get first workspace details
+    if (workspacesData.data?.length > 0) {
+      const workspaceId = workspacesData.data[0].id;
+      console.log("\nGetting workspace details...");
+      const workspaceResponse = await fetch(`${API_URL}/api/workspaces/${workspaceId}`, {
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+        },
+      });
+
+      console.log("Workspace status:", workspaceResponse.status);
+      const workspaceText = await workspaceResponse.text();
+      
+      try {
+        const workspaceData = JSON.parse(workspaceText);
+        console.log("Workspace:", workspaceData);
+      } catch (error) {
+        console.error("Failed to parse workspace response:", workspaceText);
+        throw error;
+      }
     }
-  );
-  console.log("Protected endpoint status:", channelsResponse.status);
-  console.log("Response:", await channelsResponse.json());
+  } catch (error) {
+    console.error("Failed to parse workspaces response:", workspacesText);
+    throw error;
+  }
 }
 
 testEndpoints().catch(console.error);

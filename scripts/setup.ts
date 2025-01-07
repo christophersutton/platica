@@ -4,9 +4,11 @@ import { join } from "path";
 
 async function main() {
   try {
+    const serverDir = join(import.meta.dir, "../apps/server");
+    
     // Initialize database
     console.log("🏗️ Creating database...");
-    const db = new Database(join(import.meta.dir, "../apps/server/data/db.sqlite"));
+    const db = new Database(join(serverDir, "data/db.sqlite"));
     
     // Drop existing tables if they exist
     console.log("🗑️  Cleaning up existing tables...");
@@ -22,7 +24,8 @@ async function main() {
         'channels',
         'workspace_users',
         'workspaces',
-        'users'
+        'users',
+        'direct_messages'
       ];
       
       tables.forEach(table => {
@@ -32,12 +35,12 @@ async function main() {
     
     // Initialize schema
     console.log("📝 Creating tables...");
-    await $`cat apps/server/db/setup.sql | sqlite3 apps/server/data/db.sqlite`;
+    await $`cat ${join(serverDir, "src/db/schema/tables/setup.sql")} | sqlite3 ${join(serverDir, "data/db.sqlite")}`;
 
     // Seed database if requested
     if (process.argv.includes("--with-seed")) {
       console.log("🌱 Seeding database...");
-      await $`bun run --cwd apps/server db:seed`;
+      await $`bun run --cwd ${serverDir} db:seed`;
     }
 
     console.log("✅ Database setup complete!");
