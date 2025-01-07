@@ -122,7 +122,7 @@ describe("ChannelRepository", () => {
       const channels = await channelRepo.findByWorkspace(workspace.id, otherUser.id);
       expect(channels).toHaveLength(1);
       expect(channels[0].member_status).toBeNull();
-      expect(channels[0].unread_count).toBe(0);
+      expect(channels[0].has_unread).toBe(false);
     });
 
     test("gets single channel with metadata", async () => {

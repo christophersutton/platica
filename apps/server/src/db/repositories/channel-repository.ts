@@ -37,7 +37,14 @@ export class ChannelRepository extends BaseRepository<Channel, ChannelCreateDTO,
   }
 
   protected deserializeRow<T extends object>(row: T): T {
-    return super.deserializeRow(row);
+    const deserialized = super.deserializeRow(row);
+    
+    // Convert has_unread from number to boolean if it exists
+    if ('has_unread' in deserialized) {
+      deserialized.has_unread = !!deserialized.has_unread;
+    }
+    
+    return deserialized;
   }
 
   async findByWorkspace(workspaceId: number, userId?: number): Promise<ChannelWithMeta[]> {

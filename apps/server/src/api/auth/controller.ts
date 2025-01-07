@@ -103,8 +103,8 @@ export class AuthController extends BaseController {
 
   getProfile = async (c: Context): Promise<Response> => {
     return this.handle(c, async () => {
-      const { userId } = c.get('user');
-      const user = await this.authRepo.findById(userId);
+      const { id } = c.get('user');
+      const user = await this.authRepo.findById(id);
       if (!user) {
         throw new ApiError('User not found', 404);
       }
