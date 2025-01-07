@@ -11,7 +11,7 @@ interface ChatMessageProps {
   isSelf?: boolean;
 }
 
-export function ChatMessage({ message, sender, timestamp, avatar, isTyping }: ChatMessageProps) {
+export function ChatMessage({ message, sender, timestamp, avatar, isTyping, isSelf }: ChatMessageProps) {
   return (
     <div className={cn("flex items-start gap-3", isSelf && "flex-row-reverse")}>
       <img src={avatar} alt={sender} className="w-10 h-10 rounded-full" />
