@@ -5,7 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, File, Users, Pin, Star, Bell, LogOut } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useChannelMessages } from "@/hooks/use-channel-messages";
 import { useChannels } from "@/hooks/use-channels";
@@ -13,6 +13,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTypingIndicator } from "@/hooks/use-typing-indicator";
 import { useAuth } from "@/hooks/use-auth";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { api, type Channel } from "@/lib/api";
 
 const Index = () => {
   const { workspaceId = "1", channelId } = useParams();
@@ -23,6 +24,8 @@ const Index = () => {
   const { channels, isLoading: isLoadingChannels } = useChannels(Number(workspaceId));
   const currentChannel = channelId ? channels?.find(c => c.id === Number(channelId)) : channels?.[0];
   const { user, logout } = useAuth();
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
   
   // Only fetch messages if we have a valid channel
   const {
@@ -40,19 +43,87 @@ const Index = () => {
     }
   };
 
+  // Check if scrolled to bottom
+  const checkIfAtBottom = useCallback(() => {
+    if (scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+        // Consider "at bottom" if within 30px of the bottom
+        const isBottom = Math.abs(scrollHeight - clientHeight - scrollTop) < 30;
+        setIsAtBottom(isBottom);
+        return isBottom;
+      }
+    }
+    return false;
+  }, []);
+
+  // Handle scroll events
+  const handleScroll = useCallback(() => {
+    checkIfAtBottom();
+  }, [checkIfAtBottom]);
+
+  // Mark messages as read when appropriate
+  const markMessagesAsRead = useCallback(async () => {
+    if (currentChannel?.id && messages?.length > 0) {
+      try {
+        await api.channels.markRead(currentChannel.id);
+        // Update the unread count in the channels list
+        queryClient.setQueryData(['channels'], (oldChannels: Channel[] = []) => {
+          return oldChannels.map(channel => {
+            if (channel.id === currentChannel.id) {
+              return {
+                ...channel,
+                unread_count: 0
+              };
+            }
+            return channel;
+          });
+        });
+      } catch (error) {
+        console.error('Failed to mark messages as read:', error);
+      }
+    }
+  }, [currentChannel?.id, messages?.length, queryClient]);
+
+  // Auto-scroll to bottom when messages change or channel changes
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        // Only auto-scroll if we're already at the bottom or it's a channel change
+        if (isAtBottom || messages?.length === 0) {
+          scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        }
+        // Add scroll event listener
+        scrollContainer.addEventListener('scroll', handleScroll);
+        return () => scrollContainer.removeEventListener('scroll', handleScroll);
+      }
+    }
+  }, [messages, currentChannel?.id, handleScroll, isAtBottom]);
+
+  // Mark messages as read when:
+  // 1. Channel changes
+  // 2. New messages arrive and we're at bottom
+  // 3. Manually scrolled to bottom
+  useEffect(() => {
+    const shouldMarkRead = !isLoadingMessages && (
+      isAtBottom || // We're at the bottom
+      messages?.length === 0 || // Empty channel
+      !messages // No messages yet
+    );
+
+    if (shouldMarkRead) {
+      markMessagesAsRead();
+    }
+  }, [isAtBottom, currentChannel?.id, messages, isLoadingMessages, markMessagesAsRead]);
+
   // Redirect to first channel if no channel is selected
   useEffect(() => {
     if (!isLoadingChannels && channels?.length && !channelId) {
       navigate(`/w/${workspaceId}/c/${channels[0].id}`);
     }
   }, [channels, channelId, workspaceId, navigate, isLoadingChannels]);
-
-  // Invalidate channels query when switching channels to update unread counts
-  useEffect(() => {
-    if (currentChannel?.id) {
-      queryClient.invalidateQueries({ queryKey: ['channels'] });
-    }
-  }, [currentChannel?.id, queryClient]);
 
   // Show loading state while data is being fetched
   if (isWorkspaceLoading || isLoadingChannels) {
@@ -128,7 +199,7 @@ const Index = () => {
         <div className="flex-1 overflow-hidden">
           {activeTab === "messages" && (
             <div className="h-full flex flex-col">
-              <ScrollArea className="flex-1">
+              <ScrollArea ref={scrollAreaRef} className="flex-1">
                 <div className="p-4 space-y-4">
                   {isLoadingMessages ? (
                     <div>Loading messages...</div>
