@@ -1,15 +1,48 @@
 # @platica/web
 
-To install dependencies:
+The frontend web application for Platica, built with React, TypeScript, and Tailwind CSS.
 
+## Features
+
+- Real-time chat interface
+- Workspace and channel management
+- User authentication
+- Responsive design
+- Modern UI components using shadcn/ui
+
+## Development
+
+1. Install dependencies:
 ```bash
 bun install
 ```
 
-To run:
-
+2. Start the development server:
 ```bash
-bun run index.ts
+bun dev
 ```
 
-This project was created using `bun init` in bun v1.0.30. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+The app will be available at `http://localhost:5173`.
+
+## Available Scripts
+
+- `bun dev` - Start the development server
+- `bun build` - Build for production
+- `bun preview` - Preview the production build locally
+
+## Environment Variables
+
+1. Copy the example environment file:
+```bash
+cp .env.example .env
+```
+
+2. Update the variables in `.env` with your desired values
+
+## Technology Stack
+
+- React
+- TypeScript
+- Tailwind CSS
+- shadcn/ui components
+- Vite
