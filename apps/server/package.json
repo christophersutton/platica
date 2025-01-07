@@ -1,0 +1,27 @@
+{
+  "name": "@platica/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outdir ./dist",
+    "test": "bun test",
+    "lint": "eslint src/",
+    "db:init": "cat db/setup.sql | sqlite3 data/db.sqlite",
+    "db:seed": "bun run db/seed.ts",
+    "db:reset": "rm -f data/db.sqlite && bun run db:init && bun run db:seed"
+  },
+  "devDependencies": {
+    "@types/mime-types": "^2.1.4",
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0",
+    "@platica/shared": "workspace:*",
+    "hono": "^4.0.5",
+    "sharp": "^0.33.2",
+    "mime-types": "^2.1.35"
+  }
+}
