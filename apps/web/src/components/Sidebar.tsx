@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { CreateChannelModal } from "./CreateChannelModal";
 import { useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "@/hooks/use-auth";
 import {
   Popover,
   PopoverContent,
@@ -29,6 +30,7 @@ export function Sidebar() {
   const { workspaceId = "1", channelId } = useParams();
   const navigate = useNavigate();
   const { channels, isLoading } = useChannels(Number(workspaceId));
+  const { user } = useAuth();
 
   return (
     <div 
@@ -133,14 +135,19 @@ export function Sidebar() {
               <div className="flex items-center space-x-1.5">
                 <div className="relative">
                   <div className="w-7 h-7 rounded-full bg-slack-green flex items-center justify-center text-white text-sm font-medium">
-                    YU
+                    {user?.name?.split(' ').map(n => n[0]).join('').toUpperCase()}
                   </div>
                   <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-slack-green border-2 border-slack-purple" />
                 </div>
                 {!isCollapsed && (
                   <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm truncate">You</p>
-                    <p className="text-xs text-gray-300 truncate">🟢 Active</p>
+                    <p className="text-white text-sm truncate">{user?.name}</p>
+                    <p className="text-xs text-gray-300 truncate">
+                      {user?.status === 'online' && '🟢 Active'}
+                      {user?.status === 'away' && '🟡 Away'}
+                      {user?.status === 'dnd' && '🔴 Do Not Disturb'}
+                      {user?.status === 'offline' && '⚪ Offline'}
+                    </p>
                   </div>
                 )}
               </div>
