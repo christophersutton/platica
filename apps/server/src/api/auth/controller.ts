@@ -6,7 +6,7 @@ import { AuthRepository } from '../../db/repositories/auth-repository.js';
 import { EmailService } from '../../services/email.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-const MAGIC_LINK_EXPIRY = 15 * 60 * 1000; // 15 minutes
+const MAGIC_LINK_EXPIRY = 15 * 60; // 15 minutes in seconds
 
 interface MagicLinkBody {
   email: string;
@@ -43,7 +43,7 @@ export class AuthController extends BaseController {
       // Generate and store token
       const token = await this.authRepo.createAuthToken({
         user_id: user.id,
-        expires_at: Date.now() + MAGIC_LINK_EXPIRY
+        expires_at: Math.floor(Date.now() / 1000) + MAGIC_LINK_EXPIRY
       });
 
       // Generate magic link
@@ -103,8 +103,8 @@ export class AuthController extends BaseController {
 
   getProfile = async (c: Context): Promise<Response> => {
     return this.handle(c, async () => {
-      const { id } = c.get('user');
-      const user = await this.authRepo.findById(id);
+      const { userId } = c.get('user');
+      const user = await this.authRepo.findById(userId);
       if (!user) {
         throw new ApiError('User not found', 404);
       }
@@ -114,7 +114,7 @@ export class AuthController extends BaseController {
 
   updateProfile = async (c: Context): Promise<Response> => {
     return this.handle(c, async () => {
-      const userId = c.get('user').id;
+      const { userId } = c.get('user');
       const data = await this.requireBody<UpdateProfileBody>(c);
       const user = await this.authRepo.update(userId, data);
       return c.json(user);
