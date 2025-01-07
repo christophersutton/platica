@@ -75,7 +75,7 @@ export function Sidebar() {
                   key={channel.id}
                   variant="ghost"
                   className={cn(
-                    "w-full justify-start text-gray-300 hover:bg-slack-purple-dark hover:text-white hover:font-semibold mb-0.5 py-1 px-1.5 h-7 text-sm",
+                    "w-full justify-start text-gray-300 hover:bg-slack-purple-dark hover:text-white hover:font-semibold mb-0.5 py-1 px-1.5 h-7 text-sm transition-all duration-200 ease-in-out",
                     isCollapsed && "px-1.5",
                     Number(channelId) === channel.id && "bg-slack-purple-dark text-white font-semibold"
                   )}
@@ -114,7 +114,7 @@ export function Sidebar() {
                 key={u.id}
                 variant="ghost"
                 className={cn(
-                  "w-full justify-start text-gray-300 hover:bg-slack-purple-dark hover:text-white hover:font-semibold mb-0.5 py-1 px-1.5 h-7 text-sm",
+                  "w-full justify-start text-gray-300 hover:bg-slack-purple-dark hover:text-white hover:font-semibold mb-0.5 py-1 px-1.5 h-7 text-sm transition-all duration-200 ease-in-out",
                   isCollapsed && "px-1.5"
                 )}
               >
@@ -135,7 +135,7 @@ export function Sidebar() {
             <Button
               variant="ghost"
               className={cn(
-                "w-full text-left text-gray-300 hover:bg-slack-purple-dark py-1",
+                "w-full text-left text-gray-300 hover:bg-slack-purple-dark py-1 transition-all duration-200 ease-in-out",
                 isCollapsed ? "justify-center" : "justify-start"
               )}
             >
