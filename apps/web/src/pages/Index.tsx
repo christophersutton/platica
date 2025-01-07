@@ -3,63 +3,94 @@ import { ChatMessage } from "@/components/ChatMessage";
 import { Sidebar } from "@/components/Sidebar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { MessageSquare, File, Users, Pin, Star, Bell } from "lucide-react";
-import { useState } from "react";
-
-const initialMessages = [
-  {
-    id: 1,
-    message: "Hey everyone! Welcome to our new Slack workspace 👋",
-    sender: "Sarah Wilson",
-    timestamp: "12:00 PM",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah",
-  },
-  {
-    id: 2,
-    message: "Thanks for having us! Excited to collaborate here.",
-    sender: "Mike Johnson",
-    timestamp: "12:02 PM",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Mike",
-  },
-];
+import { Button } from "@/components/ui/button";
+import { MessageSquare, File, Users, Pin, Star, Bell, LogOut } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useChannelMessages } from "@/hooks/use-channel-messages";
+import { useChannels } from "@/hooks/use-channels";
+import { useQueryClient } from "@tanstack/react-query";
+import { useTypingIndicator } from "@/hooks/use-typing-indicator";
+import { useAuth } from "@/hooks/use-auth";
+import { useWorkspace } from "@/hooks/use-workspace";
 
 const Index = () => {
-  const [messages, setMessages] = useState(initialMessages);
+  const { workspaceId = "1", channelId } = useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("messages");
+  const { workspace, isLoading: isWorkspaceLoading, error: workspaceError } = useWorkspace();
+  const { channels, isLoading: isLoadingChannels } = useChannels(Number(workspaceId));
+  const currentChannel = channelId ? channels?.find(c => c.id === Number(channelId)) : channels?.[0];
+  const { user, logout } = useAuth();
+  
+  // Only fetch messages if we have a valid channel
+  const {
+    messages,
+    isLoading: isLoadingMessages,
+    sendMessage,
+    isSending
+  } = useChannelMessages(currentChannel?.id || 0);
 
-  const handleSendMessage = (message: string) => {
-    const newMessage = {
-      id: messages.length + 1,
-      message,
-      sender: "You",
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=You",
-    };
-    setMessages([...messages, newMessage]);
+  const { typingUsers } = useTypingIndicator(currentChannel?.id || 0);
+
+  const handleSendMessage = (content: string) => {
+    if (currentChannel) {
+      sendMessage(content);
+    }
   };
 
+  // Redirect to first channel if no channel is selected
+  useEffect(() => {
+    if (!isLoadingChannels && channels?.length && !channelId) {
+      navigate(`/w/${workspaceId}/c/${channels[0].id}`);
+    }
+  }, [channels, channelId, workspaceId, navigate, isLoadingChannels]);
+
+  // Invalidate channels query when switching channels to update unread counts
+  useEffect(() => {
+    if (currentChannel?.id) {
+      queryClient.invalidateQueries({ queryKey: ['channels'] });
+    }
+  }, [currentChannel?.id, queryClient]);
+
+  // Show loading state while data is being fetched
+  if (isWorkspaceLoading || isLoadingChannels) {
+    return <div className="h-screen flex items-center justify-center">
+      <div className="text-lg text-gray-600">Loading workspace...</div>
+    </div>;
+  }
+
+  // Show error if workspace not found
+  if (!workspace || workspaceError) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center gap-4">
+        <div className="text-lg text-red-600">
+          {workspaceError?.message || 'Workspace not found'}
+        </div>
+        <Button 
+          variant="outline" 
+          onClick={logout}
+          className="flex items-center gap-2"
+        >
+          <LogOut className="h-4 w-4" />
+          Logout
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="h-screen flex">
       <Sidebar />
-      <div className="flex-1 flex flex-col min-w-0">
-        <div className="border-b border-slack-border">
-          <div className="px-4 py-2 flex items-center justify-between">
-            <div className="flex items-center min-w-0 group flex-1 mr-4">
-              <div className="flex items-center min-w-0 hover:bg-gray-100 rounded px-2 py-1 cursor-pointer flex-1">
-                <span className="text-2xl mr-2">#</span>
-                <h1 className="font-semibold text-lg truncate">general</h1>
-                <div className="hidden group-hover:flex items-center gap-2 ml-2">
-                  <button className="p-1 hover:bg-gray-200 rounded" title="Star channel">
-                    <Star className="h-4 w-4 text-gray-500" />
-                  </button>
-                  <button className="p-1 hover:bg-gray-200 rounded" title="Notification preferences">
-                    <Bell className="h-4 w-4 text-gray-500" />
-                  </button>
-                </div>
-              </div>
-            </div>
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="bg-transparent border-none">
+      <main className="flex-1 flex flex-col">
+        <div className="border-b border-gray-200">
+          <div className="p-4 flex justify-between items-center">
+            <h1 className="text-xl font-semibold">
+              {currentChannel ? `#${currentChannel.name}` : 'Select a channel'}
+            </h1>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-auto">
+              <TabsList className="bg-transparent border-none p-0 h-auto">
                 <TabsTrigger 
                   value="messages" 
                   className="flex items-center gap-2 data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800 hover:bg-gray-50 rounded-md px-3 py-2 text-gray-600"
@@ -75,12 +106,13 @@ const Index = () => {
                   <span>Files</span>
                 </TabsTrigger>
                 <TabsTrigger 
-                  value="pins" 
+                  value="pinned" 
                   className="flex items-center gap-2 data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800 hover:bg-gray-50 rounded-md px-3 py-2 text-gray-600"
                 >
                   <Pin className="h-4 w-4" />
-                  <span>Pins</span>
+                  <span>Pinned</span>
                 </TabsTrigger>
+                
                 <TabsTrigger 
                   value="members" 
                   className="flex items-center gap-2 data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800 hover:bg-gray-50 rounded-md px-3 py-2 text-gray-600"
@@ -98,51 +130,46 @@ const Index = () => {
             <div className="h-full flex flex-col">
               <ScrollArea className="flex-1">
                 <div className="p-4 space-y-4">
-                  {messages.map((msg) => (
-                    <ChatMessage key={msg.id} {...msg} />
-                  ))}
+                  {isLoadingMessages ? (
+                    <div>Loading messages...</div>
+                  ) : (
+                    <>
+                      {messages?.map((msg) => (
+                        <ChatMessage
+                          key={msg.id}
+                          id={msg.id}
+                          message={msg.content}
+                          sender={msg.sender_name}
+                          timestamp={new Date(msg.created_at * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          avatar={msg.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${msg.sender_name}`}
+                        />
+                      ))}
+                      {typingUsers.filter(id => id !== user?.id).map((userId) => (
+                        <ChatMessage
+                          key={`typing-${userId}`}
+                          id={-userId}
+                          message=""
+                          sender="Someone"
+                          timestamp=""
+                          avatar={`https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`}
+                          isTyping={true}
+                        />
+                      ))}
+                    </>
+                  )}
                 </div>
               </ScrollArea>
               <div className="p-4 border-t border-slack-border">
-                <ChatInput onSendMessage={handleSendMessage} />
+                <ChatInput
+                  channelId={currentChannel?.id || 0}
+                  onSendMessage={handleSendMessage}
+                  disabled={!currentChannel || isSending}
+                />
               </div>
-            </div>
-          )}
-          {activeTab === "files" && (
-            <div className="p-4">
-              <h2 className="text-lg font-semibold mb-4">Files</h2>
-              <p className="text-gray-500">No files have been shared in this channel yet.</p>
-            </div>
-          )}
-          {activeTab === "members" && (
-            <div className="p-4">
-              <h2 className="text-lg font-semibold mb-4">Channel Members</h2>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah" className="w-10 h-10 rounded-full" />
-                  <div>
-                    <p className="font-medium">Sarah Wilson</p>
-                    <p className="text-sm text-gray-500">Online</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Mike" className="w-10 h-10 rounded-full" />
-                  <div>
-                    <p className="font-medium">Mike Johnson</p>
-                    <p className="text-sm text-gray-500">Away</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-          {activeTab === "pins" && (
-            <div className="p-4">
-              <h2 className="text-lg font-semibold mb-4">Pinned Messages</h2>
-              <p className="text-gray-500">No messages have been pinned yet.</p>
             </div>
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 };
