@@ -81,7 +81,7 @@ export function Sidebar() {
                   )}
                   onClick={() => navigate(`/w/${workspaceId}/c/${channel.id}`)}
                 >
-                  <Hash className="h-3.5 w-3.5 mr-0.5" />
+                  <Hash className="h-3.5 w-3.5 mr-0" />
                   {!isCollapsed && (
                     <div className="flex items-center justify-between w-full">
                       <span className="ml-0">{channel.name}</span>
@@ -119,7 +119,7 @@ export function Sidebar() {
                 )}
               >
                 <div className={cn(
-                  "h-2 w-2 rounded-full mr-0.5",
+                  "h-2 w-2 rounded-full mr-0",
                   u.isOnline ? "bg-slack-green" : "bg-gray-400"
                 )} />
                 {!isCollapsed && <span className="ml-0">{u.name || u.email}</span>}
