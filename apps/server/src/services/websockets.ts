@@ -5,7 +5,7 @@ import { getCurrentUnixTimestamp } from '../utils/time';
 interface WebSocketData {
   workspaceId: number;
   userId: number;
-  authToken: string;
+  isAuthenticated: boolean;
 }
 
 interface Client {
@@ -67,13 +67,27 @@ export class WebSocketService {
     });
   }
 
-  private broadcastToWorkspace(workspaceId: number, data: any) {
+  public broadcastToWorkspace(workspaceId: number, data: any) {
+    console.log('[WebSocketService] Broadcasting to workspace:', {
+      workspaceId,
+      messageData: data,
+      propertyTypes: Object.entries(data).reduce((acc, [key, value]) => ({
+        ...acc,
+        [key]: typeof value
+      }), {})
+    });
+
     const message = JSON.stringify(data);
+    console.log('[WebSocketService] Stringified message:', message);
+
+    let clientCount = 0;
     for (const [ws, client] of this.clients.entries()) {
       if (client.workspaceId === workspaceId) {
+        clientCount++;
         ws.send(message);
       }
     }
+    console.log(`[WebSocketService] Message sent to ${clientCount} clients`);
   }
 
   private cleanupInactiveClients() {

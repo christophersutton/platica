@@ -1,15 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronDown, ChevronLeft, Hash, Plus, Clock, User, Settings } from "lucide-react";
+import { ChevronDown, ChevronLeft, Hash, Plus, Clock, User, Settings, LogOut } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
 import { CreateChannelModal } from "./CreateChannelModal";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useChannels } from "@/hooks/use-channels";
+import { Link } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
 
 // TODO: Replace with real workspace ID from context/route
 const TEMP_WORKSPACE_ID = 1;
@@ -22,7 +26,9 @@ const directMessages = [
 
 export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const { channels, isLoading } = useChannels(TEMP_WORKSPACE_ID);
+  const { workspaceId = "1", channelId } = useParams();
+  const navigate = useNavigate();
+  const { channels, isLoading } = useChannels(Number(workspaceId));
 
   return (
     <div 
@@ -67,26 +73,26 @@ export function Sidebar() {
                 />
               ))
             ) : channels?.map((channel) => (
-              <Button
-                key={channel.id}
-                variant="ghost"
-                className={cn(
-                  "w-full justify-start text-gray-300 hover:bg-slack-purple-dark mb-0.5 py-1 px-1.5 h-7 text-sm",
-                  isCollapsed && "px-1.5"
-                )}
-              >
-                <Hash className="h-3.5 w-3.5 mr-1.5" />
-                {!isCollapsed && (
-                  <>
-                    {channel.name}
-                    {channel.unread_count > 0 && (
-                      <span className="ml-auto bg-white text-slack-purple text-xs font-bold px-1.5 rounded-full">
-                        {channel.unread_count}
-                      </span>
-                    )}
-                  </>
-                )}
-              </Button>
+                <Button
+                  key={channel.id}
+                  variant="ghost"
+                  className={cn(
+                    "w-full justify-start text-gray-300 hover:bg-slack-purple-dark mb-0.5 py-1 px-1.5 h-7 text-sm",
+                    isCollapsed && "px-1.5",
+                    Number(channelId) === channel.id && "bg-slack-purple-dark text-white"
+                  )}
+                  onClick={() => navigate(`/w/${workspaceId}/c/${channel.id}`)}
+                >
+                  <Hash className="h-3.5 w-3.5 mr-1.5" />
+                  {!isCollapsed && (
+                    <div className="flex items-center justify-between w-full">
+                      <span>{channel.name}</span>
+                      {Boolean(channel.has_unread) && Number(channel.id) !== Number(channelId) && (
+                        <span className="h-2.5 w-2.5 rounded-full bg-white shrink-0" />
+                      )}
+                    </div>
+                  )}
+                </Button>
             ))}
           </div>
           
@@ -165,6 +171,14 @@ export function Sidebar() {
               >
                 <Clock className="h-3.5 w-3.5 mr-1.5" />
                 Set Timezone
+              </Button>
+              <Button 
+                variant="ghost" 
+                className="w-full justify-start text-xs h-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                onClick={() => api.auth.logout()}
+              >
+                <LogOut className="h-3.5 w-3.5 mr-1.5" />
+                Logout
               </Button>
             </div>
           </PopoverContent>

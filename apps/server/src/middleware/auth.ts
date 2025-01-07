@@ -6,7 +6,7 @@ import type { User, UserRole } from '@platica/shared/types';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-type Variables = {
+export type Variables = {
   user: Pick<User, 'id' | 'email'> & { userId: number };
   userRole?: UserRole;
 };

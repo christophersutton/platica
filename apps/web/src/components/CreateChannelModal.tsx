@@ -1,26 +1,17 @@
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Plus } from "lucide-react";
 import { useState } from "react";
-import { useChannels } from "@/hooks/use-channels";
+import { useParams } from "react-router-dom";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-
-// TODO: Replace with real workspace ID from context/route
-const TEMP_WORKSPACE_ID = 1;
+import { useChannels } from "@/hooks/use-channels";
 
 export function CreateChannelModal() {
   const [channelName, setChannelName] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-  const { createChannel, isCreating } = useChannels(TEMP_WORKSPACE_ID);
+  const { workspaceId = "1" } = useParams();
+  const { createChannel, isCreating } = useChannels(Number(workspaceId));
   const { toast } = useToast();
 
   const handleCreateChannel = async () => {

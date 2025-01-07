@@ -40,8 +40,8 @@ export class MessageRepository extends BaseRepository<Message, MessageCreateDTO,
       FROM messages m
       JOIN users u ON m.sender_id = u.id
       WHERE m.channel_id = ?
-        ${before ? 'AND m.id < ?' : ''}
-      ORDER BY m.created_at DESC
+        ${before ? 'AND m.created_at < (SELECT created_at FROM messages WHERE id = ?)' : ''}
+      ORDER BY m.created_at ASC
       LIMIT ?
     `;
 
@@ -145,11 +145,11 @@ export class MessageRepository extends BaseRepository<Message, MessageCreateDTO,
 
   async markChannelAsRead(channelId: number, userId: number): Promise<void> {
     const query = `
-      INSERT INTO channel_read_status (channel_id, user_id, last_read_at)
-      VALUES (?, ?, ?)
-      ON CONFLICT (channel_id, user_id) DO UPDATE 
-      SET last_read_at = excluded.last_read_at
+      UPDATE channel_members 
+      SET last_read_at = ?, updated_at = ?
+      WHERE channel_id = ? AND user_id = ?
     `;
-    await this.db.prepare(query).run(channelId, userId, Math.floor(Date.now() / 1000));
+    const now = Math.floor(Date.now() / 1000);
+    await this.db.prepare(query).run(now, now, channelId, userId);
   }
 } 

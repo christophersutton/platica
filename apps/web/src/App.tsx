@@ -19,6 +19,16 @@ const App = () => (
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={
             <ProtectedRoute>
+              <Navigate to="/w/1" replace />
+            </ProtectedRoute>
+          } />
+          <Route path="/w/:workspaceId" element={
+            <ProtectedRoute>
+              <Index />
+            </ProtectedRoute>
+          } />
+          <Route path="/w/:workspaceId/c/:channelId" element={
+            <ProtectedRoute>
               <Index />
             </ProtectedRoute>
           } />

@@ -8,7 +8,7 @@ interface ChannelWithMeta extends Channel {
   member_count: number;
   message_count: number;
   last_message_at: number | null;
-  unread_count?: number;
+  has_unread?: boolean;
   member_status?: 'member' | 'invited' | null;
 }
 
@@ -48,14 +48,15 @@ export class ChannelRepository extends BaseRepository<Channel, ChannelCreateDTO,
         (SELECT COUNT(*) FROM messages m WHERE m.channel_id = c.id AND m.deleted_at IS NULL) as message_count,
         (SELECT MAX(created_at) FROM messages m WHERE m.channel_id = c.id AND m.deleted_at IS NULL) as last_message_at
         ${userId ? `
-          ,(SELECT COUNT(*) FROM messages m 
+          ,CASE WHEN EXISTS(
+            SELECT 1 FROM messages m 
             WHERE m.channel_id = c.id 
             AND m.deleted_at IS NULL
             AND m.created_at > COALESCE(
               (SELECT last_read_at FROM channel_members WHERE channel_id = c.id AND user_id = ?),
-              0
+              (SELECT created_at FROM channel_members WHERE channel_id = c.id AND user_id = ?)
             )
-          ) as unread_count
+          ) THEN 1 ELSE 0 END as has_unread
           ,CASE 
             WHEN EXISTS(SELECT 1 FROM channel_members WHERE channel_id = c.id AND user_id = ?) THEN 'member'
             WHEN EXISTS(SELECT 1 FROM channel_invites WHERE channel_id = c.id AND invitee_id = ?) THEN 'invited'
@@ -64,11 +65,15 @@ export class ChannelRepository extends BaseRepository<Channel, ChannelCreateDTO,
         ` : ''}
       FROM channels c
       WHERE c.workspace_id = ?
+      AND (
+        NOT c.is_private 
+        ${userId ? 'OR EXISTS(SELECT 1 FROM channel_members WHERE channel_id = c.id AND user_id = ?)' : ''}
+      )
       ORDER BY c.name ASC
     `;
 
     const params = userId 
-      ? [userId, userId, userId, workspaceId]
+      ? [userId, userId, userId, userId, workspaceId, userId]
       : [workspaceId];
 
     const results = this.db.prepare(query).all(...params) as ChannelWithMeta[];
@@ -83,14 +88,15 @@ export class ChannelRepository extends BaseRepository<Channel, ChannelCreateDTO,
         (SELECT COUNT(*) FROM messages m WHERE m.channel_id = c.id AND m.deleted_at IS NULL) as message_count,
         (SELECT MAX(created_at) FROM messages m WHERE m.channel_id = c.id AND m.deleted_at IS NULL) as last_message_at
         ${userId ? `
-          ,(SELECT COUNT(*) FROM messages m 
+          ,CASE WHEN EXISTS(
+            SELECT 1 FROM messages m 
             WHERE m.channel_id = c.id 
             AND m.deleted_at IS NULL
             AND m.created_at > COALESCE(
               (SELECT last_read_at FROM channel_members WHERE channel_id = c.id AND user_id = ?),
               0
             )
-          ) as unread_count
+          ) THEN 1 ELSE 0 END as has_unread
           ,CASE 
             WHEN EXISTS(SELECT 1 FROM channel_members WHERE channel_id = c.id AND user_id = ?) THEN 'member'
             WHEN EXISTS(SELECT 1 FROM channel_invites WHERE channel_id = c.id AND invitee_id = ?) THEN 'invited'

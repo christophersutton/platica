@@ -3,7 +3,8 @@ import { BaseController, ApiError } from '../base-controller';
 import { ChannelRepository } from '../../db/repositories/channel-repository';
 import { MessageRepository } from '../../db/repositories/message-repository';
 import type { DatabaseProvider } from '../../db/repositories/base';
-import type { Channel } from '@platica/shared';
+import type { Channel, ChannelCreateDTO } from '@platica/shared/types';
+import type { Variables } from '../../middleware/auth';
 
 interface CreateChannelBody {
   name: string;
@@ -36,7 +37,8 @@ export class ChannelController extends BaseController {
       const { userId } = this.requireUser(c);
       const userRole = c.get('userRole') || 'member';
 
-      return this.channelRepo.findByWorkspace(workspaceId, userId);
+      const channels = await this.channelRepo.findByWorkspace(workspaceId, userId);
+      return { channels };
     });
   };
 
@@ -64,7 +66,7 @@ export class ChannelController extends BaseController {
         last_read_at: Math.floor(Date.now() / 1000)
       });
       
-      return messages;
+      return { messages };
     });
   };
 
@@ -78,10 +80,12 @@ export class ChannelController extends BaseController {
       const channel = await this.channelRepo.create({
         workspace_id: workspaceId,
         name: body.name,
-        topic: body.description || null,
+        description: body.description || null,
         is_private: body.is_private || false,
+        is_archived: false,
+        created_by: userId,
         settings: {}
-      });
+      } as ChannelCreateDTO);
 
       // Add creator as member with owner role
       await this.channelRepo.addMember(channel.id, userId, 'owner');
@@ -138,4 +142,32 @@ export class ChannelController extends BaseController {
       return this.channelRepo.findMembers(channelId);
     });
   };
+
+  async getMessages(c: Context<{ Variables: Variables }>) {
+    const channelId = Number(c.req.param('channelId'));
+    const userId = c.get('user').userId;
+
+    try {
+      const messages = await this.messageRepo.getChannelMessages(channelId);
+      // Mark channel as read when getting messages
+      await this.messageRepo.markChannelAsRead(channelId, userId);
+      return c.json({ messages });
+    } catch (error) {
+      console.error('Error getting channel messages:', error);
+      return c.json({ error: 'Failed to get channel messages' }, 500);
+    }
+  }
+
+  async markAsRead(c: Context<{ Variables: Variables }>) {
+    const channelId = Number(c.req.param('channelId'));
+    const userId = c.get('user').userId;
+
+    try {
+      await this.messageRepo.markChannelAsRead(channelId, userId);
+      return c.json({ success: true });
+    } catch (error) {
+      console.error('Error marking channel as read:', error);
+      return c.json({ error: 'Failed to mark channel as read' }, 500);
+    }
+  }
 } 

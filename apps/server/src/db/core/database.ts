@@ -1,4 +1,5 @@
 import { Database } from "bun:sqlite";
+import { join } from "path";
 
 interface CacheEntry<T> {
   data: T;
@@ -20,7 +21,10 @@ export class DatabaseService {
     private readonly isReadOnly: boolean = false,
     private readonly serviceId: string = 'default'
   ) {
-    this.db = new Database("data/db.sqlite", { 
+    const dbPath = join(import.meta.dir, "../../../data/db.sqlite");
+    console.log('Opening database at:', dbPath);
+    
+    this.db = new Database(dbPath, { 
         readonly: isReadOnly,
         create: true,
         readwrite: !isReadOnly
