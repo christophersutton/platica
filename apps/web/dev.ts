@@ -1,18 +1,20 @@
 import { watch } from "fs";
-import { join } from "path";
-
-const BUILD_DIR = "./dist";
-const PUBLIC_DIR = "./public";
+import { join, extname } from "path";
+import buildConfig from "./build.config";
 
 // Build the app initially
 console.log("🐰 Initial build...");
-await Bun.build({
-  entrypoints: ["./src/index.tsx"],
-  outdir: BUILD_DIR,
-  target: "browser",
-  sourcemap: "external",
-  minify: false
-});
+await Bun.build(buildConfig);
+
+// Content type map
+const contentTypes: Record<string, string> = {
+  '.html': 'text/html',
+  '.js': 'text/javascript',
+  '.css': 'text/css',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.svg': 'image/svg+xml',
+};
 
 // Set up the dev server
 const server = Bun.serve({
@@ -20,19 +22,24 @@ const server = Bun.serve({
   async fetch(req) {
     const url = new URL(req.url);
     const filePath = url.pathname === "/" ? "/index.html" : url.pathname;
+    const ext = extname(filePath);
     
-    // Try public files first
-    let file = Bun.file(join(PUBLIC_DIR, filePath));
+    // Try root directory first (for index.html)
+    let file = Bun.file(join(".", filePath));
     if (!await file.exists()) {
       // Then try build directory
-      file = Bun.file(join(BUILD_DIR, filePath));
+      file = Bun.file(join("./dist", filePath));
       if (!await file.exists()) {
         // Fall back to index.html for SPA routing
-        file = Bun.file(join(PUBLIC_DIR, "index.html"));
+        file = Bun.file("./index.html");
       }
     }
     
-    return new Response(file);
+    return new Response(file, {
+      headers: {
+        "Content-Type": contentTypes[ext] || "application/octet-stream"
+      }
+    });
   },
   websocket: {
     message(ws, message) {
@@ -50,13 +57,7 @@ const watcher = watch("./src", { recursive: true }, async (event, filename) => {
   const start = Date.now();
   
   try {
-    await Bun.build({
-      entrypoints: ["./src/index.tsx"],
-      outdir: BUILD_DIR,
-      target: "browser",
-      sourcemap: "external",
-      minify: false
-    });
+    await Bun.build(buildConfig);
     console.log(`✨ Rebuilt in ${Date.now() - start}ms`);
     
     // Notify clients to refresh
