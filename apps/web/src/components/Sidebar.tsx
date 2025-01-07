@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChevronDown, ChevronLeft, Hash, Plus, Clock, User, Settings, LogOut } from "lucide-react";
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { useWebSocket } from "@/hooks/use-websocket";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { CreateChannelModal } from "./CreateChannelModal";
@@ -21,9 +22,17 @@ export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { workspaceId = "1", channelId } = useParams();
   const navigate = useNavigate();
-  const { channels, isLoading: isLoadingChannels } = useChannels(Number(workspaceId));
+  const { channels, isLoading: isLoadingChannels, refreshChannels } = useChannels(Number(workspaceId));
   const { users, isLoading: isLoadingUsers } = useWorkspaceUsers();
   const { user } = useAuth();
+  
+  // Setup WebSocket handler for channel creation
+  useWebSocket({
+    workspaceId: Number(workspaceId),
+    onChannelCreated: useCallback(() => {
+      refreshChannels();
+    }, [refreshChannels])
+  });
 
   // Filter out current user from DM list
   const otherUsers = users.filter(u => u.id !== user?.id);
