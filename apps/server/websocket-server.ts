@@ -1,7 +1,11 @@
 // websocket-server.ts
 import type { Server } from 'bun';
+import { DatabaseService } from './db/database';
 import WriteService from './services/write';
 import { WebSocketService } from './services/websockets';
+
+// Initialize write service with shared database instance
+const dbService = DatabaseService.getWriteInstance();
 
 interface WebSocketData {
   workspaceId: number;
@@ -10,7 +14,7 @@ interface WebSocketData {
 }
 
 export function startWebSocketServer(port: number) {
-  const writeService = new WriteService();
+  const writeService = new WriteService(dbService);
   const wsService = new WebSocketService();
 
   const server = Bun.serve<WebSocketData>({

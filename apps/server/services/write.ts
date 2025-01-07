@@ -1,6 +1,6 @@
-import { Database } from 'bun:sqlite';
 import type { ServerWebSocket } from 'bun';
 import { MessageRepository } from '../db/messages-repository';
+import { DatabaseService } from '../db/database';
 
 interface Message {
   type: 'message' | 'reaction' | 'typing';
@@ -18,19 +18,11 @@ interface WebSocketData {
 }
 
 class WriteService {
-  private db: Database;
   private messageRepository: MessageRepository;
   private wsClients: Map<number, ServerWebSocket<WebSocketData>[]> = new Map(); // workspace_id -> clients
   
-  constructor() {
-    this.db = new Database('main.sqlite', { create: true });
-    this.messageRepository = new MessageRepository(this.db);
-    this.setupDatabase();
-  }
-
-  private setupDatabase() {
-    this.db.run('PRAGMA journal_mode = WAL');
-    // Additional DB setup if needed
+  constructor(dbService: DatabaseService) {
+    this.messageRepository = new MessageRepository(dbService);
   }
 
   async handleMessage(message: Message): Promise<void> {
