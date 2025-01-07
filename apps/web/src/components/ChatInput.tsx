@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Bold, Italic, Link, Send } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useTypingIndicator } from "@/hooks/use-typing-indicator";
 import { useAuth } from "@/hooks/use-auth.ts";
 
@@ -13,6 +13,7 @@ interface ChatInputProps {
 
 export function ChatInput({ channelId, onSendMessage, disabled }: ChatInputProps) {
   const [message, setMessage] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { typingUsers, sendTypingIndicator } = useTypingIndicator(channelId);
   const { user } = useAuth();
   const [typingMessage, setTypingMessage] = useState<string | null>(null);
@@ -57,9 +58,29 @@ export function ChatInput({ channelId, onSendMessage, disabled }: ChatInputProps
     }
   };
 
+  // Focus on mount
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, []);
+
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setMessage(e.target.value);
     debouncedSendTyping();
+    
+    // Auto-resize textarea
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e);
+    }
   };
 
   return (
@@ -72,12 +93,15 @@ export function ChatInput({ channelId, onSendMessage, disabled }: ChatInputProps
       <form onSubmit={handleSubmit} className="flex items-end gap-2">
         <div className="flex-1">
           <textarea
+            ref={textareaRef}
             value={message}
             onChange={handleChange}
+            onKeyDown={handleKeyDown}
             placeholder="Message #general"
             className="w-full resize-none rounded-lg border border-gray-300 p-3 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
             rows={1}
             disabled={disabled}
+            style={{ minHeight: '44px', maxHeight: '200px' }}
           />
         </div>
         <button
