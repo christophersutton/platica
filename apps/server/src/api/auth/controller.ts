@@ -117,7 +117,10 @@ export class AuthController extends BaseController {
       const { userId } = c.get('user');
       const data = await this.requireBody<UpdateProfileBody>(c);
       const user = await this.authRepo.update(userId, data);
-      return c.json(user);
+      if (!user) {
+        throw new ApiError('Failed to update user', 500);
+      }
+      return user;
     });
   };
 } 

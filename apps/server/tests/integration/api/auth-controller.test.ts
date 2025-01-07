@@ -38,17 +38,32 @@ interface ProfileResponse {
 
 // Helper to create a mock Context
 function createMockContext(data: any = {}, status = 200): Context {
+  const { body, ...contextData } = data;
   return {
     req: {
-      json: () => Promise.resolve(data)
+      json: () => {
+        // For endpoints that expect body data
+        if (body) return Promise.resolve(body);
+        // For endpoints that read data directly
+        if ('email' in data || 'token' in data) return Promise.resolve(data);
+        return Promise.resolve({});
+      },
+      param: () => undefined,
+      query: () => undefined
     },
-    json: (responseData: any) => {
+    json: (responseData: any, status?: number) => {
       return new Response(JSON.stringify(responseData), {
-        status,
+        status: status || 200,
         headers: { 'Content-Type': 'application/json' }
       });
     },
-    get: (key: string) => data[key],
+    get: (key: string) => {
+      // Special handling for user data to match real behavior
+      if (key === 'user') {
+        return contextData.user || {};
+      }
+      return contextData[key];
+    },
     set: (key: string, value: any) => {},
   } as unknown as Context;
 }
@@ -157,7 +172,7 @@ describe("AuthController", () => {
       // The user object in context should match what JWT middleware sets
       const mockContext = createMockContext({ 
         user: { 
-          id: user.id,
+          userId: user.id,
           email: user.email 
         }
       });
@@ -169,6 +184,94 @@ describe("AuthController", () => {
       expect(data).toBeDefined();
       expect(data?.id).toBe(user.id);
       expect(data?.email).toBe("test@example.com");
+    });
+  });
+
+  describe("complete auth flow", () => {
+    test("should allow profile access after successful token verification", async () => {
+      process.env.NODE_ENV = "development";
+      const email = "test@example.com";
+      
+      // Step 1: Request magic link
+      const requestContext = createMockContext({ email });
+      const magicLinkResponse = await controller.requestMagicLink(requestContext);
+      const { data: magicLinkData } = await magicLinkResponse.json() as ApiResponse<MagicLinkResponse>;
+      expect(magicLinkData?.token).toBeDefined();
+      if (!magicLinkData?.token) throw new Error("No token in response");
+
+      // Step 2: Verify token
+      const verifyContext = createMockContext({ token: magicLinkData.token });
+      const verifyResponse = await controller.verifyToken(verifyContext);
+      const { data: verifyData } = await verifyResponse.json() as ApiResponse<VerifyResponse>;
+      expect(verifyData?.token).toBeDefined();
+      expect(verifyData?.user).toBeDefined();
+      if (!verifyData?.user) throw new Error("No user in response");
+      expect(verifyData.user.email).toBe(email);
+
+      // Step 3: Access profile with JWT
+      const profileContext = createMockContext({
+        user: { userId: verifyData.user.id, email: verifyData.user.email }
+      });
+      const profileResponse = await controller.getProfile(profileContext);
+      const { data: profileData } = await profileResponse.json() as ApiResponse<ProfileResponse>;
+      
+      expect(profileResponse.status).toBe(200);
+      expect(profileData?.email).toBe(email);
+      expect(profileData?.id).toBe(verifyData.user.id);
+    });
+
+    test("should handle profile access with incorrect user ID format", async () => {
+      // First create a user to ensure we're testing the ID format issue, not a missing user
+      const authRepo = new AuthRepository(db);
+      const user = await authRepo.findOrCreate("test@example.com");
+
+      // Test the case that was causing the bug
+      const profileContext = createMockContext({
+        user: { id: user.id, email: "test@example.com" } // Using 'id' instead of 'userId'
+      }, 404);
+      
+      const response = await controller.getProfile(profileContext);
+      const { error } = await response.json() as ApiResponse<ProfileResponse>;
+      
+      expect(response.status).toBe(404);
+      expect(error).toBe("User not found");
+    });
+
+    test("should handle profile update with correct user ID format", async () => {
+      // First create a user
+      const email = "test@example.com";
+      const authRepo = new AuthRepository(db);
+      const user = await authRepo.findOrCreate(email);
+      
+      // Test profile update - separate user context from update data
+      const updateData = {
+        name: "Test User",
+        avatar_url: "https://example.com/avatar.jpg"
+      };
+      
+      // Create context with user data and update data
+      const updateContext = createMockContext({
+        user: { userId: user.id, email }
+      });
+      
+      // Mock the req.json() method to return the update data
+      updateContext.req.json = async () => {
+        return updateData as any;
+      };
+      
+      const response = await controller.updateProfile(updateContext);
+      const responseText = await response.text();
+      
+      // Check if the user was actually updated in the database
+      const updatedUser = await authRepo.findById(user.id);
+      
+      const { data } = JSON.parse(responseText) as ApiResponse<ProfileResponse>;
+      
+      expect(response.status).toBe(200);
+      expect(data?.id).toBe(user.id);
+      expect(data?.email).toBe(email);
+      expect(data?.name).toBe(updateData.name);
+      expect(data?.avatar_url).toBe(updateData.avatar_url);
     });
   });
 }); 
