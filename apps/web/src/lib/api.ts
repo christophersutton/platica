@@ -139,6 +139,11 @@ export const api = {
       fetchApi<{ success: boolean }>(`/channels/${channelId}/messages/read`, {
         method: 'POST'
       }),
+
+    markAsRead: (channelId: number) =>
+      fetchApi<void>(`/channels/${channelId}/read`, {
+        method: 'POST'
+      }),
   },
 
   workspaces: {

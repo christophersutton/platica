@@ -57,11 +57,12 @@ export class ChannelRepository extends BaseRepository<Channel, ChannelCreateDTO,
         ${userId ? `
           ,CASE WHEN EXISTS(
             SELECT 1 FROM messages m 
+            LEFT JOIN channel_members cm ON cm.channel_id = c.id AND cm.user_id = ?
             WHERE m.channel_id = c.id 
             AND m.deleted_at IS NULL
-            AND m.created_at > COALESCE(
-              (SELECT last_read_at FROM channel_members WHERE channel_id = c.id AND user_id = ?),
-              (SELECT created_at FROM channel_members WHERE channel_id = c.id AND user_id = ?)
+            AND (
+              cm.last_read_at IS NULL 
+              OR m.created_at > cm.last_read_at
             )
           ) THEN 1 ELSE 0 END as has_unread
           ,CASE 
@@ -80,7 +81,7 @@ export class ChannelRepository extends BaseRepository<Channel, ChannelCreateDTO,
     `;
 
     const params = userId 
-      ? [userId, userId, userId, userId, workspaceId, userId]
+      ? [userId, userId, userId, workspaceId, userId]
       : [workspaceId];
 
     const results = this.db.prepare(query).all(...params) as ChannelWithMeta[];

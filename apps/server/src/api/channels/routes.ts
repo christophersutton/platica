@@ -23,6 +23,9 @@ export function setupChannelRoutes(app: Hono, db: DatabaseProvider, auth: AuthMi
   // Remove member from channel
   channels.delete('/:channelId/members/:userId', controller.removeMember);
 
+  // Mark channel as read
+  channels.post('/:channelId/read', controller.markAsRead);
+
   // Mount channel routes
   app.route('/channels', channels);
 

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Channel } from '@/lib/api';
 import { useWorkspace } from './use-workspace';
@@ -33,6 +33,25 @@ export function useChannelMessages(channelId: number) {
   const { workspace, isLoading: isWorkspaceLoading } = useWorkspace();
   const { user } = useAuth();
 
+  // Mark channel as read when viewing it
+  useEffect(() => {
+    if (!channelId || !user?.id) return;
+
+    const markChannelAsRead = async () => {
+      try {
+        await api.channels.markAsRead(channelId);
+        // Invalidate the channels query to update unread status
+        if (workspace?.id) {
+          queryClient.invalidateQueries({ queryKey: ['channels', workspace.id] });
+        }
+      } catch (error) {
+        console.error('Failed to mark channel as read:', error);
+      }
+    };
+
+    markChannelAsRead();
+  }, [channelId, user?.id, queryClient, workspace?.id]);
+
   // Memoize the workspaceId to prevent unnecessary reconnections
   const workspaceId = useMemo(() => {
     if (isWorkspaceLoading || !workspace?.id) return 0;
@@ -51,105 +70,101 @@ export function useChannelMessages(channelId: number) {
       sender_name?: string;
       avatar_url?: string | null;
     }) => {
-      console.log('[WebSocket] Received message:', {
+      if (!workspace?.id) {
+        console.log('[WebSocket] No workspace ID available, skipping message processing');
+        return;
+      }
+
+      // Skip processing if we don't have a valid channel ID
+      if (!channelId) {
+        console.log('[WebSocket] No valid channel ID, skipping message processing');
+        return;
+      }
+
+      const messageChannelId = Number(message.channelId);
+      const currentChannelId = Number(channelId);
+      
+      console.log('[WebSocket] Processing message:', {
         message,
-        propertyTypes: {
-          type: typeof message.type,
-          channelId: typeof message.channelId,
-          content: typeof message.content,
-          userId: typeof message.userId,
-          messageId: typeof message.messageId,
-          createdAt: typeof message.createdAt,
-          sender_name: typeof message.sender_name,
-          avatar_url: typeof message.avatar_url
-        },
-        expectedChannelId: channelId,
-        channelIdComparison: {
-          messageChannelId: message.channelId,
-          expectedChannelId: channelId,
-          isEqual: message.channelId === channelId
-        }
+        currentChannelId,
+        workspaceId: workspace.id,
+        isCurrentChannel: messageChannelId === currentChannelId,
+        messageChannelId
       });
       
       // Type guard to ensure all required properties are present
       if (
         message.type === 'chat' && 
-        message.channelId !== undefined &&
+        messageChannelId > 0 &&
         typeof message.content === 'string' &&
-        typeof message.userId === 'number' &&
-        typeof message.messageId === 'number' &&
-        typeof message.createdAt === 'number' &&
-        typeof message.sender_name === 'string'
+        typeof message.userId === 'number'
       ) {
-        const messageChannelId = Number(message.channelId);
         const chatMessage = {
           ...message,
-          channelId: messageChannelId
+          channelId: messageChannelId,
+          messageId: message.messageId || Date.now(),
+          createdAt: message.createdAt || Math.floor(Date.now() / 1000),
+          sender_name: message.sender_name || 'Unknown'
         } as WebSocketChatMessage;
 
-        // Always update the messages cache for the channel that received the message
-        queryClient.setQueryData(['channel-messages', messageChannelId], (oldData: Message[] | undefined) => {
-          // If there's no existing data, don't initialize the cache
-          // This ensures we'll fetch full history when switching to this channel
-          if (!oldData) return undefined;
+        // Update messages only if it's for the current channel
+        if (messageChannelId === currentChannelId) {
+          queryClient.setQueryData(['channel-messages', messageChannelId], (oldData: Message[] | undefined) => {
+            if (!oldData) return undefined;
 
-          const newMessage: Message = {
-            id: chatMessage.messageId,
-            content: chatMessage.content,
-            userId: chatMessage.userId,
-            channelId: chatMessage.channelId,
-            createdAt: new Date(chatMessage.createdAt * 1000).toISOString(),
-            threadId: chatMessage.threadId,
-            sender_name: chatMessage.sender_name,
-            avatar_url: chatMessage.avatar_url
-          };
+            const newMessage: Message = {
+              id: chatMessage.messageId,
+              content: chatMessage.content,
+              userId: chatMessage.userId,
+              channelId: chatMessage.channelId,
+              createdAt: new Date(chatMessage.createdAt * 1000).toISOString(),
+              threadId: chatMessage.threadId,
+              sender_name: chatMessage.sender_name,
+              avatar_url: chatMessage.avatar_url
+            };
+            
+            if (oldData.some(msg => msg.id === newMessage.id)) {
+              return oldData;
+            }
+            
+            return [...oldData, newMessage];
+          });
+        } else {
+          // Message is for another channel, update the unread flag
+          console.log('[WebSocket] Message is for a different channel:', {
+            messageChannelId,
+            currentChannelId,
+            workspaceId: workspace.id
+          });
           
-          // Check if message already exists
-          if (oldData.some(msg => msg.id === newMessage.id)) {
-            return oldData;
+          // First try to get the current channels data
+          const currentData = queryClient.getQueryData<{ channels: Channel[] }>(['channels', workspace.id]);
+          
+          if (!currentData) {
+            console.log('[WebSocket] No channels data in cache, fetching fresh data');
+            queryClient.invalidateQueries({ queryKey: ['channels', workspace.id] });
+            return;
           }
           
-          return [...oldData, newMessage];
-        });
-
-        // If the message is for another channel, update the unread flag
-        if (messageChannelId !== channelId) {
-          queryClient.setQueryData(['channels'], (oldChannels: Channel[] = []) => {
-            return oldChannels.map(channel => {
+          console.log('[WebSocket] Current channels data:', currentData);
+          
+          queryClient.setQueryData(['channels', workspace.id], {
+            channels: currentData.channels.map(channel => {
               if (channel.id === messageChannelId) {
+                console.log('[WebSocket] Marking channel as unread:', channel.id);
                 return {
                   ...channel,
-                  has_unread: 1
+                  has_unread: 1,
+                  last_message_at: chatMessage.createdAt
                 };
               }
               return channel;
-            });
+            })
           });
         }
-      } else {
-        console.log('[WebSocket] Message did not pass type guard:', {
-          isChat: message.type === 'chat',
-          hasChannelId: message.channelId !== undefined,
-          channelIdType: typeof message.channelId,
-          hasValidContent: typeof message.content === 'string',
-          hasValidUserId: typeof message.userId === 'number',
-          hasValidMessageId: typeof message.messageId === 'number',
-          hasValidCreatedAt: typeof message.createdAt === 'number',
-          hasValidSenderName: typeof message.sender_name === 'string',
-          values: {
-            type: message.type,
-            channelId: message.channelId,
-            content: message.content,
-            userId: message.userId,
-            messageId: message.messageId,
-            createdAt: message.createdAt,
-            sender_name: message.sender_name,
-            avatar_url: message.avatar_url
-          }
-        });
       }
     },
-    [channelId, queryClient]
+    [channelId, queryClient, workspace?.id]
   );
 
   // Initialize the websocket with stable values

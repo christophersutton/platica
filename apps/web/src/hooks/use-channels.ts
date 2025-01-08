@@ -22,16 +22,16 @@ export function useChannels(workspaceId: number) {
     isLoading,
     error,
     refetch: refreshChannels
-  } = useQuery({
+  } = useQuery<{ channels: Channel[] }>({
     queryKey: ['channels', workspaceId],
     queryFn: async () => {
-      if (!workspaceId) return [];
+      if (!workspaceId) return { channels: [] };
       try {
         const response = await api.channels.list(workspaceId);
-        return response.channels;
+        return { channels: response.channels };
       } catch (error) {
         console.error('Failed to fetch channels:', error);
-        return [];
+        return { channels: [] };
       }
     },
     enabled: Boolean(workspaceId),
@@ -48,7 +48,7 @@ export function useChannels(workspaceId: number) {
   });
 
   return {
-    channels: channels || [],
+    channels: channels?.channels || [],
     isLoading,
     error,
     createChannel: createChannel.mutateAsync,

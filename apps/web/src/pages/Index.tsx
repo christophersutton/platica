@@ -15,7 +15,8 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState("messages");
   const { workspace, isLoading: isWorkspaceLoading, error: workspaceError } = useWorkspace();
   const { channels, isLoading: isLoadingChannels } = useChannels(Number(workspaceId));
-  const currentChannel = channelId ? channels?.find(c => c.id === Number(channelId)) : channels?.[0];
+  const currentChannelId = channelId ? Number(channelId) : undefined;
+  const currentChannel = channels?.find(c => c.id === currentChannelId);
   const { user, logout } = useAuth();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
@@ -29,9 +30,9 @@ const Index = () => {
     isLoading: isLoadingMessages,
     sendMessage,
     isSending
-  } = useChannelMessages(currentChannel?.id || 0);
+  } = useChannelMessages(currentChannelId || 0);
 
-  const { typingUsers } = useTypingIndicator(currentChannel?.id || 0);
+  const { typingUsers } = useTypingIndicator(currentChannelId || 0);
 
   const handleSendMessage = (content: string) => {
     if (currentChannel) {

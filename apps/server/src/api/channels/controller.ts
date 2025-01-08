@@ -229,16 +229,17 @@ export class ChannelController extends BaseController {
     }
   }
 
-  async markAsRead(c: Context<{ Variables: Variables }>) {
-    const channelId = Number(c.req.param('channelId'));
-    const userId = c.get('user').userId;
+  markAsRead = async (c: Context): Promise<Response> => {
+    return this.handle(c, async () => {
+      const channelId = this.requireNumberParam(c, 'channelId');
+      const { userId } = this.requireUser(c);
 
-    try {
-      await this.messageRepo.markChannelAsRead(channelId, userId);
-      return c.json({ success: true });
-    } catch (error) {
-      console.error('Error marking channel as read:', error);
-      return c.json({ error: 'Failed to mark channel as read' }, 500);
-    }
-  }
+      // Update the last_read_at timestamp
+      await this.channelRepo.updateMember(channelId, userId, {
+        last_read_at: Math.floor(Date.now() / 1000)
+      });
+
+      return { success: true };
+    });
+  };
 } 
