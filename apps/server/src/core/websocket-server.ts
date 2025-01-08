@@ -10,7 +10,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // Initialize services
 const dbService = DatabaseService.getWriteInstance();
-const wsService = new WebSocketService();
+const wsService = WebSocketService.getInstance();
 const writeService = new WriteService(wsService);
 const rateLimiter = new WebSocketRateLimiter();
 

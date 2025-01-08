@@ -112,13 +112,29 @@ export class MessageRepository extends BaseRepository<Message, MessageCreateDTO,
   }
 
   async hasChannelAccess(channelId: number, userId: number): Promise<boolean> {
-    const query = `
+    // First check if user is already a member
+    const isMember = this.db.prepare(`
       SELECT 1 FROM channel_members 
       WHERE channel_id = ? AND user_id = ?
-      LIMIT 1
-    `;
-    const result = this.db.prepare(query).get(channelId, userId);
-    return !!result;
+    `).get(channelId, userId);
+
+    if (isMember) {
+      return true;
+    }
+
+    // If not a member, check if it's a public channel
+    const channel = this.db.prepare(`
+      SELECT is_private FROM channels
+      WHERE id = ?
+    `).get(channelId) as { is_private: number } | undefined;
+
+    // Channel doesn't exist
+    if (!channel) {
+      return false;
+    }
+
+    // Allow access if channel is public (is_private = 0)
+    return channel.is_private === 0;
   }
 
   async createMessage(data: MessageCreateDTO): Promise<number> {

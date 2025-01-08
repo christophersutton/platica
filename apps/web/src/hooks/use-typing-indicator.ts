@@ -34,13 +34,13 @@ export function useTypingIndicator(channelId: number) {
 
     return () => clearInterval(interval);
   }, []);
-
   const sendTypingIndicator = useCallback(() => {
     sendMessage({
       type: 'typing',
-      channelId
+      channelId,
+      userId: workspace?.id ?? 0
     });
-  }, [sendMessage, channelId]);
+  }, [sendMessage, channelId, workspace?.id]);
 
   return {
     sendTypingIndicator,

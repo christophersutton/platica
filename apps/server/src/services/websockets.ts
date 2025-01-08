@@ -15,13 +15,21 @@ interface Client {
 }
 
 export class WebSocketService {
+  private static instance: WebSocketService;
   private clients: Map<ServerWebSocket<WebSocketData>, Client> = new Map();
   private typingTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private lastPresenceBroadcast: Map<string, number> = new Map();
 
-  constructor() {
+  private constructor() {
     // Clean up inactive clients periodically
     setInterval(() => this.cleanupInactiveClients(), 60000);
+  }
+
+  public static getInstance(): WebSocketService {
+    if (!WebSocketService.instance) {
+      WebSocketService.instance = new WebSocketService();
+    }
+    return WebSocketService.instance;
   }
 
   private getOnlineUsersInWorkspace(workspaceId: number): number[] {

@@ -46,16 +46,43 @@ export class AuthMiddleware {
     const channelId = Number(c.req.param('channelId'));
     const userId = c.get('user').userId;
 
-    const hasAccess = this.db.prepare(`
+    // First check if user is already a member
+    const isMember = this.db.prepare(`
       SELECT 1 FROM channel_members 
       WHERE channel_id = ? AND user_id = ?
     `).get(channelId, userId);
 
-    if (!hasAccess) {
-      return c.json({ error: 'Unauthorized' }, 403);
+    if (isMember) {
+      await next();
+      return;
     }
 
-    await next();
+    // If not a member, check if it's a public channel
+    const channel = this.db.prepare(`
+      SELECT workspace_id, is_private FROM channels
+      WHERE id = ?
+    `).get(channelId) as { workspace_id: number, is_private: boolean } | undefined;
+
+    if (!channel) {
+      return c.json({ error: 'Channel not found' }, 404);
+    }
+
+    if (!channel.is_private) {
+      // Auto-join public channel
+      const now = Math.floor(Date.now() / 1000);
+      this.db.prepare(`
+        INSERT INTO channel_members (channel_id, user_id, role, settings, created_at, updated_at)
+        VALUES (?, ?, 'member', '{}', ?, ?)
+      `).run(channelId, userId, now, now);
+
+      // Note: We can't broadcast the member_joined event here since we don't have access to the WebSocket service
+      // The controller's ensureChannelAccess will handle that when it's called
+
+      await next();
+      return;
+    }
+
+    return c.json({ error: 'Unauthorized' }, 403);
   }
 
   // Workspace-specific authorization

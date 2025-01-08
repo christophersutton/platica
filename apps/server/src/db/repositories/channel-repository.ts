@@ -194,4 +194,35 @@ export class ChannelRepository extends BaseRepository<Channel, ChannelCreateDTO,
 
     return result?.role;
   }
+
+  async canAccess(channelId: number, userId: number): Promise<boolean> {
+    try {
+      // First check if user is already a member
+      const isMember = this.db.prepare(`
+        SELECT 1 FROM channel_members 
+        WHERE channel_id = ? AND user_id = ?
+      `).get(channelId, userId);
+
+      if (isMember) {
+        return true;
+      }
+
+      // If not a member, check if it's a public channel
+      const channel = this.db.prepare(`
+        SELECT is_private FROM channels
+        WHERE id = ?
+      `).get(channelId) as { is_private: boolean } | undefined;
+
+      // Channel doesn't exist
+      if (!channel) {
+        return false;
+      }
+
+      // Allow access if channel is public
+      return !channel.is_private;
+    } catch (error) {
+      console.error('Error checking channel access:', error);
+      return false;
+    }
+  }
 }

@@ -196,7 +196,6 @@ export function useChannelMessages(channelId: number) {
         // Send via WebSocket
         wsSend({
           type: 'chat',
-          workspaceId: workspace.id,
           channelId,
           content,
           userId: user.id

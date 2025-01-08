@@ -148,7 +148,7 @@ describe("MessageRepository", () => {
         name: "Other User",
       });
       const workspace = await ctx.factory.createWorkspace({}, user);
-      const channel = await ctx.factory.createChannel({}, workspace, user);
+      const channel = await ctx.factory.createChannel({ is_private: true }, workspace, user);
       await ctx.factory.addUserToChannel(user, channel);
 
       const hasAccess = await messageRepo.hasChannelAccess(

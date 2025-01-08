@@ -26,7 +26,6 @@ export function Sidebar() {
   const { users, isLoading: isLoadingUsers } = useWorkspaceUsers();
   const { user } = useAuth();
   
-  // Setup WebSocket handler for channel creation
   useWebSocket({
     workspaceId: Number(workspaceId),
     onChannelCreated: useCallback(() => {

@@ -1,13 +1,27 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, type Channel } from '@/lib/api';
+import { useWebSocket } from './use-websocket';
 
 export function useChannels(workspaceId: number) {
   const queryClient = useQueryClient();
+
+  // Setup websocket connection to handle channel events
+  useWebSocket({
+    workspaceId,
+    onChannelCreated: (channel: Channel) => {
+      // Update the channels cache with the new channel
+      queryClient.setQueryData(['channels', workspaceId], (old: { channels: Channel[] } | undefined) => {
+        if (!old) return { channels: [channel] };
+        return { channels: [...old.channels, channel] };
+      });
+    }
+  });
 
   const {
     data: channels,
     isLoading,
     error,
+    refetch: refreshChannels
   } = useQuery({
     queryKey: ['channels', workspaceId],
     queryFn: async () => {
@@ -24,8 +38,10 @@ export function useChannels(workspaceId: number) {
   });
 
   const createChannel = useMutation({
-    mutationFn: (data: { name: string; description?: string; is_private?: boolean }) =>
-      api.channels.create(workspaceId, data),
+    mutationFn: async (data: { name: string; description?: string; is_private?: boolean }) => {
+      const response = await api.channels.create(workspaceId, data);
+      return response.channel;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['channels', workspaceId] });
     },
@@ -35,7 +51,8 @@ export function useChannels(workspaceId: number) {
     channels: channels || [],
     isLoading,
     error,
-    createChannel: createChannel.mutate,
+    createChannel: createChannel.mutateAsync,
     isCreating: createChannel.isPending,
+    refreshChannels
   };
 } 

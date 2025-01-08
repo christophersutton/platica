@@ -1,22 +1,68 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import { useAuth } from './use-auth.ts';
+import type { Channel } from '@/lib/api';
 
-export interface WebSocketMessage {
-  type: 'chat' | 'typing' | 'presence' | 'presence_sync' | 'error';
-  workspaceId?: number;
-  channelId?: number;
-  content?: string;
-  userId?: number;
-  status?: 'online' | 'offline';
-  message?: string;
-  onlineUsers?: number[];
+type OutgoingChatMessage = {
+  type: 'chat';
+  channelId: number;
+  content: string;
+  userId: number;
 }
+
+type ChatMessage = {
+  type: 'chat';
+  channelId: number;
+  content: string;
+  userId: number;
+  messageId: number;
+  createdAt: number;
+  sender_name: string;
+  avatar_url?: string;
+  threadId?: number | null;
+}
+
+type PresenceMessage = {
+  type: 'presence';
+  userId: number;
+  status?: 'online' | 'offline';
+}
+
+type PresenceSyncMessage = {
+  type: 'presence_sync';
+  onlineUsers: number[];
+}
+
+type TypingMessage = {
+  type: 'typing';
+  channelId: number;
+  userId: number;
+}
+
+type ChannelCreatedMessage = {
+  type: 'channel_created';
+  channel: Channel;
+}
+
+type ErrorMessage = {
+  type: 'error';
+  message: string;
+}
+
+export type WebSocketMessage = 
+  | OutgoingChatMessage
+  | ChatMessage 
+  | PresenceMessage 
+  | PresenceSyncMessage 
+  | TypingMessage 
+  | ChannelCreatedMessage 
+  | ErrorMessage;
 
 interface UseWebSocketOptions {
   workspaceId: number;
   onMessage?: (message: WebSocketMessage) => void;
   onPresenceChange?: (userId: number, status: 'online' | 'offline') => void;
   onTypingIndicator?: (channelId: number, userId: number) => void;
+  onChannelCreated?: (channel: Channel) => void;
   onError?: (error: string) => void;
 }
 
@@ -25,6 +71,7 @@ export function useWebSocket({
   onMessage,
   onPresenceChange,
   onTypingIndicator,
+  onChannelCreated,
   onError
 }: UseWebSocketOptions) {
   const { user, token, isLoading, isInitialized } = useAuth();
@@ -41,8 +88,9 @@ export function useWebSocket({
     onMessage,
     onPresenceChange,
     onTypingIndicator,
+    onChannelCreated,
     onError
-  }), [onMessage, onPresenceChange, onTypingIndicator, onError]);
+  }), [onMessage, onPresenceChange, onTypingIndicator, onChannelCreated, onError]);
 
   // Only attempt connection if we have all required data
   const shouldConnect = useMemo(() => {
@@ -195,6 +243,7 @@ export function useWebSocket({
       ws.addEventListener('message', (event) => {
         try {
           const data = JSON.parse(event.data) as WebSocketMessage;
+          
           if (data.type === 'error') {
             console.error('WebSocket: Server error', data.message);
             if (data.message?.includes('token') || data.message?.includes('auth')) {
@@ -209,22 +258,28 @@ export function useWebSocket({
           // Then handle specific message types
           switch (data.type) {
             case 'chat':
+              // Chat messages are handled by the general onMessage handler
               break;
             case 'presence':
-              if (data.userId && data.status) {
+              if (data.status) {
                 handlers.onPresenceChange?.(data.userId, data.status);
               }
               break;
             case 'presence_sync':
-              // Already handled by onMessage
+              // Presence sync is handled by the general onMessage handler
               break;
             case 'typing':
-              if (data.channelId && data.userId) {
-                handlers.onTypingIndicator?.(data.channelId, data.userId);
-              }
+              handlers.onTypingIndicator?.(data.channelId, data.userId);
+              break;
+            case 'channel_created':
+              handlers.onChannelCreated?.(data.channel);
               break;
             case 'error':
-              handlers.onError?.(data.message || 'Unknown error');
+              if (data.message?.includes('token') || data.message?.includes('auth')) {
+                resetConnection();
+                return;
+              }
+              handlers.onError?.(data.message);
               break;
           }
         } catch (error) {
@@ -288,6 +343,36 @@ export function useWebSocket({
     }
     wsRef.current.send(JSON.stringify(message));
   }, []);
+
+  const handleMessage = useCallback((event: MessageEvent) => {
+    try {
+      const message = JSON.parse(event.data) as WebSocketMessage;
+      
+      // Call the general message handler if provided
+      handlers.onMessage?.(message);
+
+      // Handle specific message types
+      switch (message.type) {
+        case 'presence':
+          handlers.onPresenceChange?.(message.userId, message.status || 'online');
+          break;
+        case 'presence_sync':
+          // Handle presence sync
+          break;
+        case 'typing':
+          handlers.onTypingIndicator?.(message.channelId, message.userId);
+          break;
+        case 'channel_created':
+          handlers.onChannelCreated?.(message.channel);
+          break;
+        case 'error':
+          handlers.onError?.(message.message);
+          break;
+      }
+    } catch (error) {
+      console.error('Failed to parse websocket message:', error);
+    }
+  }, [handlers]);
 
   return {
     sendMessage,
