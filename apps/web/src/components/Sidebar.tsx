@@ -83,7 +83,7 @@ export function Sidebar() {
                   key={channel.id}
                   variant="ghost"
                   className={cn(
-                    "w-full justify-start text-gray-300 hover:text-white hover:font-semibold mb-0.5 py-1 px-1.5 h-7 text-sm relative overflow-hidden",
+                    "w-full justify-start text-gray-300 hover:text-white hover:font-semibold mb-0.5 py-1 px-1.5 h-7 text-base relative overflow-hidden",
                     "transition-colors duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
                     isCollapsed && "px-1.5",
                     Number(channelId) === channel.id && "bg-slack-purple-dark text-white font-semibold",
@@ -127,7 +127,7 @@ export function Sidebar() {
                 key={u.id}
                 variant="ghost"
                 className={cn(
-                  "w-full justify-start text-gray-300 hover:text-white hover:font-semibold mb-0.5 py-1 px-1.5 h-7 text-sm relative overflow-hidden",
+                  "w-full justify-start text-gray-300 hover:text-white hover:font-semibold mb-0.5 py-1 px-1.5 h-7 text-base relative overflow-hidden",
                   "transition-colors duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
                   isCollapsed && "px-1.5",
                   "hover:bg-slack-purple-dark/50"
