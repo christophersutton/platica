@@ -36,6 +36,7 @@ type TypingMessage = {
   type: 'typing';
   channelId: number;
   userId: number;
+  isTyping: boolean;
 }
 
 type ChannelCreatedMessage = {
@@ -61,7 +62,7 @@ interface UseWebSocketOptions {
   workspaceId: number;
   onMessage?: (message: WebSocketMessage) => void;
   onPresenceChange?: (userId: number, status: 'online' | 'offline') => void;
-  onTypingIndicator?: (channelId: number, userId: number) => void;
+  onTypingIndicator?: (channelId: number, userId: number, isTyping: boolean) => void;
   onChannelCreated?: (channel: Channel) => void;
   onError?: (error: string) => void;
 }
@@ -269,7 +270,7 @@ export function useWebSocket({
               // Presence sync is handled by the general onMessage handler
               break;
             case 'typing':
-              handlers.onTypingIndicator?.(data.channelId, data.userId);
+              handlers.onTypingIndicator?.(data.channelId, data.userId, data.isTyping ?? false);
               break;
             case 'channel_created':
               handlers.onChannelCreated?.(data.channel);
@@ -360,7 +361,7 @@ export function useWebSocket({
           // Handle presence sync
           break;
         case 'typing':
-          handlers.onTypingIndicator?.(message.channelId, message.userId);
+          handlers.onTypingIndicator?.(message.channelId, message.userId, message.isTyping ?? false);
           break;
         case 'channel_created':
           handlers.onChannelCreated?.(message.channel);

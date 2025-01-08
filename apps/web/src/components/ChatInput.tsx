@@ -48,10 +48,10 @@ export function ChatInput({ channelId, onSendMessage, disabled }: ChatInputProps
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim() && !disabled) {
-      onSendMessage(message.trim());
-      setMessage("");
       clearTypingIndicator();
       window.clearTimeout(typingTimeoutRef.current);
+      onSendMessage(message.trim());
+      setMessage("");
     }
   };
 

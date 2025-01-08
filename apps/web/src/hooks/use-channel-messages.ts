@@ -11,6 +11,7 @@ interface Message {
   userId: number;
   channelId: number;
   createdAt: string;
+  created_at: number;
   threadId?: number;
   sender_name: string;
   avatar_url: string | null;
@@ -40,9 +41,22 @@ export function useChannelMessages(channelId: number) {
     const markChannelAsRead = async () => {
       try {
         await api.channels.markAsRead(channelId);
-        // Invalidate the channels query to update unread status
+        // Update the unread status in the channels list
         if (workspace?.id) {
-          queryClient.invalidateQueries({ queryKey: ['channels', workspace.id] });
+          queryClient.setQueryData(['channels', workspace.id], (old: { channels: Channel[] } | undefined) => {
+            if (!old) return { channels: [] };
+            return {
+              channels: old.channels.map(channel => {
+                if (channel.id === channelId) {
+                  return {
+                    ...channel,
+                    has_unread: 0
+                  };
+                }
+                return channel;
+              })
+            };
+          });
         }
       } catch (error) {
         console.error('Failed to mark channel as read:', error);
@@ -58,128 +72,12 @@ export function useChannelMessages(channelId: number) {
     return workspace.id;
   }, [workspace?.id, isWorkspaceLoading]);
 
-  // Memoize the onMessage callback to handle websocket messages
-  const onMessage = useCallback(
-    (message: { 
-      type: string; 
-      channelId?: number; 
-      content?: string; 
-      userId?: number; 
-      messageId?: number; 
-      createdAt?: number;
-      sender_name?: string;
-      avatar_url?: string | null;
-    }) => {
-      if (!workspace?.id) {
-        console.log('[WebSocket] No workspace ID available, skipping message processing');
-        return;
-      }
-
-      // Skip processing if we don't have a valid channel ID
-      if (!channelId) {
-        console.log('[WebSocket] No valid channel ID, skipping message processing');
-        return;
-      }
-
-      const messageChannelId = Number(message.channelId);
-      const currentChannelId = Number(channelId);
-      
-      console.log('[WebSocket] Processing message:', {
-        message,
-        currentChannelId,
-        workspaceId: workspace.id,
-        isCurrentChannel: messageChannelId === currentChannelId,
-        messageChannelId
-      });
-      
-      // Type guard to ensure all required properties are present
-      if (
-        message.type === 'chat' && 
-        messageChannelId > 0 &&
-        typeof message.content === 'string' &&
-        typeof message.userId === 'number'
-      ) {
-        const chatMessage = {
-          ...message,
-          channelId: messageChannelId,
-          messageId: message.messageId || Date.now(),
-          createdAt: message.createdAt || new Date().toISOString(),
-          sender_name: message.sender_name || 'Unknown'
-        } as WebSocketChatMessage;
-
-        // Update messages only if it's for the current channel
-        if (messageChannelId === currentChannelId) {
-          queryClient.setQueryData(['channel-messages', messageChannelId], (oldData: Message[] | undefined) => {
-            if (!oldData) return undefined;
-
-            const newMessage: Message = {
-              id: chatMessage.messageId,
-              content: chatMessage.content,
-              userId: chatMessage.userId,
-              channelId: chatMessage.channelId,
-              createdAt: typeof chatMessage.createdAt === 'number' 
-                ? new Date(chatMessage.createdAt * 1000).toISOString()
-                : chatMessage.createdAt,
-              threadId: chatMessage.threadId,
-              sender_name: chatMessage.sender_name,
-              avatar_url: chatMessage.avatar_url
-            };
-            
-            if (oldData.some(msg => msg.id === newMessage.id)) {
-              return oldData;
-            }
-            
-            return [...oldData, newMessage];
-          });
-        } else {
-          // Message is for another channel, update the unread flag
-          console.log('[WebSocket] Message is for a different channel:', {
-            messageChannelId,
-            currentChannelId,
-            workspaceId: workspace.id
-          });
-          
-          // First try to get the current channels data
-          const currentData = queryClient.getQueryData<{ channels: Channel[] }>(['channels', workspace.id]);
-          
-          if (!currentData) {
-            console.log('[WebSocket] No channels data in cache, fetching fresh data');
-            queryClient.invalidateQueries({ queryKey: ['channels', workspace.id] });
-            return;
-          }
-          
-          console.log('[WebSocket] Current channels data:', currentData);
-          
-          queryClient.setQueryData(['channels', workspace.id], {
-            channels: currentData.channels.map(channel => {
-              if (channel.id === messageChannelId) {
-                console.log('[WebSocket] Marking channel as unread:', channel.id);
-                return {
-                  ...channel,
-                  has_unread: 1,
-                  last_message_at: chatMessage.createdAt
-                };
-              }
-              return channel;
-            })
-          });
-        }
-      }
-    },
-    [channelId, queryClient, workspace?.id]
-  );
-
-  // Initialize the websocket with stable values
-  const { sendMessage: wsSend, isConnected } = useWebSocket({
-    workspaceId,
-    onMessage,
-  });
-
   // Fetch messages via REST
   const {
     data: messages = [],
     isLoading,
     error,
+    dataUpdatedAt
   } = useQuery({
     queryKey: ['channel-messages', channelId],
     queryFn: async () => {
@@ -192,7 +90,110 @@ export function useChannelMessages(channelId: number) {
       return response.messages;
     },
     enabled: Boolean(channelId && workspace?.id),
-    staleTime: Infinity, // Don't refetch automatically since we'll handle updates via WebSocket
+    staleTime: 0, // Allow refetching when channel changes
+    refetchOnMount: true, // Ensure we refetch when switching channels
+  });
+
+  // Memoize the onMessage callback to handle websocket messages
+  const onMessage = useCallback(
+    (message: WebSocketChatMessage | { type: string }) => {
+      if (!workspace?.id) {
+        console.log('[WebSocket] No workspace ID available, skipping message processing');
+        return;
+      }
+
+      const messageChannelId = 'channelId' in message ? Number(message.channelId) : 0;
+      const currentChannelId = Number(channelId);
+      
+      // Type guard to ensure all required properties are present
+      if (
+        message.type === 'chat' && 
+        'channelId' in message &&
+        'content' in message &&
+        'userId' in message &&
+        'messageId' in message &&
+        'createdAt' in message &&
+        'sender_name' in message
+      ) {
+        // If message is for a different channel, update its unread status
+        if (messageChannelId !== currentChannelId && message.userId !== user?.id) {
+          queryClient.setQueryData(['channels', workspace.id], (old: { channels: Channel[] } | undefined) => {
+            if (!old) return { channels: [] };
+            return {
+              channels: old.channels.map(channel => {
+                if (channel.id === messageChannelId) {
+                  return {
+                    ...channel,
+                    has_unread: 1,
+                    last_message_at: message.createdAt
+                  };
+                }
+                return channel;
+              })
+            };
+          });
+        }
+
+        const messageTimestamp = message.createdAt * 1000; // Convert to milliseconds
+        
+        // Check if this message already exists in our cache
+        const queryKey = ['channel-messages', messageChannelId];
+        const existingData = queryClient.getQueryData<Message[]>(queryKey);
+        
+        // Enhanced deduplication check - look for messages with same content and timestamp within a 5 second window
+        const messageExists = existingData?.some(m => {
+          const timeDiff = Math.abs(new Date(m.createdAt).getTime() - messageTimestamp);
+          return (
+            m.id === message.messageId || // Exact ID match
+            (m.content === message.content && // Or same content
+             m.userId === message.userId && // from same user
+             timeDiff < 5000) // within 5 seconds
+          );
+        });
+
+        if (!messageExists) {
+          queryClient.setQueryData<Message[]>(queryKey, (oldData = []) => {
+            // Convert the WebSocket message format to match our Message interface
+            const newMessage: Message = {
+              id: message.messageId,
+              content: message.content,
+              userId: message.userId,
+              channelId: messageChannelId,
+              createdAt: new Date(messageTimestamp).toISOString(),
+              created_at: message.createdAt,
+              threadId: message.threadId,
+              sender_name: message.sender_name,
+              avatar_url: message.avatar_url ?? null
+            };
+            
+            return [...oldData, newMessage];
+          });
+
+          // Update last_message_at in channels list
+          queryClient.setQueryData(['channels', workspace.id], (old: { channels: Channel[] } | undefined) => {
+            if (!old) return { channels: [] };
+            return {
+              channels: old.channels.map(channel => {
+                if (channel.id === messageChannelId) {
+                  return {
+                    ...channel,
+                    last_message_at: message.createdAt
+                  };
+                }
+                return channel;
+              })
+            };
+          });
+        }
+      }
+    },
+    [channelId, queryClient, workspace?.id, dataUpdatedAt, user?.id]
+  );
+
+  // Initialize the websocket with stable values
+  const { sendMessage: wsSend, isConnected } = useWebSocket({
+    workspaceId,
+    onMessage,
   });
 
   // Send a message (WebSocket only)

@@ -65,7 +65,13 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const dispatchMessage = useCallback((message: WebSocketMessage) => {
     const handlers = handlersRef.current.get(message.type);
-    handlers?.forEach(handler => {
+    if (!handlers) return;
+
+    // Create an array from the Set to avoid modification during iteration
+    const handlersArray = Array.from(handlers);
+    
+    // Call all handlers for all message types
+    handlersArray.forEach(handler => {
       try {
         handler(message);
       } catch (error) {
