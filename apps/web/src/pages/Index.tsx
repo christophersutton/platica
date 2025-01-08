@@ -1,4 +1,5 @@
 import { ChatInput, ChatMessage, Sidebar } from "@/components";
+import { cn } from "@/lib/utils";
 import { ScrollArea, Tabs, TabsList, TabsTrigger, TabsContent, Button } from "@/components/ui";
 import { MessageSquare, File, Users, Pin, Star, Bell, LogOut } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
