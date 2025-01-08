@@ -96,7 +96,7 @@ export function Sidebar() {
                     <div className="flex items-center justify-between w-full">
                       <span className="ml-0">{channel.name}</span>
                       {Boolean(channel.has_unread) && Number(channel.id) !== Number(channelId) && (
-                        <span className="h-2.5 w-2.5 rounded-full bg-white shrink-0" />
+                        <span className="font-bold text-white">•</span>
                       )}
                     </div>
                   )}
