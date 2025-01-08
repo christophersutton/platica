@@ -203,6 +203,45 @@ const Index = () => {
         </div>
 
         <div className="flex-1 overflow-hidden">
+          {activeTab === "members" && (
+            <div className="h-full flex flex-col">
+              <ScrollArea className="flex-1">
+                <div className="p-4 space-y-2">
+                  {users?.map((user) => (
+                    <div key={user.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-gray-50">
+                      <div className="relative">
+                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                          {user.avatar_url ? (
+                            <img 
+                              src={user.avatar_url} 
+                              alt={user.name || user.email}
+                              className="w-full h-full rounded-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-sm font-medium text-gray-600">
+                              {(user.name || user.email).slice(0, 2).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <div className={cn(
+                          "absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white",
+                          user.isOnline ? "bg-green-500" : "bg-gray-400"
+                        )} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {user.name || user.email}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {user.isOnline ? 'Online' : 'Offline'}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
           {activeTab === "messages" && (
             <div className="h-full flex flex-col">
               <ScrollArea ref={scrollAreaRef} className="flex-1">
