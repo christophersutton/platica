@@ -94,10 +94,12 @@ export function Sidebar() {
                   <Hash className="h-3.5 w-3.5 mr-0" />
                   {!isCollapsed && (
                     <div className="flex items-center justify-between w-full">
-                      <span className="ml-0">{channel.name}</span>
-                      {Boolean(channel.has_unread) && Number(channel.id) !== Number(channelId) && (
-                        <span className="font-bold text-white">•</span>
-                      )}
+                      <span className={cn(
+                        "ml-0",
+                        Boolean(channel.has_unread) && Number(channel.id) !== Number(channelId) && "font-bold text-white"
+                      )}>
+                        {channel.name}
+                      </span>
                     </div>
                   )}
                 </Button>
