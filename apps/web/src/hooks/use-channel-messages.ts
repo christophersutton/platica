@@ -103,7 +103,7 @@ export function useChannelMessages(channelId: number) {
           ...message,
           channelId: messageChannelId,
           messageId: message.messageId || Date.now(),
-          createdAt: message.createdAt || Math.floor(Date.now() / 1000),
+          createdAt: message.createdAt || new Date().toISOString(),
           sender_name: message.sender_name || 'Unknown'
         } as WebSocketChatMessage;
 
@@ -117,7 +117,9 @@ export function useChannelMessages(channelId: number) {
               content: chatMessage.content,
               userId: chatMessage.userId,
               channelId: chatMessage.channelId,
-              createdAt: new Date(chatMessage.createdAt * 1000).toISOString(),
+              createdAt: typeof chatMessage.createdAt === 'number' 
+                ? new Date(chatMessage.createdAt * 1000).toISOString()
+                : chatMessage.createdAt,
               threadId: chatMessage.threadId,
               sender_name: chatMessage.sender_name,
               avatar_url: chatMessage.avatar_url

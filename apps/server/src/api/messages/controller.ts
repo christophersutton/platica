@@ -3,6 +3,7 @@ import { Database } from 'bun:sqlite';
 import { BaseController, ApiError } from '../base-controller';
 import { MessageRepository } from '../../db/repositories/message-repository';
 import type { DatabaseProvider } from '../../db/repositories/base';
+import type { MessageCreateDTO } from '@platica/shared/types';
 
 interface CreateMessageBody {
   content: string;
@@ -43,10 +44,10 @@ export class MessageController extends BaseController {
         channel_id: channelId,
         sender_id: userId,
         content: body.content,
-        thread_id: body.thread_id ?? null,
+        thread_id: body.thread_id ?? undefined,
         deleted_at: null,
         is_edited: false
-      });
+      } satisfies MessageCreateDTO);
 
       // Return the created message with metadata
       const [message] = await this.messageRepo.getChannelMessages(channelId, undefined, 1);

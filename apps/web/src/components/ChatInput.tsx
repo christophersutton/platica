@@ -3,6 +3,7 @@ import { Bold, Italic, Link, Send } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useTypingIndicator } from "@/hooks/use-typing-indicator";
 import { useAuth } from "@/hooks/use-auth.ts";
+import { useWorkspaceUsers } from "@/hooks/use-workspace-users";
 
 interface ChatInputProps {
   channelId: number;
@@ -13,20 +14,11 @@ interface ChatInputProps {
 export function ChatInput({ channelId, onSendMessage, disabled }: ChatInputProps) {
   const [message, setMessage] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { typingUsers, sendTypingIndicator } = useTypingIndicator(channelId);
+  const { typingUsers, sendTypingIndicator, clearTypingIndicator } = useTypingIndicator(channelId);
   const { user } = useAuth();
+  const { users } = useWorkspaceUsers();
   const [typingMessage, setTypingMessage] = useState<string | null>(null);
-
-  // Debounce typing indicator
-  const debouncedSendTyping = useCallback(() => {
-    let timeout: number;
-    return () => {
-      clearTimeout(timeout);
-      timeout = window.setTimeout(() => {
-        sendTypingIndicator();
-      }, 500);
-    };
-  }, [sendTypingIndicator])();
+  const typingTimeoutRef = useRef<number>();
 
   // Handle typing indicator message
   useEffect(() => {
@@ -42,18 +34,24 @@ export function ChatInput({ channelId, onSendMessage, disabled }: ChatInputProps
       return;
     }
 
+    const typingNames = otherTypingUsers
+      .map(id => users.find(u => u.id === id)?.name || 'Someone')
+      .join(', ');
+
     if (otherTypingUsers.length === 1) {
-      setTypingMessage("Someone is typing...");
+      setTypingMessage(`${typingNames} is typing...`);
     } else {
-      setTypingMessage("Several people are typing...");
+      setTypingMessage(`${typingNames} are typing...`);
     }
-  }, [typingUsers, user]);
+  }, [typingUsers, user, users]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim() && !disabled) {
       onSendMessage(message.trim());
       setMessage("");
+      clearTypingIndicator();
+      window.clearTimeout(typingTimeoutRef.current);
     }
   };
 
@@ -65,8 +63,24 @@ export function ChatInput({ channelId, onSendMessage, disabled }: ChatInputProps
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setMessage(e.target.value);
-    debouncedSendTyping();
+    const newMessage = e.target.value;
+    setMessage(newMessage);
+    
+    // Clear any existing timeout
+    window.clearTimeout(typingTimeoutRef.current);
+    
+    // Only send typing indicator if there is actual content
+    if (newMessage.trim()) {
+      // Send typing indicator immediately
+      sendTypingIndicator();
+      
+      // Set a timeout to clear the typing indicator after 2 seconds of no typing
+      typingTimeoutRef.current = window.setTimeout(() => {
+        clearTypingIndicator();
+      }, 2000);
+    } else {
+      clearTypingIndicator();
+    }
     
     // Auto-resize textarea
     if (textareaRef.current) {
@@ -74,6 +88,26 @@ export function ChatInput({ channelId, onSendMessage, disabled }: ChatInputProps
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
   };
+
+  // Handle focus/blur events
+  const handleFocus = () => {
+    // Don't send typing indicator on focus
+    // Only send when user actually types something
+  };
+
+  const handleBlur = () => {
+    // Clear typing indicator when field loses focus
+    clearTypingIndicator();
+    window.clearTimeout(typingTimeoutRef.current);
+  };
+
+  // Clean up timeout on unmount
+  useEffect(() => {
+    return () => {
+      window.clearTimeout(typingTimeoutRef.current);
+      clearTypingIndicator();
+    };
+  }, [clearTypingIndicator]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -96,6 +130,8 @@ export function ChatInput({ channelId, onSendMessage, disabled }: ChatInputProps
             value={message}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
             placeholder="Message #general"
             className="w-full resize-none rounded-lg border border-gray-300 p-3 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
             rows={2}

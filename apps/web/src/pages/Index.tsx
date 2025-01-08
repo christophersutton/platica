@@ -4,9 +4,18 @@ import { MessageSquare, File, Users, Pin, Star, Bell, LogOut } from "lucide-reac
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { useChannelMessages, useChannels, useTypingIndicator, useAuth, useWorkspace } from "@/hooks";
+import { useChannelMessages, useChannels, useTypingIndicator, useAuth, useWorkspace, useWorkspaceUsers } from "@/hooks";
 import { usePresence } from "@/hooks/use-presence";
 import { api, type Channel } from "@/lib/api";
+
+interface WorkspaceUser {
+  id: number;
+  name: string;
+  email: string;
+  avatar_url: string | null;
+  role: string;
+  isOnline: boolean;
+}
 
 const Index = () => {
   const { workspaceId = "1", channelId } = useParams();
@@ -20,6 +29,7 @@ const Index = () => {
   const { user, logout } = useAuth();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const { users } = useWorkspaceUsers();
   
   // Initialize presence tracking at the top level
   usePresence();
@@ -31,8 +41,6 @@ const Index = () => {
     sendMessage,
     isSending
   } = useChannelMessages(currentChannelId || 0);
-
-  const { typingUsers } = useTypingIndicator(currentChannelId || 0);
 
   const handleSendMessage = (content: string) => {
     if (currentChannel) {
@@ -210,17 +218,6 @@ const Index = () => {
                           sender={msg.sender_name}
                           timestamp={new Date(msg.created_at * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                           avatar={msg.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${msg.sender_name}`}
-                        />
-                      ))}
-                      {typingUsers.filter(id => id !== user?.id).map((userId) => (
-                        <ChatMessage
-                          key={`typing-${userId}`}
-                          id={-userId}
-                          message=""
-                          sender="Someone"
-                          timestamp=""
-                          avatar={`https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`}
-                          isTyping={true}
                         />
                       ))}
                     </>

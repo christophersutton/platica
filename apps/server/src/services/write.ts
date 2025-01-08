@@ -3,6 +3,7 @@ import { DatabaseService } from '../db/core/database';
 import { WebSocketService } from './websockets';
 import type { MessageCreateDTO } from '../db/repositories/message-repository';
 import type { Message } from '@platica/shared/types';
+import { WSEventType, type ChatMessage } from '@platica/shared/src/websocket';
 
 interface MessageData {
   type: 'message';
@@ -54,32 +55,16 @@ export default class WriteService {
       asDate: new Date(createdAt * 1000).toISOString()
     });
 
-    const broadcastMessage = {
-      type: 'chat',
+    const broadcastMessage: ChatMessage = {
+      type: WSEventType.CHAT,
       channelId: data.channel_id,
       content: data.content,
       userId: data.sender_id,
-      messageId: createdMessage.id,
+      messageId: messageWithMeta.id,
       createdAt,
-      threadId: data.thread_id ?? null,
       sender_name: messageWithMeta.sender_name,
       avatar_url: messageWithMeta.avatar_url
     };
-
-    console.log('[WriteService] Broadcasting message:', {
-      ...broadcastMessage,
-      propertyTypes: {
-        type: typeof broadcastMessage.type,
-        channelId: typeof broadcastMessage.channelId,
-        content: typeof broadcastMessage.content,
-        userId: typeof broadcastMessage.userId,
-        messageId: typeof broadcastMessage.messageId,
-        createdAt: typeof broadcastMessage.createdAt,
-        threadId: typeof broadcastMessage.threadId,
-        sender_name: typeof broadcastMessage.sender_name,
-        avatar_url: typeof broadcastMessage.avatar_url
-      }
-    });
 
     // Broadcast to all clients in the workspace
     this.wsService.broadcastToWorkspace(data.workspace_id, broadcastMessage);

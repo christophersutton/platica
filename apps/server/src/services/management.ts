@@ -1,11 +1,11 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { Database } from 'bun:sqlite';
-import { DatabaseService } from '../db/database';
+import { DatabaseService } from '../db/core/database';
 import type { Context } from 'hono';
 import type { User, UserRole } from '@platica/shared/types';
 import { AuthMiddleware } from '../middleware/auth';
-import { ChannelRepository } from '../db/channel-repository';
+import { ChannelRepository } from '../db/repositories/channel-repository';
 
 type Variables = {
   user: Pick<User, 'id' | 'email'> & { userId: number };
@@ -23,8 +23,8 @@ export class ManagementService {
     // Use the singleton write instance
     const dbService = DatabaseService.getWriteInstance();
     this.db = dbService.db;
-    this.auth = new AuthMiddleware(dbService);
-    this.channelRepo = new ChannelRepository(dbService);
+    this.auth = new AuthMiddleware(dbService.db);
+    this.channelRepo = new ChannelRepository(dbService.db);
     this.setupMiddleware();
     this.setupRoutes();
   }
@@ -48,12 +48,14 @@ export class ManagementService {
 
       const { name, description, is_private } = await c.req.json();
       
-      const channel = this.channelRepo.createChannel({
-        workspaceId,
+      const channel = await this.channelRepo.create({
+        workspace_id: workspaceId,
         name,
         description,
-        isPrivate: is_private,
-        createdBy: userId
+        is_private: is_private || false,
+        is_archived: false,
+        created_by: userId,
+        settings: {}
       });
 
       return c.json(channel);
@@ -111,7 +113,7 @@ export class ManagementService {
       `).get(channelId, workspaceId) as { is_private: boolean };
 
       if (channel?.is_private) {
-        const isMember = this.channelRepo.hasChannelAccess(channelId, inviterId);
+        const isMember = await this.channelRepo.canAccess(channelId, inviterId);
         if (!isMember) {
           return c.json({ error: 'Only channel members can invite to private channels' }, 403);
         }
@@ -120,36 +122,35 @@ export class ManagementService {
       const { user_ids } = await c.req.json();
       const invites: any[] = [];
 
-      this.db.transaction(() => {
-        for (const inviteeId of user_ids) {
-          // Check if user is in workspace
-          const isWorkspaceMember = this.db.prepare(`
-            SELECT 1 FROM workspace_users 
-            WHERE workspace_id = ? AND user_id = ?
-          `).get(workspaceId, inviteeId);
+      // Then check each invitee
+      for (const inviteeId of user_ids) {
+        // Check if user is in workspace
+        const isWorkspaceMember = this.db.prepare(`
+          SELECT 1 FROM workspace_users 
+          WHERE workspace_id = ? AND user_id = ?
+        `).get(workspaceId, inviteeId);
 
-          if (!isWorkspaceMember) continue;
+        if (!isWorkspaceMember) continue;
 
-          // Check if already a member
-          const isChannelMember = this.channelRepo.hasChannelAccess(channelId, inviteeId);
-          if (isChannelMember) continue;
+        // Check if already a member
+        const isChannelMember = await this.channelRepo.canAccess(channelId, inviteeId);
+        if (isChannelMember) continue;
 
-          // Create invite
-          const result = this.db.prepare(`
-            INSERT INTO channel_invites (
-              channel_id, inviter_id, invitee_id, status, created_at, updated_at
-            ) VALUES (?, ?, ?, 'pending', unixepoch(), unixepoch())
-          `).run(channelId, inviterId, inviteeId);
+        // Create invite
+        const result = this.db.prepare(`
+          INSERT INTO channel_invites (
+            channel_id, inviter_id, invitee_id, status, created_at, updated_at
+          ) VALUES (?, ?, ?, 'pending', unixepoch(), unixepoch())
+        `).run(channelId, inviterId, inviteeId);
 
-          invites.push({
-            id: result.lastInsertRowid,
-            channel_id: channelId,
-            inviter_id: inviterId,
-            invitee_id: inviteeId,
-            status: 'pending'
-          });
-        }
-      })();
+        invites.push({
+          id: result.lastInsertRowid,
+          channel_id: channelId,
+          inviter_id: inviterId,
+          invitee_id: inviteeId,
+          status: 'pending'
+        });
+      }
 
       return c.json({ invites });
     });

@@ -6,6 +6,7 @@ import type { DatabaseProvider } from '../../db/repositories/base';
 import type { Channel, ChannelCreateDTO } from '@platica/shared/types';
 import type { Variables } from '../../middleware/auth';
 import { WebSocketService } from '../../services/websockets';
+import { WSEventType } from '@platica/shared/src/websocket';
 
 interface CreateChannelBody {
   name: string;
@@ -65,7 +66,7 @@ export class ChannelController extends BaseController {
       
       // Broadcast member joined event
       this.wsService.broadcastToWorkspace(channel.workspace_id, {
-        type: 'member_joined',
+        type: WSEventType.MEMBER_JOINED,
         channelId,
         userId,
         role: 'member'
@@ -103,7 +104,7 @@ export class ChannelController extends BaseController {
             
             // Broadcast member joined event
             this.wsService.broadcastToWorkspace(channel.workspace_id, {
-              type: 'member_joined',
+              type: WSEventType.MEMBER_JOINED,
               channelId,
               userId,
               role: 'member'
@@ -157,8 +158,13 @@ export class ChannelController extends BaseController {
 
       // Broadcast new channel to all workspace members
       this.wsService.broadcastToWorkspace(workspaceId, {
-        type: 'channel_created',
-        channel
+        type: WSEventType.CHANNEL_CREATED,
+        channelId: channel.id,
+        workspaceId: channel.workspace_id,
+        name: channel.name,
+        description: channel.description,
+        isPrivate: channel.is_private,
+        createdBy: channel.created_by
       });
 
       return { channel };

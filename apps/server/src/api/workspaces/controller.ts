@@ -2,10 +2,7 @@ import type { Context } from 'hono';
 import { BaseController, ApiError } from '../base-controller';
 import type { DatabaseProvider } from '../../db/repositories/base';
 import { WorkspaceRepository } from '../../db/repositories/workspace-repository';
-import { UserRole, type NotificationPreferences } from '@platica/shared/types';
-import type { Workspace } from '@platica/shared';
-
-type WorkspaceCreateDTO = Omit<Workspace, 'id' | 'created_at' | 'updated_at'>;
+import { UserRole, type NotificationPreferences, type Workspace, type WorkspaceCreateDTO } from '@platica/shared/types';
 
 interface CreateWorkspaceBody {
   name: string;
@@ -77,7 +74,6 @@ export class WorkspaceController extends BaseController {
         name: body.name,
         slug,
         owner_id: userId,
-        icon_url: body.icon_url || null,
         settings: body.settings || {}
       });
 

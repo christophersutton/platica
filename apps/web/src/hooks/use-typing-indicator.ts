@@ -1,6 +1,7 @@
 import { useCallback, useState, useEffect } from 'react';
 import { useWebSocket } from './use-websocket';
 import { useWorkspace } from './use-workspace';
+import { WSEventType, type TypingMessage } from '@platica/shared/src/websocket';
 
 interface TypingUser {
   userId: number;
@@ -18,32 +19,46 @@ export function useTypingIndicator(channelId: number) {
         setTypingUsers(prev => {
           // Remove existing entry for this user if it exists
           const filtered = prev.filter(u => u.userId !== userId);
-          // Add new entry
+          // Only add new entry if user is typing
           return [...filtered, { userId, timestamp: Date.now() }];
         });
       }
     },
   });
 
-  // Clean up typing indicators after 3 seconds
+  // Clean up typing indicators after 2 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
-      setTypingUsers(prev => prev.filter(user => now - user.timestamp < 3000));
-    }, 1000);
+      setTypingUsers(prev => prev.filter(user => now - user.timestamp < 2000));
+    }, 500);
 
     return () => clearInterval(interval);
   }, []);
+
   const sendTypingIndicator = useCallback(() => {
-    sendMessage({
-      type: 'typing',
+    const message: TypingMessage = {
+      type: WSEventType.TYPING,
       channelId,
-      userId: workspace?.id ?? 0
-    });
+      userId: workspace?.id ?? 0,
+      isTyping: true
+    };
+    sendMessage(message);
+  }, [sendMessage, channelId, workspace?.id]);
+
+  const clearTypingIndicator = useCallback(() => {
+    const message: TypingMessage = {
+      type: WSEventType.TYPING,
+      channelId,
+      userId: workspace?.id ?? 0,
+      isTyping: false
+    };
+    sendMessage(message);
   }, [sendMessage, channelId, workspace?.id]);
 
   return {
     sendTypingIndicator,
+    clearTypingIndicator,
     typingUsers: typingUsers.map(u => u.userId)
   };
 } 

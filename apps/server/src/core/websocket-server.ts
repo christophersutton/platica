@@ -5,6 +5,7 @@ import { DatabaseService } from '../db/core/database';
 import WriteService from '../services/write';
 import { WebSocketService } from '../services/websockets';
 import { WebSocketRateLimiter } from '../middleware/websocket-rate-limiter';
+import { WSEventType, type WebSocketMessage, type ChatMessage } from '@platica/shared/src/websocket';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -94,6 +95,32 @@ export function startWebSocketServer(port: number) {
                   SELECT id, name FROM workspaces WHERE id = ?
                 `).get(ws.data.workspaceId);
 
+                // Add user metadata lookup
+                const getUserMetadata = dbService.db.prepare(`
+                  SELECT name as sender_name, avatar_url
+                  FROM users
+                  WHERE id = ?
+                `);
+
+                // Format message with metadata
+                const formatMessage = (message: Partial<ChatMessage>): ChatMessage => {
+                  const userMetadata = message.userId !== undefined 
+                    ? getUserMetadata.get(message.userId) as { sender_name: string; avatar_url: string | null } | undefined
+                    : undefined;
+                  
+                  return {
+                    type: WSEventType.CHAT,
+                    channelId: message.channelId ?? 0,
+                    userId: message.userId ?? 0,
+                    messageId: message.messageId ?? 0,
+                    content: message.content ?? '',
+                    sender_name: userMetadata?.sender_name || 'Unknown',
+                    avatar_url: userMetadata?.avatar_url ?? null,
+                    createdAt: Math.floor(Date.now() / 1000),
+                    threadId: message.threadId
+                  };
+                };
+
                 console.log('Workspace check:', {
                   workspaceId: ws.data.workspaceId,
                   found: !!workspace,
@@ -165,11 +192,41 @@ export function startWebSocketServer(port: number) {
           
           switch (data.type) {
             case 'typing':
-              wsService.handleTypingIndicator(ws.data.workspaceId, ws.data.userId);
+              wsService.handleTypingIndicator(ws, {
+                type: WSEventType.TYPING,
+                channelId: data.channelId,
+                userId: ws.data.userId,
+                isTyping: true
+              });
               break;
               
             case 'chat':
               console.log('[WebSocket Server] Received chat message:', data);
+              
+              // Get user metadata for the message
+              const userMetadata = dbService.db.prepare(`
+                SELECT name as sender_name, avatar_url
+                FROM users
+                WHERE id = ?
+              `).get(ws.data.userId) as { sender_name: string; avatar_url: string | null } | undefined;
+
+              // Format the message with metadata
+              const formattedMessage: ChatMessage = {
+                type: WSEventType.CHAT,
+                channelId: data.channelId,
+                userId: ws.data.userId,
+                messageId: Date.now(),
+                content: data.content,
+                sender_name: userMetadata?.sender_name || 'Unknown',
+                avatar_url: userMetadata?.avatar_url ?? null,
+                createdAt: Math.floor(Date.now() / 1000),
+                threadId: data.threadId
+              };
+
+              // Handle the formatted message through the WebSocket service
+              await wsService.handleMessage(ws, JSON.stringify(formattedMessage));
+
+              // Also save to database
               await writeService.handleMessage({
                 type: 'message',
                 workspace_id: ws.data.workspaceId,
@@ -177,6 +234,7 @@ export function startWebSocketServer(port: number) {
                 sender_id: ws.data.userId,
                 content: data.content
               });
+              
               console.log('[WebSocket Server] Processed chat message');
               break;
 

@@ -1,5 +1,6 @@
 import type { ServerWebSocket } from 'bun';
 import type { UnixTimestamp } from '@platica/shared/types';
+import { WSEventType, type WebSocketMessage, type ChatMessage, type TypingMessage, validateMessage } from '@platica/shared/src/websocket';
 import { getCurrentUnixTimestamp } from '../utils/time';
 
 interface WebSocketData {
@@ -14,15 +15,27 @@ interface Client {
   lastActivity: UnixTimestamp;
 }
 
+type MessageHandler<T extends WebSocketMessage = WebSocketMessage> = (ws: ServerWebSocket<WebSocketData>, message: T) => Promise<void>;
+
 export class WebSocketService {
   private static instance: WebSocketService;
   private clients: Map<ServerWebSocket<WebSocketData>, Client> = new Map();
   private typingTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private lastPresenceBroadcast: Map<string, number> = new Map();
+  private messageHandlers: Map<WSEventType, MessageHandler> = new Map();
 
   private constructor() {
     // Clean up inactive clients periodically
     setInterval(() => this.cleanupInactiveClients(), 60000);
+    
+    // Initialize message handlers
+    this.initializeMessageHandlers();
+  }
+
+  private initializeMessageHandlers() {
+    this.messageHandlers.set(WSEventType.CHAT, (ws, message) => this.handleChat(ws, message as ChatMessage));
+    this.messageHandlers.set(WSEventType.TYPING, (ws, message) => this.handleTypingIndicator(ws, message as TypingMessage));
+    // Add more handlers as needed
   }
 
   public static getInstance(): WebSocketService {
@@ -59,7 +72,7 @@ export class WebSocketService {
     // Broadcast initial presence state to the new client
     const onlineUsers = this.getOnlineUsersInWorkspace(workspaceId);
     ws.send(JSON.stringify({
-      type: 'presence_sync',
+      type: WSEventType.PRESENCE_SYNC,
       onlineUsers
     }));
 
@@ -96,8 +109,70 @@ export class WebSocketService {
     }
   }
 
-  public handleTypingIndicator(workspaceId: number, userId: number) {
-    const key = `${workspaceId}:${userId}`;
+  public async handleMessage(ws: ServerWebSocket<WebSocketData>, rawMessage: string) {
+    try {
+      const message = JSON.parse(rawMessage);
+      
+      if (!validateMessage(message)) {
+        console.error('Invalid message format:', message);
+        ws.send(JSON.stringify({
+          type: WSEventType.ERROR,
+          message: 'Invalid message format'
+        }));
+        return;
+      }
+
+      // Update last activity
+      this.updateLastActivity(ws);
+
+      // Get the appropriate handler for this message type
+      const handler = this.messageHandlers.get(message.type);
+      if (handler) {
+        try {
+          await handler(ws, message);
+        } catch (error) {
+          console.error(`Error handling message type ${message.type}:`, error);
+          ws.send(JSON.stringify({
+            type: WSEventType.ERROR,
+            message: 'Internal server error'
+          }));
+        }
+      } else {
+        console.warn('No handler for message type:', message.type);
+        ws.send(JSON.stringify({
+          type: WSEventType.ERROR,
+          message: `Unsupported message type: ${message.type}`
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to parse message:', error);
+      ws.send(JSON.stringify({
+        type: WSEventType.ERROR,
+        message: 'Invalid message format'
+      }));
+    }
+  }
+
+  private async handleChat(ws: ServerWebSocket<WebSocketData>, message: ChatMessage) {
+    const client = this.clients.get(ws);
+    if (!client) {
+      throw new Error('Client not found');
+    }
+
+    // Validate the message
+    if (!message.content.trim()) {
+      throw new Error('Message content cannot be empty');
+    }
+
+    // Broadcast to workspace (use message as-is since it's already formatted)
+    this.broadcastToWorkspace(client.workspaceId, message);
+  }
+
+  public async handleTypingIndicator(ws: ServerWebSocket<WebSocketData>, message: TypingMessage) {
+    const client = this.clients.get(ws);
+    if (!client) return;
+
+    const key = `${client.workspaceId}:${client.userId}`;
     
     // Clear existing timeout
     if (this.typingTimeouts.has(key)) {
@@ -107,47 +182,59 @@ export class WebSocketService {
     // Set timeout to clear typing status after 3 seconds
     this.typingTimeouts.set(key, setTimeout(() => {
       this.typingTimeouts.delete(key);
+      // Broadcast typing stopped
+      this.broadcastToWorkspace(client.workspaceId, {
+        type: WSEventType.TYPING,
+        userId: client.userId,
+        channelId: message.channelId,
+        isTyping: false
+      });
     }, 3000));
+
+    // Broadcast typing started
+    this.broadcastToWorkspace(client.workspaceId, {
+      type: WSEventType.TYPING,
+      userId: client.userId,
+      channelId: message.channelId,
+      isTyping: true
+    });
   }
 
   public broadcastPresence(workspaceId: number, userId: number, status: 'online' | 'offline') {
     this.broadcastToWorkspace(workspaceId, {
-      type: 'presence',
+      type: WSEventType.PRESENCE,
       userId,
       status
     });
   }
 
-  public broadcastToWorkspace(workspaceId: number, data: any) {
-    console.log('[WebSocketService] Broadcasting to workspace:', {
-      workspaceId,
-      messageData: data,
-      propertyTypes: Object.entries(data).reduce((acc, [key, value]) => ({
-        ...acc,
-        [key]: typeof value
-      }), {})
-    });
-
-    const message = JSON.stringify(data);
-    console.log('[WebSocketService] Stringified message:', message);
-
-    let clientCount = 0;
+  public broadcastToWorkspace(workspaceId: number, message: WebSocketMessage) {
     for (const [ws, client] of this.clients.entries()) {
       if (client.workspaceId === workspaceId) {
-        clientCount++;
-        ws.send(message);
+        ws.send(JSON.stringify(message));
       }
     }
-    console.log(`[WebSocketService] Message sent to ${clientCount} clients`);
   }
 
   private cleanupInactiveClients() {
     const now = getCurrentUnixTimestamp();
     for (const [ws, client] of this.clients.entries()) {
       if (now - client.lastActivity > 300) { // 5 minutes
-        ws.close(1000, 'Inactive');
+        try {
+          ws.close(1000, 'Inactive');
+        } catch (error) {
+          console.error('Error closing inactive connection:', error);
+        }
         this.clients.delete(ws);
       }
     }
   }
+
+  private updateLastActivity(ws: ServerWebSocket<WebSocketData>) {
+    const client = this.clients.get(ws);
+    if (client) {
+      client.lastActivity = getCurrentUnixTimestamp();
+    }
+  }
 }
+
