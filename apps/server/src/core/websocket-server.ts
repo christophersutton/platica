@@ -236,23 +236,11 @@ export function startWebSocketServer(port: number) {
               });
               break;
 
-            case "chat":
+            case "chat": {
               console.log("[WebSocket Server] Received chat message:", data);
 
               // Get user metadata for the message
-              const userMetadata = dbService.db
-                .prepare(
-                  `
-                SELECT name as sender_name, avatar_url
-                FROM users
-                WHERE id = ?
-              `
-                )
-                .get(ws.data.userId) as
-                | { sender_name: string; avatar_url: string | null }
-                | undefined;
-
-              // Format the message with metadata
+              
               const formattedMessage: OutgoingChatEvent = {
                 type: WSEventType.CHAT,
                 payload: {
@@ -263,7 +251,6 @@ export function startWebSocketServer(port: number) {
                 },
               };
 
-              // Handle the formatted message through the WebSocket service
               await wsService.handleMessage(
                 ws,
                 JSON.stringify(formattedMessage)
@@ -280,6 +267,7 @@ export function startWebSocketServer(port: number) {
 
               console.log("[WebSocket Server] Processed chat message");
               break;
+            }
 
             default:
               console.warn(`Unknown message type: ${data.type}`);

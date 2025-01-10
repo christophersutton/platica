@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { useAppContext } from "@/contexts/AppContext";
+// import { useAppContext } from "@/contexts/AppContext";
 
 export function CreateChannelModal() {
   const [channelName, setChannelName] = useState("");
@@ -13,7 +13,7 @@ export function CreateChannelModal() {
   const [isCreating, setIsCreating] = useState(false);
   const { workspaceId = "1" } = useParams();
   const navigate = useNavigate();
-  const { createChannel } = useAppContext();
+  // const { createChannel } = useAppContext();
   const { toast } = useToast();
 
   const handleCreateChannel = async () => {
@@ -21,10 +21,10 @@ export function CreateChannelModal() {
     
     setIsCreating(true);
     try {
-      await createChannel(Number(workspaceId), { 
-        name: channelName.toLowerCase(),
-        is_private: false
-      });
+      // await createChannel(Number(workspaceId), { 
+      //   name: channelName.toLowerCase(),
+      //   is_private: false
+      // });
       
       setChannelName("");
       setIsOpen(false);

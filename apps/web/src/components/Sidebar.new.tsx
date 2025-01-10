@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { CreateChannelModal } from "./CreateChannelModal";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
-import { useAppContext } from "@/contexts/AppContext";
+// import { useAppContext } from "@/contexts/AppContext";
 import { useChannels } from "@/contexts/channel/ChannelContext";
 import type { Channel } from '@models/channel';
 
@@ -20,18 +20,18 @@ export function Sidebar() {
   const { workspaceId = "1", channelId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { state } = useAppContext();
+  // const { state } = useAppContext();
   
   // Use new channel context
   const { channels, isLoadingChannels } = useChannels();
 
-  // Filter out current user from presence list for DMs (still from AppContext for now)
-  const onlineUsers: PresenceUser[] = Object.entries(state.presenceMap)
-    .filter(([id]) => Number(id) !== user?.id)
-    .map(([id, presence]) => ({
-      id: Number(id),
-      isOnline: presence.status === 'online'
-    }));
+  // // Filter out current user from presence list for DMs (still from AppContext for now)
+  // const onlineUsers: PresenceUser[] = Object.entries(state.presenceMap)
+  //   .filter(([id]) => Number(id) !== user?.id)
+  //   .map(([id, presence]) => ({
+  //     id: Number(id),
+  //     isOnline: presence.status === 'online'
+  //   }));
 
   return (
     <div 
@@ -53,7 +53,7 @@ export function Sidebar() {
             <ChevronLeft className="h-4 w-4" />
           ) : (
             <>
-              {state.workspace?.name || 'Workspace'}
+              {/* {state.workspace?.name || 'Workspace'} */}
               <ChevronDown className="h-3 w-3" />
             </>
           )}
@@ -92,7 +92,7 @@ export function Sidebar() {
                     <div className="flex items-center justify-between w-full">
                       <span className={cn(
                         "ml-0",
-                        Boolean(channel.has_unread) && Number(channel.id) !== Number(channelId) && "font-bold text-white",
+                        // Boolean(channel.has_unread) && Number(channel.id) !== Number(channelId) && "font-bold text-white",
                         Number(channelId) === channel.id && "font-normal"
                       )}>
                         {channel.name}
@@ -117,24 +117,26 @@ export function Sidebar() {
                   className="h-7 mb-0.5 px-1.5 animate-pulse bg-slack-purple-dark/50 rounded"
                 />
               ))
-            ) : onlineUsers.map((u) => (
-              <Button
-                key={u.id}
-                variant="ghost"
-                className={cn(
-                  "w-full justify-start text-gray-300 hover:text-white hover:font-semibold mb-0.5 py-1 px-1.5 h-7 text-base relative overflow-hidden",
-                  "transition-colors duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
-                  isCollapsed && "px-1.5",
-                  "hover:bg-slack-purple-dark/50"
-                )}
-              >
-                <div className={cn(
-                  "h-2 w-2 rounded-full mr-0",
-                  u.isOnline ? "bg-slack-green" : "bg-gray-400"
-                )} />
-                {!isCollapsed && <span className="ml-0">{u.id}</span>}
-              </Button>
-            ))}
+            ) : null }
+
+             {/* onlineUsers.map((u) => (
+            /   <Button
+            //     key={u.id}
+            //     variant="ghost"
+            //     className={cn(
+            //       "w-full justify-start text-gray-300 hover:text-white hover:font-semibold mb-0.5 py-1 px-1.5 h-7 text-base relative overflow-hidden",
+            //       "transition-colors duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
+            //       isCollapsed && "px-1.5",
+            //       "hover:bg-slack-purple-dark/50"
+            //     )}
+            //   >
+            //     <div className={cn(
+            //       "h-2 w-2 rounded-full mr-0",
+            //       u.isOnline ? "bg-slack-green" : "bg-gray-400"
+            //     )} />
+            //     {!isCollapsed && <span className="ml-0">{u.id}</span>}
+            //   </Button>
+            // ))} */}
           </div>
         </div>
       </ScrollArea>

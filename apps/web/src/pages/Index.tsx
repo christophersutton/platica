@@ -8,7 +8,7 @@ import {
   Button,
 } from "@/components/ui";
 import { MessageSquare, File, Users, Pin, LogOut } from "lucide-react";
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -34,8 +34,6 @@ const Index = () => {
   const {
     state: workspaceState,
     loadWorkspace,
-    clearWorkspace,
-    updateWorkspace,
   } = useWorkspace();
   const {
     channels,
@@ -58,25 +56,7 @@ const Index = () => {
   const currentChannelId = channelId ? Number(channelId) : 0;
   const currentChannel = channelsById[currentChannelId];
   const currentMessages = getChannelMessages(currentChannelId);
-
   const currentTypingUsers = typingUsers(currentChannelId);
-
-  // Only load the workspace
-  useEffect(() => {
-    const workspaceNum = Number(workspaceId);
-    if (
-      workspaceNum &&
-      !workspaceState.workspace &&
-      !workspaceState.isLoadingWorkspace
-    ) {
-      loadWorkspace(workspaceNum);
-    }
-  }, [
-    workspaceId,
-    workspaceState.workspace,
-    workspaceState.isLoadingWorkspace,
-    loadWorkspace,
-  ]);
 
   // Once the workspace is ready, load channels
   useEffect(() => {
@@ -94,6 +74,23 @@ const Index = () => {
     channels,
     isLoadingChannels,
     loadChannels,
+  ]);
+
+  // Only load the workspace (if not already loaded)
+  useEffect(() => {
+    const workspaceNum = Number(workspaceId);
+    if (
+      workspaceNum &&
+      !workspaceState.workspace &&
+      !workspaceState.isLoadingWorkspace
+    ) {
+      loadWorkspace(workspaceNum);
+    }
+  }, [
+    workspaceId,
+    workspaceState.workspace,
+    workspaceState.isLoadingWorkspace,
+    loadWorkspace,
   ]);
 
   // Once the channel is selected, load messages
@@ -114,7 +111,7 @@ const Index = () => {
     setActiveChannel,
   ]);
 
-  // Separate effect just for navigation
+  // Navigate to first channel if none specified
   useEffect(() => {
     if (!channelId && !isLoadingChannels && channels.length > 0) {
       navigate(`/w/${workspaceId}/c/${channels[0].id}`);
@@ -147,7 +144,7 @@ const Index = () => {
         "[data-radix-scroll-area-viewport]"
       ) as HTMLElement;
       if (container) {
-        // If we’re newly arriving at a channel, auto-scroll to bottom
+        // If newly arriving at a channel, auto-scroll to bottom
         if (isAtBottom) {
           container.scrollTop = container.scrollHeight;
         }
@@ -164,7 +161,7 @@ const Index = () => {
     }
   }, [isAtBottom, currentChannelId, markChannelAsRead]);
 
-  // Show loading
+  // Show workspace loading
   if (workspaceState.isLoadingWorkspace) {
     return (
       <div className="h-screen flex items-center justify-center">
@@ -173,7 +170,7 @@ const Index = () => {
     );
   }
 
-  // Show error
+  // Show workspace error
   if (!workspaceState.workspace || workspaceState.workspaceError) {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-4">

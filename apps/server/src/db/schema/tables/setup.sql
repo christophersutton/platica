@@ -143,6 +143,7 @@ CREATE TABLE messages (
     content TEXT NOT NULL,
     type TEXT,                    -- Message type enum
     is_edited BOOLEAN NOT NULL DEFAULT false,
+    attachments TEXT,
     edited_at INTEGER,
     deleted_at INTEGER,           -- Soft delete
     created_at INTEGER NOT NULL,

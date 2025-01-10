@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useCallback } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "../AuthContext";
 import { api } from "@/lib/api";
 import type { ApiWorkspace, UiWorkspace } from "@models/workspace";
 
@@ -22,7 +22,10 @@ const initialState: WorkspaceState = {
   workspaceError: null,
 };
 
-function workspaceReducer(state: WorkspaceState, action: WorkspaceAction): WorkspaceState {
+function workspaceReducer(
+  state: WorkspaceState,
+  action: WorkspaceAction
+): WorkspaceState {
   switch (action.type) {
     case "SET_WORKSPACE_LOADING":
       return {
@@ -75,7 +78,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       if (!token || isAuthLoading) return;
       dispatch({ type: "SET_WORKSPACE_LOADING" });
       try {
-        const workspace = (await api.workspaces.get(workspaceId)) as ApiWorkspace;
+        const workspace = (await api.workspaces.get(
+          workspaceId
+        )) as ApiWorkspace;
         const uiWorkspace: UiWorkspace = {
           ...workspace,
           unreadCount: 0,

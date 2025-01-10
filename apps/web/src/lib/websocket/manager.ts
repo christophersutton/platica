@@ -25,7 +25,7 @@ export class WebSocketManager {
   private config: WebSocketConfig | null = null;
   private messageQueue: MessageQueueItem[] = [];
   private queueProcessorInterval: number | null = null;
-  private debug: boolean = false;
+  private debug = false;
 
   private messageHandlers: MessageHandlerMap = {
     [WSEventType.AUTH]: new Set(),
@@ -55,7 +55,7 @@ export class WebSocketManager {
 
   private log(...args: unknown[]) {
     if (this.debug) {
-      console.log("[WebSocket]", ...args);
+      console.log("[WebSocketManager]", ...args);
     }
   }
 
@@ -75,7 +75,7 @@ export class WebSocketManager {
       if (handlers?.size) {
         handlers.forEach((handler) => {
           try {
-            (handler as (msg: WebSocketEvent) => void)(message);
+            (handler as (event: WebSocketEvent) => void)(message);
           } catch (err) {
             this.log("Error in message handler:", err);
           }
@@ -94,11 +94,10 @@ export class WebSocketManager {
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const host = window.location.hostname;
-    const port = "3001";
+    const port = "3001"; // Adjust as needed
     const wsUrl = `${protocol}//${host}:${port}?workspace_id=${config.workspaceId}&user_id=${config.userId}`;
-    
-    this.log("Connecting to", wsUrl);
 
+    this.log("Connecting to", wsUrl);
     try {
       this.ws = new WebSocket(wsUrl);
 
@@ -123,6 +122,7 @@ export class WebSocketManager {
         this.ws = null;
         this.updateStatus("disconnected");
 
+        // Attempt reconnect unless normal closure
         if (event.code !== 1000 && event.code !== 1001) {
           this.scheduleReconnect();
         }
@@ -142,10 +142,7 @@ export class WebSocketManager {
     if (!this.config || this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
       return;
     }
-    const backoff = Math.min(
-      1000 * Math.pow(2, this.reconnectAttempts),
-      30000
-    );
+    const backoff = Math.min(1000 * 2 ** this.reconnectAttempts, 30000);
     this.reconnectTimeout = window.setTimeout(() => {
       this.reconnectAttempts++;
       if (this.config) {
@@ -162,25 +159,25 @@ export class WebSocketManager {
   }
 
   private processQueue() {
-    if (!this.messageQueue.length || this.ws?.readyState !== WebSocket.OPEN) return;
+    if (!this.messageQueue.length || this.ws?.readyState !== WebSocket.OPEN)
+      return;
 
     const now = Date.now();
     const itemsToProcess = this.messageQueue.filter((item) => {
       const timeSinceLastAttempt = now - item.lastAttempt;
-      return (
-        timeSinceLastAttempt >
-        RETRY_BACKOFF_MS * Math.pow(2, item.attempts)
-      );
+      return timeSinceLastAttempt > RETRY_BACKOFF_MS * 2 ** item.attempts;
     });
 
     itemsToProcess.forEach((item) => {
       try {
         this.ws?.send(JSON.stringify(item.message));
+        // If successful, remove from queue
         this.messageQueue = this.messageQueue.filter((i) => i !== item);
-      } catch (err) {
+      } catch {
         item.attempts++;
         item.lastAttempt = now;
         if (item.attempts >= item.maxAttempts) {
+          // Drop the message after too many failures
           this.messageQueue = this.messageQueue.filter((i) => i !== item);
           this.log("Message dropped after max attempts:", item);
         }
@@ -193,7 +190,7 @@ export class WebSocketManager {
       try {
         this.ws.send(JSON.stringify(message));
         return true;
-      } catch (err) {
+      } catch {
         this.queueMessage(message);
         return false;
       }
@@ -228,9 +225,7 @@ export class WebSocketManager {
       handlers.add(handler);
     }
     return () => {
-      if (handlers) {
-        handlers.delete(handler);
-      }
+      handlers?.delete(handler);
     };
   }
 

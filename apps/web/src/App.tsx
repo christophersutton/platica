@@ -20,9 +20,9 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <WebSocketProvider>
-        <PresenceProvider>
-          <WorkspaceProvider>
+      <WorkspaceProvider>
+        <WebSocketProvider>
+          <PresenceProvider>
             <ChannelProvider>
               <MessageProvider>
                 <RoomProvider>
@@ -62,9 +62,9 @@ const App = () => (
                 </RoomProvider>
               </MessageProvider>
             </ChannelProvider>
-          </WorkspaceProvider>
-        </PresenceProvider>
-      </WebSocketProvider>
+          </PresenceProvider>
+        </WebSocketProvider>
+      </WorkspaceProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

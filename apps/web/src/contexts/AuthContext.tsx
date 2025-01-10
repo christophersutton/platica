@@ -1,12 +1,12 @@
 import React, {
   createContext,
-  useCallback,
   useContext,
   useEffect,
+  useCallback,
   useReducer,
 } from "react";
 import { api } from "@/lib/api";
-import type { AuthState, AuthAction, AuthResponse } from "@models/auth";
+import type { AuthState, AuthAction } from "@models/auth";
 
 function authReducer(state: AuthState, action: AuthAction): AuthState {
   switch (action.type) {
@@ -39,6 +39,8 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         isInitialized: true,
         error: action.payload,
       };
+    default:
+      return state;
   }
 }
 
@@ -51,17 +53,16 @@ const initialAuthState: AuthState = {
 };
 
 const AuthContext = createContext<
-  | (AuthState & {
-      login: (token: string) => Promise<boolean>;
-      logout: () => void;
-    })
-  | null
->(null);
+  AuthState & {
+    login: (token: string) => Promise<boolean>;
+    logout: () => void;
+  }
+>(null as never);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(authReducer, initialAuthState);
 
-  // Load user profile on mount or token change
+  // Load user profile on mount or if there's a stored token
   useEffect(() => {
     let mounted = true;
     const loadUser = async () => {
@@ -73,13 +74,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const user = await api.auth.getProfile();
         if (mounted) {
-          dispatch({
-            type: "SET_USER",
-            payload: { user, token },
-          });
+          dispatch({ type: "SET_USER", payload: { user, token } });
         }
       } catch (error) {
-        console.error("Auth error:", error);
         localStorage.removeItem("auth_token");
         if (mounted) {
           dispatch({ type: "ERROR", payload: error as Error });
@@ -100,7 +97,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       dispatch({ type: "SET_USER", payload: { user, token } });
       return true;
     } catch (error) {
-      console.error("Login error:", error);
       localStorage.removeItem("auth_token");
       dispatch({ type: "ERROR", payload: error as Error });
       return false;

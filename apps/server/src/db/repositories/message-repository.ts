@@ -1,7 +1,6 @@
-import { Database, type SQLQueryBindings } from "bun:sqlite";
+import { Database } from "bun:sqlite";
 import { BaseRepository } from "./base";
 import type { Message, BaseModel } from '@models';
-import type { UnixTimestamp } from '@types';
 import { validateTimestamp } from '@types';
 import type { MessageWithMeta } from '../../types/repository';
 import { TimestampError } from '@platica/shared/src/utils/time';

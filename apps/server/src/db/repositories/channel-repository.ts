@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { BaseRepository } from "./base";
-import type { Channel, ChannelMember, User, BaseModel, CreateChannelDTO, UpdateChannelDTO } from '@models';
+import type { Channel, CreateChannelDTO, UpdateChannelDTO } from '@models';
 import type { ChannelWithMeta, ChannelMemberWithUser } from '../../types/repository';
 
 export class ChannelRepository extends BaseRepository<Channel, CreateChannelDTO, UpdateChannelDTO> {

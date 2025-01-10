@@ -44,11 +44,13 @@ const MessageContext = createContext<MessageContextValue | null>(null);
 
 export function MessageProvider({ children }: { children: React.ReactNode }) {
   const { token, isLoading: isAuthLoading, user } = useAuth();
-  const { state: { workspace } } = useWorkspace();
+  const {
+    state: { workspace },
+  } = useWorkspace();
   const { subscribe, send } = useWebSocket();
   const [state, dispatch] = useReducer(messageReducer, createInitialState());
 
-  // Subscribe to WebSocket events
+  // Subscribe to WebSocket events for chat
   useEffect(() => {
     const unsubscribe = subscribe(WSEventType.CHAT, (event) => {
       if (isChatEvent(event)) {
@@ -66,39 +68,24 @@ export function MessageProvider({ children }: { children: React.ReactNode }) {
   const loadMessages = useCallback(
     async (channelId: number, options?: { before?: number }) => {
       if (!token || isAuthLoading) {
-        console.log(
-          "MessageContext: Skipping load - no token or auth loading:",
-          { token: !!token, isAuthLoading }
-        );
         return;
       }
 
-      // Check if we're already loading messages for this channel
+      // Check if we're already loading messages
       if (state.loading.channels[channelId]) {
-        console.log(
-          "MessageContext: Already loading messages for channel:",
-          channelId
-        );
         return;
       }
 
-      // Check if we already have messages for this channel
+      // If we already have messages and no pagination param, skip
       const existingMessages = state.channelMessages[channelId] || [];
       if (existingMessages.length > 0 && !options?.before) {
-        console.log(
-          "MessageContext: Already have messages for channel:",
-          channelId
-        );
         return;
       }
 
-      console.log("MessageContext: Loading messages for channel:", channelId);
       dispatch({ type: "SET_CHANNEL_LOADING", payload: { channelId } });
 
       try {
         const response = await api.channels.getMessages(channelId);
-        console.log("MessageContext: Got messages response:", response);
-
         if (response.messages && response.messages.length > 0) {
           dispatch({
             type: "SET_CHANNEL_MESSAGES",
@@ -108,6 +95,7 @@ export function MessageProvider({ children }: { children: React.ReactNode }) {
             },
           });
 
+          // If the backend pages in blocks of 50 messages, for example:
           dispatch({
             type: "SET_PAGINATION",
             payload: {
@@ -128,7 +116,6 @@ export function MessageProvider({ children }: { children: React.ReactNode }) {
           });
         }
       } catch (error) {
-        console.error("MessageContext: Error loading messages:", error);
         dispatch({
           type: "SET_CHANNEL_ERROR",
           payload: {
@@ -220,8 +207,7 @@ export function MessageProvider({ children }: { children: React.ReactNode }) {
     [state.pagination.hasMore]
   );
 
-  const value = {
-    // Computed properties for API compatibility
+  const value: MessageContextValue = {
     messages: Object.values(state.byId),
     messagesById: state.byId,
     activeChannelId: state.activeChannelId,
@@ -230,21 +216,12 @@ export function MessageProvider({ children }: { children: React.ReactNode }) {
     messageError,
     sendingError: state.errors.sending,
     hasMoreMessages,
-
-    // Actions
     loadMessages,
     sendMessage,
     setActiveChannel,
     getChannelMessages,
     getMessageById,
   };
-
-  console.log("MessageContext state:", {
-    byId: state.byId,
-    channelMessages: state.channelMessages,
-    loading: state.loading,
-    errors: state.errors,
-  });
 
   return (
     <MessageContext.Provider value={value}>{children}</MessageContext.Provider>
@@ -253,6 +230,8 @@ export function MessageProvider({ children }: { children: React.ReactNode }) {
 
 export function useMessages() {
   const ctx = useContext(MessageContext);
-  if (!ctx) throw new Error("useMessages must be used within MessageProvider");
+  if (!ctx) {
+    throw new Error("useMessages must be used within MessageProvider");
+  }
   return ctx;
 }

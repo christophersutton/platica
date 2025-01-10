@@ -1,12 +1,22 @@
-import React, { createContext, useContext, useCallback, useEffect } from "react";
-import { WebSocketManager } from "@/lib/websocket/manager";
-import type { WebSocketEvent } from "@platica/shared/src/websockets";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useCallback,
+  useState,
+} from "react";
 import { WSEventType } from "@platica/shared/src/websockets";
+import type { WebSocketEvent } from "@platica/shared/src/websockets";
+import { WebSocketManager } from "@/lib/websocket/manager";
 import type { ConnectionStatus } from "@/lib/websocket/types";
+import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "../workspace/WorkspaceContext";
 
 interface WebSocketContextValue {
   status: ConnectionStatus;
+  // Type-safe message sending
   send: (message: WebSocketEvent) => boolean;
+  // Type-safe message subscription
   subscribe: <T extends WSEventType>(
     type: T,
     handler: (message: Extract<WebSocketEvent, { type: T }>) => void
@@ -16,7 +26,38 @@ interface WebSocketContextValue {
 const WebSocketContext = createContext<WebSocketContextValue | null>(null);
 
 export function WebSocketProvider({ children }: { children: React.ReactNode }) {
-  const [status, setStatus] = React.useState<ConnectionStatus>("disconnected");
+  const { user, token } = useAuth();
+  const { state } = useWorkspace();
+  
+  
+  console.log("WebSocketProvider", user?.id, token, state);
+  const [status, setStatus] = useState<ConnectionStatus>("disconnected");
+
+  useEffect(() => {
+    const workspaceId = state.workspace?.id;
+    
+    if (!user?.id || !token || !workspaceId) {
+      return;
+    }
+    console.log("inside useEffeect", user?.id, token, workspaceId);
+    const ws = WebSocketManager.getInstance();
+
+    // Subscribe to connection status
+    const unsubStatus = ws.subscribeStatus(setStatus);
+
+    // Connect
+    console.log("Connecting to WebSocket");
+    ws.connect({
+      token,
+      workspaceId,
+      userId: user.id,
+    });
+    console.log("Connected to WebSocket");
+    return () => {
+      unsubStatus();
+      ws.disconnect();
+    };
+  }, [user, token, state]);
 
   const send = useCallback((message: WebSocketEvent) => {
     return WebSocketManager.getInstance().send(message);
@@ -32,14 +73,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
-  // ADDED: Subscribe to WebSocketManager’s status updates so `status` reflects reality
-  useEffect(() => {
-    const manager = WebSocketManager.getInstance();
-    const unsubscribe = manager.subscribeStatus(setStatus);
-    return () => unsubscribe();
-  }, []);
-
-  const value = {
+  const value: WebSocketContextValue = {
     status,
     send,
     subscribe,
@@ -55,7 +89,18 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
 export function useWebSocket() {
   const context = useContext(WebSocketContext);
   if (!context) {
-    throw new Error("useWebSocket must be used within a WebSocketProvider");
+    throw new Error("useWebSocket must be used within WebSocketProvider");
   }
   return context;
+}
+
+// Utility hooks for specific WS events:
+export function useWebSocketSubscription<T extends WSEventType>(
+  type: T,
+  handler: (message: Extract<WebSocketEvent, { type: T }>) => void
+) {
+  const { subscribe } = useWebSocket();
+  useEffect(() => {
+    return subscribe(type, handler);
+  }, [type, handler, subscribe]);
 }

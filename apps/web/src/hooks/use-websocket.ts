@@ -26,6 +26,7 @@ export function useWebSocket(config: {
     );
 
     // Connect if needed
+    console.log('Connecting to WebSocket from hook')
     wsManager.connect({
       token: config.token,
       workspaceId: config.workspaceId,

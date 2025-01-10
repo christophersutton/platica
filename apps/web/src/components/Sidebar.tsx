@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { CreateChannelModal } from "./CreateChannelModal";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
-import { useAppContext } from "@/contexts/AppContext";
+
 import { useChannels } from "@/contexts/channel/ChannelContext";
 import type { Channel } from '@models/channel';
 
@@ -20,16 +20,16 @@ export function Sidebar() {
   const { workspaceId = "1", channelId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { state } = useAppContext();
+  // const { state } = useAppContext();
   const { channels, isLoadingChannels } = useChannels();
   
-  // Filter out current user from presence list for DMs
-  const onlineUsers: PresenceUser[] = Object.entries(state.presenceMap)
-    .filter(([id]) => Number(id) !== user?.id)
-    .map(([id, presence]) => ({
-      id: Number(id),
-      isOnline: presence.status === 'online'
-    }));
+  // // Filter out current user from presence list for DMs
+  // const onlineUsers: PresenceUser[] = Object.entries(state.presenceMap)
+  //   .filter(([id]) => Number(id) !== user?.id)
+  //   .map(([id, presence]) => ({
+  //     id: Number(id),
+  //     isOnline: presence.status === 'online'
+  //   }));
 
   return (
     <div 
@@ -51,7 +51,7 @@ export function Sidebar() {
             <ChevronLeft className="h-4 w-4" />
           ) : (
             <>
-              {state.workspace?.name || 'Workspace'}
+              {/* {state.workspace?.name || 'Workspace'} */}
               <ChevronDown className="h-3 w-3" />
             </>
           )}
@@ -115,7 +115,8 @@ export function Sidebar() {
                   className="h-7 mb-0.5 px-1.5 animate-pulse bg-slack-purple-dark/50 rounded"
                 />
               ))
-            ) : onlineUsers.map((u) => (
+            ) : null }
+            {/* onlineUsers.map((u) => (
               <Button
                 key={u.id}
                 variant="ghost"
@@ -132,7 +133,7 @@ export function Sidebar() {
                 )} />
                 {!isCollapsed && <span className="ml-0">{u.id}</span>}
               </Button>
-            ))}
+            ))} */}
           </div>
         </div>
       </ScrollArea>
