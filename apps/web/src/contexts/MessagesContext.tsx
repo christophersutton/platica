@@ -1,13 +1,15 @@
-import React, { createContext, useContext, useCallback, useReducer } from 'react'
+import React, { createContext, useContext, useCallback, useReducer, useEffect } from 'react'
 import { useWebSocket, useWebSocketSubscription } from './WebSocketContext'
 import { api } from '@/lib/api'
 import { WSEventType } from '@platica/shared/src/websockets'
-import type { Message } from '@platica/shared/src/types'
+import type { ChatEvent, OutgoingChatEvent, WebSocketEvent } from '@platica/shared/src/websockets'
+import type { Message, UiMessage } from '@models/message'
+import type { ValidatedUnixTimestamp } from '@types'
 import { ensureUnixTimestamp } from '@platica/shared/src/utils/time'
 
 // Normalized message store type
 interface NormalizedMessages {
-  byId: Record<number, Message>
+  byId: Record<number, UiMessage>
   byChannel: Record<number, number[]>
   loadingChannels: Record<number, boolean>
   errors: Record<number, Error | null>
@@ -27,6 +29,7 @@ type MessagesAction =
   | { type: 'ADD_MESSAGE'; message: Message }
   | { type: 'UPDATE_MESSAGE'; messageId: number; updates: Partial<Message> }
   | { type: 'SET_HAS_MORE'; channelId: number; hasMore: boolean }
+  | { type: 'CLEAR_CHANNEL_MESSAGES'; channelId: number }
 
 const initialState: MessagesState = {
   messages: {
@@ -84,12 +87,17 @@ function messagesReducer(state: MessagesState, action: MessagesAction): Messages
       const messageIds: number[] = []
 
       action.messages.forEach(msg => {
-        // Ensure timestamps are in Unix timestamp format
         newById[msg.id] = {
           ...msg,
-          created_at: ensureUnixTimestamp(msg.created_at),
-          updated_at: ensureUnixTimestamp(msg.updated_at),
-          deleted_at: msg.deleted_at ? ensureUnixTimestamp(msg.deleted_at) : null
+          createdAt: msg.createdAt,
+          updatedAt: msg.updatedAt,
+          deletedAt: msg.deletedAt,
+          isHighlighted: false,
+          isPending: false,
+          isDeleting: false,
+          reactionCount: 0,
+          replyCount: 0,
+          hasThread: !!msg.threadId
         }
         messageIds.push(msg.id)
       })
@@ -112,7 +120,7 @@ function messagesReducer(state: MessagesState, action: MessagesAction): Messages
     }
 
     case 'ADD_MESSAGE': {
-      const channelId = action.message.channel_id
+      const channelId = action.message.channelId
       const channelMessages = state.messages.byChannel[channelId] || []
       
       // Check for duplicates
@@ -120,12 +128,17 @@ function messagesReducer(state: MessagesState, action: MessagesAction): Messages
         return state
       }
 
-      // Ensure timestamps are in Unix timestamp format
-      const messageWithFixedTimestamps = {
+      const message: UiMessage = {
         ...action.message,
-        created_at: ensureUnixTimestamp(action.message.created_at),
-        updated_at: ensureUnixTimestamp(action.message.updated_at),
-        deleted_at: action.message.deleted_at ? ensureUnixTimestamp(action.message.deleted_at) : null
+        createdAt: action.message.createdAt,
+        updatedAt: action.message.updatedAt,
+        deletedAt: action.message.deletedAt,
+        isHighlighted: false,
+        isPending: false,
+        isDeleting: false,
+        reactionCount: 0,
+        replyCount: 0,
+        hasThread: !!action.message.threadId
       }
 
       return {
@@ -134,7 +147,7 @@ function messagesReducer(state: MessagesState, action: MessagesAction): Messages
           ...state.messages,
           byId: {
             ...state.messages.byId,
-            [action.message.id]: messageWithFixedTimestamps
+            [action.message.id]: message
           },
           byChannel: {
             ...state.messages.byChannel,
@@ -145,18 +158,12 @@ function messagesReducer(state: MessagesState, action: MessagesAction): Messages
     }
 
     case 'UPDATE_MESSAGE': {
+      const existingMessage = state.messages.byId[action.messageId]
+      if (!existingMessage) {
+        return state
+      }
+
       const updates = { ...action.updates }
-      
-      // Ensure any timestamp updates are in Unix timestamp format
-      if ('created_at' in updates) {
-        updates.created_at = ensureUnixTimestamp(updates.created_at)
-      }
-      if ('updated_at' in updates) {
-        updates.updated_at = ensureUnixTimestamp(updates.updated_at)
-      }
-      if ('deleted_at' in updates) {
-        updates.deleted_at = updates.deleted_at ? ensureUnixTimestamp(updates.deleted_at) : null
-      }
 
       return {
         ...state,
@@ -165,7 +172,7 @@ function messagesReducer(state: MessagesState, action: MessagesAction): Messages
           byId: {
             ...state.messages.byId,
             [action.messageId]: {
-              ...state.messages.byId[action.messageId],
+              ...existingMessage,
               ...updates
             }
           }
@@ -185,6 +192,37 @@ function messagesReducer(state: MessagesState, action: MessagesAction): Messages
         }
       }
 
+    case 'CLEAR_CHANNEL_MESSAGES': {
+      const { [action.channelId]: _, ...remainingChannelMessages } = state.messages.byChannel
+      const messageIds = state.messages.byChannel[action.channelId] || []
+      const newById = { ...state.messages.byId }
+      
+      messageIds.forEach(id => {
+        delete newById[id]
+      })
+
+      return {
+        ...state,
+        messages: {
+          ...state.messages,
+          byId: newById,
+          byChannel: remainingChannelMessages,
+          loadingChannels: {
+            ...state.messages.loadingChannels,
+            [action.channelId]: false
+          },
+          errors: {
+            ...state.messages.errors,
+            [action.channelId]: null
+          },
+          hasMore: {
+            ...state.messages.hasMore,
+            [action.channelId]: false
+          }
+        }
+      }
+    }
+
     default:
       return state
   }
@@ -194,12 +232,13 @@ interface MessagesContextValue {
   messages: NormalizedMessages
   activeChannel: number | null
   setActiveChannel: (channelId: number) => void
-  loadMessages: (channelId: number, before?: number) => Promise<void>
+  loadMessages: (channelId: number) => Promise<void>
   sendMessage: (channelId: number, content: string) => void
-  getChannelMessages: (channelId: number) => Message[]
+  getChannelMessages: (channelId: number) => UiMessage[]
   isLoading: (channelId: number) => boolean
   hasError: (channelId: number) => Error | null
   hasMore: (channelId: number) => boolean
+  clearChannelMessages: (channelId: number) => void
 }
 
 const MessagesContext = createContext<MessagesContextValue | null>(null)
@@ -209,33 +248,38 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
   const { send } = useWebSocket()
 
   // Listen for new messages
-  useWebSocketSubscription(WSEventType.CHAT, (message) => {
-    dispatch({
-      type: 'ADD_MESSAGE',
-      message: {
-        id: message.messageId,
-        content: message.content,
-        channel_id: message.channelId,
-        sender_id: message.userId,
-        sender_name: message.sender_name,
-        created_at: ensureUnixTimestamp(message.createdAt),
-        updated_at: ensureUnixTimestamp(message.createdAt), // Same as created initially
-        deleted_at: null,
-        thread_id: message.threadId,
-        avatar_url: message.avatar_url || null
+  useWebSocketSubscription(WSEventType.CHAT, (event: WebSocketEvent) => {
+    try {
+      if (event.type === WSEventType.CHAT && 'message' in event.payload) {
+        const { message } = event.payload
+        dispatch({
+          type: 'ADD_MESSAGE',
+          message
+        })
       }
-    })
+    } catch (error) {
+      console.error('Error processing websocket message:', error)
+    }
   })
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (state.activeChannel) {
+        dispatch({ type: 'CLEAR_CHANNEL_MESSAGES', channelId: state.activeChannel })
+      }
+    }
+  }, [state.activeChannel])
 
   const setActiveChannel = useCallback((channelId: number) => {
     dispatch({ type: 'SET_ACTIVE_CHANNEL', channelId })
   }, [])
 
-  const loadMessages = useCallback(async (channelId: number, before?: number) => {
+  const loadMessages = useCallback(async (channelId: number) => {
     dispatch({ type: 'SET_LOADING', channelId })
     
     try {
-      const response = await api.channels.getMessages(channelId, { before })
+      const response = await api.channels.getMessages(channelId)
       dispatch({ 
         type: 'SET_MESSAGES', 
         channelId, 
@@ -258,15 +302,20 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
   const sendMessage = useCallback((channelId: number, content: string) => {
     if (!content.trim()) return
 
-    send({
+    const outgoingMessage: OutgoingChatEvent = {
       type: WSEventType.CHAT,
-      channelId,
-      content,
-      userId: 0, // This will be set by the server
-    })
+      payload: {
+        workspaceId: 0, // This will be set by the server
+        channelId,
+        content: content.trim(),
+        senderId: 0 // This will be set by the server
+      }
+    }
+
+    send(outgoingMessage)
   }, [send])
 
-  const getChannelMessages = useCallback((channelId: number): Message[] => {
+  const getChannelMessages = useCallback((channelId: number): UiMessage[] => {
     const messageIds = state.messages.byChannel[channelId] || []
     return messageIds.map(id => state.messages.byId[id]).filter(Boolean)
   }, [state.messages])
@@ -283,6 +332,10 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
     return !!state.messages.hasMore[channelId]
   }, [state.messages.hasMore])
 
+  const clearChannelMessages = useCallback((channelId: number) => {
+    dispatch({ type: 'CLEAR_CHANNEL_MESSAGES', channelId })
+  }, [])
+
   const value = {
     messages: state.messages,
     activeChannel: state.activeChannel,
@@ -292,7 +345,8 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
     getChannelMessages,
     isLoading,
     hasError,
-    hasMore
+    hasMore,
+    clearChannelMessages
   }
 
   return (

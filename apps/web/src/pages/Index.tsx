@@ -10,64 +10,113 @@ import {
 import { MessageSquare, File, Users, Pin, LogOut } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query"; // if you still need it, or remove
-import { useAuth } from "../contexts/AuthContext";
-import { useAppContext } from "../contexts/AppContext";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  usePresence,
+  useUserPresence,
+} from "@/contexts/presence/PresenceContext";
+import { useWorkspace } from "@/contexts/workspace/WorkspaceContext";
+import { useChannels } from "@/contexts/channel/ChannelContext";
+import { useRoom } from "@/contexts/room/RoomContext";
+// CHANGED: import from the same place where we export the provider
+import { useMessages } from "@/contexts/message/MessageContext";
+import type { UiChannel } from "@models/channel";
+import type { UiMessage } from "@models/message";
+import type { UiRoom } from "@models/room";
 
 const Index = () => {
   const { workspaceId = "1", channelId } = useParams();
   const navigate = useNavigate();
-  const queryClient = useQueryClient(); // optional if you still use react-query for some reason
 
   const [activeTab, setActiveTab] = useState("messages");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
 
   const { user, logout } = useAuth();
+  const { getUserPresence } = usePresence();
   const {
-    state,
+    state: workspaceState,
+    loadWorkspace,
+    clearWorkspace,
+    updateWorkspace,
+  } = useWorkspace();
+  const {
+    channels,
+    channelsById,
+    isLoadingChannels,
+    typingUsers,
+    loadChannels,
+    setActiveChannel,
+    markChannelAsRead,
+  } = useChannels();
+  const { state: roomState } = useRoom();
+  const {
+    messages,
+    messagesById,
+    isLoadingMessages,
+    messageError,
+    sendMessage,
+    loadMessages,
+    getChannelMessages,
+  } = useMessages();
+
+  const currentChannelId = channelId ? Number(channelId) : 0;
+  const currentChannel = channelsById[currentChannelId];
+  const currentMessages = getChannelMessages(currentChannelId);
+  const currentTypingUsers = typingUsers(currentChannelId);
+
+  // Single effect to handle initial data loading
+  useEffect(() => {
+    const workspaceNum = Number(workspaceId);
+    if (workspaceNum > 0) {
+      // Load workspace if needed
+      if (!workspaceState.workspace && !workspaceState.isLoadingWorkspace) {
+        console.log("Index: Loading workspace:", workspaceNum);
+        loadWorkspace(workspaceNum);
+      }
+
+      // Load channels if we have a workspace and no channels
+      if (
+        workspaceState.workspace &&
+        !isLoadingChannels &&
+        channels.length === 0
+      ) {
+        console.log("Index: Loading channels for workspace:", workspaceNum);
+        loadChannels(workspaceNum);
+      }
+
+      // Load messages if we have a channel ID
+      if (currentChannelId && !isLoadingMessages(currentChannelId)) {
+        const existingMessages = getChannelMessages(currentChannelId);
+        if (!existingMessages || existingMessages.length === 0) {
+          console.log("Index: Loading messages for channel:", currentChannelId);
+          loadMessages(currentChannelId);
+        }
+        setActiveChannel(currentChannelId);
+      }
+    }
+  }, [
+    workspaceId,
+    workspaceState.workspace,
+    workspaceState.isLoadingWorkspace,
+    channels.length,
+    isLoadingChannels,
+    currentChannelId,
     loadWorkspace,
     loadChannels,
     loadMessages,
-    markChannelAsRead,
-    sendMessage,
-  } = useAppContext();
+    isLoadingMessages,
+    getChannelMessages,
+    setActiveChannel,
+  ]);
 
-  const { workspace, isLoadingWorkspace, workspaceError } = {
-    workspace: state.workspace,
-    isLoadingWorkspace: state.isLoadingWorkspace,
-    workspaceError: state.workspaceError,
-  };
-
-  const { channels, isLoadingChannels } = {
-    channels: state.channels,
-    isLoadingChannels: state.isLoadingChannels,
-  };
-
-  // Combine presence data if you want
-  // or do it as needed
-  const presenceMap = state.presenceMap;
-
-  // We replicate your existing logic
-  const currentChannelId = channelId ? Number(channelId) : 0;
-  const currentChannel = channels.find((c) => c.id === currentChannelId);
-
-  // Instead of "useChannelMessages" we just read from the context
-  const messages = state.messages[currentChannelId] || [];
-  const isLoadingMessages = state.isLoadingMessages;
-
-  // If we want to load workspace and channels on mount
+  // Separate effect just for navigation
   useEffect(() => {
-    loadWorkspace(Number(workspaceId));
-    loadChannels(Number(workspaceId));
-  }, [workspaceId, loadWorkspace, loadChannels]);
-
-  // Load messages whenever channelId changes
-  useEffect(() => {
-    if (currentChannelId) {
-      loadMessages(currentChannelId);
+    if (!channelId && !isLoadingChannels && channels.length > 0) {
+      console.log("Index: Navigating to first channel:", channels[0].id);
+      navigate(`/w/${workspaceId}/c/${channels[0].id}`);
     }
-  }, [currentChannelId, loadMessages]);
+  }, [workspaceId, channels, channelId, isLoadingChannels, navigate]);
 
   // Scroll area logic
   const checkIfAtBottom = useCallback(() => {
@@ -89,13 +138,13 @@ const Index = () => {
     checkIfAtBottom();
   }, [checkIfAtBottom]);
 
-  // Attach/detach scroll event
   useEffect(() => {
     if (scrollAreaRef.current) {
       const container = scrollAreaRef.current.querySelector(
         "[data-radix-scroll-area-viewport]"
       ) as HTMLElement;
       if (container) {
+        // If we’re newly arriving at a channel, auto-scroll to bottom
         if (isAtBottom) {
           container.scrollTop = container.scrollHeight;
         }
@@ -103,24 +152,17 @@ const Index = () => {
         return () => container.removeEventListener("scroll", handleScroll);
       }
     }
-  }, [messages, currentChannelId, handleScroll, isAtBottom]);
+  }, [currentMessages, currentChannelId, handleScroll, isAtBottom]);
 
-  // Mark channel read if at bottom
+  // Mark channel as read when at bottom
   useEffect(() => {
-    if (isAtBottom && currentChannelId && messages.length > 0) {
+    if (isAtBottom && currentChannelId) {
       markChannelAsRead(currentChannelId);
     }
-  }, [isAtBottom, currentChannelId, messages, markChannelAsRead]);
-
-  // If no channel selected, navigate to first
-  useEffect(() => {
-    if (!isLoadingChannels && channels.length && !channelId) {
-      navigate(`/w/${workspaceId}/c/${channels[0].id}`);
-    }
-  }, [channels, channelId, workspaceId, navigate, isLoadingChannels]);
+  }, [isAtBottom, currentChannelId, markChannelAsRead]);
 
   // Show loading
-  if (isLoadingWorkspace || isLoadingChannels) {
+  if (workspaceState.isLoadingWorkspace) {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-lg text-gray-600">Loading workspace...</div>
@@ -129,11 +171,11 @@ const Index = () => {
   }
 
   // Show error
-  if (!workspace || workspaceError) {
+  if (!workspaceState.workspace || workspaceState.workspaceError) {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-4">
         <div className="text-lg text-red-600">
-          {workspaceError?.message || "Workspace not found"}
+          {workspaceState.workspaceError?.message || "Workspace not found"}
         </div>
         <Button
           variant="outline"
@@ -149,7 +191,7 @@ const Index = () => {
 
   const handleSendMessage = (content: string) => {
     if (currentChannel) {
-      sendMessage(currentChannel.id, content);
+      sendMessage(currentChannelId, content);
     }
   };
 
@@ -206,17 +248,28 @@ const Index = () => {
             <div className="h-full flex flex-col">
               <ScrollArea className="flex-1">
                 <div className="p-4 space-y-2">
-                  {/* Example presence usage: if you have workspace users in context */}
-                  {/* or you can combine with useWorkspaceUsers logic */}
-                  {/** Suppose you do some mapping of presence data here */}
-                  {/* This is just a placeholder. 
-                      If you want the full code from use-workspace-users, 
-                      you can load them from the same store. */}
-                  <div className="text-sm text-gray-500">
-                    No dedicated list yet. You can integrate
-                    <br />
-                    presenceMap: {JSON.stringify(presenceMap)}
-                  </div>
+                  {currentTypingUsers.length > 0 ? (
+                    currentTypingUsers.map((userId) => {
+                      const presence = getUserPresence(userId);
+                      return (
+                        <div key={userId} className="flex items-center gap-2">
+                          <div
+                            className={cn(
+                              "w-2 h-2 rounded-full",
+                              presence?.status === "online"
+                                ? "bg-green-500"
+                                : "bg-gray-400"
+                            )}
+                          />
+                          <div className="text-sm">{userId}</div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-sm text-gray-500">
+                      No active members in this channel
+                    </div>
+                  )}
                 </div>
               </ScrollArea>
             </div>
@@ -226,34 +279,33 @@ const Index = () => {
             <div className="h-full flex flex-col">
               <ScrollArea ref={scrollAreaRef} className="flex-1">
                 <div className="p-4 space-y-4">
-                  {isLoadingMessages ? (
+                  {isLoadingMessages(currentChannelId) ? (
                     <div>Loading messages...</div>
+                  ) : messageError(currentChannelId) ? (
+                    <div className="text-red-600">
+                      {messageError(currentChannelId)?.message}
+                    </div>
+                  ) : currentMessages && currentMessages.length > 0 ? (
+                    currentMessages.map((msg: UiMessage) => {
+                      if (!msg || !msg.sender) return null;
+                      return (
+                        <ChatMessage
+                          key={msg.id}
+                          message={msg}
+                          isTyping={currentTypingUsers.includes(msg.sender.id)}
+                        />
+                      );
+                    })
                   ) : (
-                    messages.map((msg) => (
-                      <ChatMessage
-                        key={msg.id}
-                        id={msg.id}
-                        message={msg.content}
-                        sender={msg.sender_name}
-                        timestamp={new Date(msg.created_at).toLocaleTimeString(
-                          [],
-                          {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          }
-                        )}
-                        avatar={
-                          msg.avatar_url ||
-                          `https://api.dicebear.com/7.x/avataaars/svg?seed=${msg.sender_name}`
-                        }
-                      />
-                    ))
+                    <div className="text-sm text-gray-500">
+                      No messages in this channel yet
+                    </div>
                   )}
                 </div>
               </ScrollArea>
-              <div className="p-4 border-t border-slack-border">
+              <div className="p-4 border-t border-gray-200">
                 <ChatInput
-                  channelId={currentChannel?.id || 0}
+                  channelId={currentChannelId}
                   onSendMessage={handleSendMessage}
                   disabled={!currentChannel}
                 />

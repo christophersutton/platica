@@ -58,30 +58,60 @@ export function MessageProvider({ children }: { children: React.ReactNode }) {
     channelId: number, 
     options?: { before?: number }
   ) => {
-    if (!token || isAuthLoading) return
+    if (!token || isAuthLoading) {
+      console.log('MessageContext: Skipping load - no token or auth loading:', { token: !!token, isAuthLoading });
+      return;
+    }
+
+    // Check if we're already loading messages for this channel
+    if (state.loading.channels[channelId]) {
+      console.log('MessageContext: Already loading messages for channel:', channelId);
+      return;
+    }
     
+    // Check if we already have messages for this channel
+    const existingMessages = state.channelMessages[channelId] || [];
+    if (existingMessages.length > 0 && !options?.before) {
+      console.log('MessageContext: Already have messages for channel:', channelId);
+      return;
+    }
+    
+    console.log('MessageContext: Loading messages for channel:', channelId);
     dispatch({ type: 'SET_CHANNEL_LOADING', payload: { channelId } })
     
     try {
       const response = await api.channels.getMessages(channelId)
+      console.log('MessageContext: Got messages response:', response);
       
-      dispatch({ 
-        type: 'SET_CHANNEL_MESSAGES',
-        payload: { 
-          channelId,
-          messages: response.messages
-        }
-      })
-      
-      dispatch({
-        type: 'SET_PAGINATION',
-        payload: {
-          channelId,
-          hasMore: response.messages.length === 50,
-          lastMessageId: response.messages[response.messages.length - 1]?.id || null
-        }
-      })
+      if (response.messages && response.messages.length > 0) {
+        dispatch({ 
+          type: 'SET_CHANNEL_MESSAGES',
+          payload: { 
+            channelId,
+            messages: response.messages
+          }
+        })
+        
+        dispatch({
+          type: 'SET_PAGINATION',
+          payload: {
+            channelId,
+            hasMore: response.messages.length === 50,
+            lastMessageId: response.messages[response.messages.length - 1]?.id || null
+          }
+        })
+      } else {
+        // Even with no messages, mark loading as complete
+        dispatch({ 
+          type: 'SET_CHANNEL_MESSAGES',
+          payload: { 
+            channelId,
+            messages: []
+          }
+        })
+      }
     } catch (error) {
+      console.error('MessageContext: Error loading messages:', error);
       dispatch({ 
         type: 'SET_CHANNEL_ERROR',
         payload: {
@@ -90,7 +120,7 @@ export function MessageProvider({ children }: { children: React.ReactNode }) {
         }
       })
     }
-  }, [token, isAuthLoading])
+  }, [token, isAuthLoading, state.loading.channels, state.channelMessages])
 
   const sendMessage = useCallback((channelId: number, content: string) => {
     if (!token || isAuthLoading || !content.trim() || !user || !workspace) return
@@ -168,6 +198,13 @@ export function MessageProvider({ children }: { children: React.ReactNode }) {
     getChannelMessages,
     getMessageById,
   }
+
+  console.log('MessageContext state:', {
+    byId: state.byId,
+    channelMessages: state.channelMessages,
+    loading: state.loading,
+    errors: state.errors
+  });
 
   return <MessageContext.Provider value={value}>{children}</MessageContext.Provider>
 }

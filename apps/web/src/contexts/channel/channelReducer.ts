@@ -87,6 +87,7 @@ export function channelReducer(state: ChannelState, action: ChannelAction): Chan
 
     case "SET_CHANNELS": {
       const { channels, workspaceId } = action.payload
+      console.log('SET_CHANNELS reducer:', { channels, workspaceId })
       const byId = { ...state.byId }
       const channelIds = new Set<number>()
 
@@ -98,7 +99,7 @@ export function channelReducer(state: ChannelState, action: ChannelAction): Chan
         channelIds.add(channel.id)
       })
 
-      return {
+      const newState = {
         ...state,
         byId,
         allIds: [...new Set([...state.allIds, ...channelIds])],
@@ -109,6 +110,8 @@ export function channelReducer(state: ChannelState, action: ChannelAction): Chan
         loading: { ...state.loading, channels: false },
         errors: { ...state.errors, channels: null }
       }
+      console.log('New channel state:', newState)
+      return newState
     }
 
     case "SET_CHANNELS_ERROR":

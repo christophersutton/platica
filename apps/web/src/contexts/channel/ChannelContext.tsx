@@ -47,31 +47,31 @@ const ChannelContext = createContext<ChannelContextValue | null>(null)
 
 export function ChannelProvider({ children }: { children: React.ReactNode }) {
   const { token, isLoading: isAuthLoading, user } = useAuth()
-  const { subscribe, send } = useWebSocket()
+  // const { subscribe, send } = useWebSocket()
   const [state, dispatch] = useReducer(channelReducer, createInitialState())
 
   // Subscribe to relevant WebSocket events
-  useEffect(() => {
-    const unsubscribeChannel = subscribe(WSEventType.CHANNEL_CREATED, (message: ChannelCreatedEvent) => {
-      dispatch({ type: "ADD_CHANNEL", payload: message.payload.channel })
-    })
+  // useEffect(() => {
+  //   const unsubscribeChannel = subscribe(WSEventType.CHANNEL_CREATED, (message: ChannelCreatedEvent) => {
+  //     dispatch({ type: "ADD_CHANNEL", payload: message.payload.channel })
+  //   })
 
-    const unsubscribeTyping = subscribe(WSEventType.TYPING, (message: TypingEvent) => {
-      dispatch({ 
-        type: "SET_USER_TYPING", 
-        payload: {
-          channelId: message.payload.channelId,
-          userId: message.payload.userId,
-          isTyping: message.payload.isTyping
-        }
-      })
-    })
+  //   const unsubscribeTyping = subscribe(WSEventType.TYPING, (message: TypingEvent) => {
+  //     dispatch({ 
+  //       type: "SET_USER_TYPING", 
+  //       payload: {
+  //         channelId: message.payload.channelId,
+  //         userId: message.payload.userId,
+  //         isTyping: message.payload.isTyping
+  //       }
+  //     })
+  //   })
 
-    return () => {
-      unsubscribeChannel()
-      unsubscribeTyping()
-    }
-  }, [subscribe])
+  //   return () => {
+  //     unsubscribeChannel()
+  //     unsubscribeTyping()
+  //   }
+  // }, [subscribe])
 
   // Clean up stale typing indicators
   useEffect(() => {
@@ -101,10 +101,16 @@ export function ChannelProvider({ children }: { children: React.ReactNode }) {
   }, [state.typing.byChannel])
 
   const loadChannels = useCallback(async (workspaceId: number) => {
-    if (!token || isAuthLoading) return
+    console.log('Loading channels for workspace:', workspaceId)
+    if (!token || isAuthLoading) {
+      console.log('Skipping channel load - no token or auth loading:', { token: !!token, isAuthLoading })
+      return
+    }
     dispatch({ type: "SET_CHANNELS_LOADING" })
     try {
+      console.log('Fetching channels...')
       const res = await api.channels.list(workspaceId)
+      console.log('Channels response:', res)
       dispatch({ 
         type: "SET_CHANNELS", 
         payload: { 
@@ -112,6 +118,7 @@ export function ChannelProvider({ children }: { children: React.ReactNode }) {
           workspaceId 
         } 
       })
+      console.log('Channels dispatched to store')
     } catch (error) {
       console.error("Failed to fetch channels:", error)
       dispatch({ type: "SET_CHANNELS_ERROR", payload: error as Error })
@@ -166,27 +173,27 @@ export function ChannelProvider({ children }: { children: React.ReactNode }) {
     return state.typing.byChannel[channelId]?.userIds.includes(userId) || false
   }, [state.typing.byChannel])
 
-  const setTyping = useCallback((channelId: number, isTyping: boolean) => {
-    if (!user) return
+  // const setTyping = useCallback((channelId: number, isTyping: boolean) => {
+  //   if (!user) return
 
-    dispatch({
-      type: "SET_USER_TYPING",
-      payload: {
-        channelId,
-        userId: user.id,
-        isTyping
-      }
-    })
+  //   dispatch({
+  //     type: "SET_USER_TYPING",
+  //     payload: {
+  //       channelId,
+  //       userId: user.id,
+  //       isTyping
+  //     }
+  //   })
 
-    send({
-      type: WSEventType.TYPING,
-      payload: {
-        channelId,
-        userId: user.id,
-        isTyping
-      }
-    })
-  }, [user, send])
+  //   send({
+  //     type: WSEventType.TYPING,
+  //     payload: {
+  //       channelId,
+  //       userId: user.id,
+  //       isTyping
+  //     }
+  //   })
+  // }, [user, send])
 
   const value = {
     // Computed properties for API compatibility
@@ -201,7 +208,7 @@ export function ChannelProvider({ children }: { children: React.ReactNode }) {
     // Typing state
     typingUsers,
     isUserTyping,
-    setTyping,
+    setTyping: (()=> null) ,
 
     // Actions
     loadChannels,
@@ -211,6 +218,14 @@ export function ChannelProvider({ children }: { children: React.ReactNode }) {
     getChannelById,
     getWorkspaceChannels,
   }
+
+  console.log('Channel context state:', {
+    allIds: state.allIds,
+    byId: state.byId,
+    workspaceChannels: state.workspaceChannels,
+    computedChannels: value.channels,
+    loading: state.loading
+  })
 
   return <ChannelContext.Provider value={value}>{children}</ChannelContext.Provider>
 }

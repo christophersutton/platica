@@ -7,6 +7,7 @@ import { CreateChannelModal } from "./CreateChannelModal";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
 import { useAppContext } from "@/contexts/AppContext";
+import { useChannels } from "@/contexts/channel/ChannelContext";
 import type { Channel } from '@models/channel';
 
 interface PresenceUser {
@@ -20,12 +21,8 @@ export function Sidebar() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { state } = useAppContext();
+  const { channels, isLoadingChannels } = useChannels();
   
-  const { channels, isLoadingChannels } = {
-    channels: state.channels,
-    isLoadingChannels: state.isLoadingChannels
-  };
-
   // Filter out current user from presence list for DMs
   const onlineUsers: PresenceUser[] = Object.entries(state.presenceMap)
     .filter(([id]) => Number(id) !== user?.id)
@@ -93,7 +90,7 @@ export function Sidebar() {
                     <div className="flex items-center justify-between w-full">
                       <span className={cn(
                         "ml-0",
-                        Boolean(channel.has_unread) && Number(channel.id) !== Number(channelId) && "font-bold text-white",
+                        Boolean(channel.unreadCount) && Number(channel.id) !== Number(channelId) && "font-bold text-white",
                         Number(channelId) === channel.id && "font-normal"
                       )}>
                         {channel.name}

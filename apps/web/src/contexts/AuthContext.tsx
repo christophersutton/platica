@@ -4,14 +4,14 @@ import React, {
   useContext,
   useEffect,
   useReducer,
-} from "react"
-import { api } from "@/lib/api"
-import type { AuthState, AuthAction, AuthResponse } from '@models/auth'
+} from "react";
+import { api } from "@/lib/api";
+import type { AuthState, AuthAction, AuthResponse } from "@models/auth";
 
 function authReducer(state: AuthState, action: AuthAction): AuthState {
   switch (action.type) {
     case "INIT":
-      return { ...state, isLoading: true, error: null }
+      return { ...state, isLoading: true, error: null };
     case "SET_USER":
       return {
         ...state,
@@ -20,7 +20,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         isLoading: false,
         isInitialized: true,
         error: null,
-      }
+      };
     case "CLEAR_USER":
       return {
         ...state,
@@ -29,7 +29,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         isLoading: false,
         isInitialized: true,
         error: null,
-      }
+      };
     case "ERROR":
       return {
         ...state,
@@ -38,7 +38,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         isLoading: false,
         isInitialized: true,
         error: action.payload,
-      }
+      };
   }
 }
 
@@ -48,67 +48,70 @@ const initialAuthState: AuthState = {
   isLoading: true,
   isInitialized: false,
   error: null,
-}
+};
 
-const AuthContext = createContext<AuthState & {
-  login: (token: string) => Promise<boolean>
-  logout: () => void
-} | null>(null)
+const AuthContext = createContext<
+  | (AuthState & {
+      login: (token: string) => Promise<boolean>;
+      logout: () => void;
+    })
+  | null
+>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(authReducer, initialAuthState)
+  const [state, dispatch] = useReducer(authReducer, initialAuthState);
 
   // Load user profile on mount or token change
   useEffect(() => {
-    let mounted = true
+    let mounted = true;
     const loadUser = async () => {
-      const token = localStorage.getItem("auth_token")
+      const token = localStorage.getItem("auth_token");
       if (!token) {
-        dispatch({ type: "ERROR", payload: new Error("No token present") })
-        return
+        dispatch({ type: "ERROR", payload: new Error("No token present") });
+        return;
       }
       try {
-        const user = await api.auth.getProfile()
+        const user = await api.auth.getProfile();
         if (mounted) {
           dispatch({
             type: "SET_USER",
             payload: { user, token },
-          })
+          });
         }
       } catch (error) {
-        console.error("Auth error:", error)
-        localStorage.removeItem("auth_token")
+        console.error("Auth error:", error);
+        localStorage.removeItem("auth_token");
         if (mounted) {
-          dispatch({ type: "ERROR", payload: error as Error })
+          dispatch({ type: "ERROR", payload: error as Error });
         }
       }
-    }
-    loadUser()
+    };
+    loadUser();
     return () => {
-      mounted = false
-    }
-  }, [])
+      mounted = false;
+    };
+  }, []);
 
   const login = useCallback(async (token: string) => {
-    dispatch({ type: "INIT" })
+    dispatch({ type: "INIT" });
     try {
-      localStorage.setItem("auth_token", token)
-      const user = await api.auth.getProfile()
-      dispatch({ type: "SET_USER", payload: { user, token } })
-      return true
+      localStorage.setItem("auth_token", token);
+      const user = await api.auth.getProfile();
+      dispatch({ type: "SET_USER", payload: { user, token } });
+      return true;
     } catch (error) {
-      console.error("Login error:", error)
-      localStorage.removeItem("auth_token")
-      dispatch({ type: "ERROR", payload: error as Error })
-      return false
+      console.error("Login error:", error);
+      localStorage.removeItem("auth_token");
+      dispatch({ type: "ERROR", payload: error as Error });
+      return false;
     }
-  }, [])
+  }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem("auth_token")
-    api.auth.logout()
-    dispatch({ type: "CLEAR_USER" })
-  }, [])
+    localStorage.removeItem("auth_token");
+    api.auth.logout();
+    dispatch({ type: "CLEAR_USER" });
+  }, []);
 
   return (
     <AuthContext.Provider
@@ -120,13 +123,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     >
       {children}
     </AuthContext.Provider>
-  )
+  );
 }
 
 export function useAuth() {
-  const ctx = useContext(AuthContext)
+  const ctx = useContext(AuthContext);
   if (!ctx) {
-    throw new Error("useAuth must be used within an AuthProvider")
+    throw new Error("useAuth must be used within an AuthProvider");
   }
-  return ctx
+  return ctx;
 }

@@ -11,8 +11,6 @@ export interface User extends BaseModel {
   email: string
   name: string
   avatarUrl: string | null
-  createdAt: UnixTimestamp
-  updatedAt: UnixTimestamp
   deletedAt: UnixTimestamp | null
 }
 

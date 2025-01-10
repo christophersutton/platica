@@ -192,21 +192,25 @@ export function messageReducer(state: MessageState, action: MessageAction): Mess
 
     case 'SET_CHANNEL_MESSAGES': {
       const { channelId, messages } = action.payload
+      console.log('MessageReducer: Setting messages for channel:', channelId, messages);
+      
       const newById = { ...state.byId }
       const messageIds: number[] = []
 
       messages.forEach(msg => {
         // Skip messages with invalid timestamps
         if (!validateMessageTimestamps(msg)) {
-          console.warn('Skipping message with invalid timestamps:', msg.id);
+          console.warn('MessageReducer: Skipping message with invalid timestamps:', msg.id);
           return;
         }
         
-        newById[msg.id] = processMessage(msg)
-        messageIds.push(msg.id)
+        const processedMessage = processMessage(msg);
+        console.log('MessageReducer: Processed message:', msg.id, processedMessage);
+        newById[msg.id] = processedMessage;
+        messageIds.push(msg.id);
       })
 
-      return {
+      const newState = {
         ...state,
         byId: newById,
         channelMessages: {
@@ -220,7 +224,15 @@ export function messageReducer(state: MessageState, action: MessageAction): Mess
             [channelId]: false
           }
         }
-      }
+      };
+
+      console.log('MessageReducer: New state after SET_CHANNEL_MESSAGES:', {
+        messageCount: messageIds.length,
+        channelMessages: newState.channelMessages[channelId],
+        loading: newState.loading.channels[channelId]
+      });
+
+      return newState;
     }
 
     case 'ADD_MESSAGE': {
