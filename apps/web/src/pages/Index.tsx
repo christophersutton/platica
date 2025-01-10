@@ -1,61 +1,131 @@
 import { ChatInput, ChatMessage, Sidebar } from "@/components";
 import { cn } from "@/lib/utils";
-import { ScrollArea, Tabs, TabsList, TabsTrigger, TabsContent, Button } from "@/components/ui";
-import { MessageSquare, File, Users, Pin, Star, Bell, LogOut } from "lucide-react";
-import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  ScrollArea,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  Button,
+} from "@/components/ui";
+import { MessageSquare, File, Users, Pin, LogOut } from "lucide-react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
-import { useChannelMessages, useChannels, useTypingIndicator, useAuth, useWorkspace, useWorkspaceUsers } from "@/hooks";
-import { usePresence } from "@/hooks/use-presence";
-import { api, type Channel } from "@/lib/api";
-
-interface WorkspaceUser {
-  id: number;
-  name: string;
-  email: string;
-  avatar_url: string | null;
-  role: string;
-  isOnline: boolean;
-}
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  usePresence,
+  useUserPresence,
+} from "@/contexts/presence/PresenceContext";
+import { useWorkspace } from "@/contexts/workspace/WorkspaceContext";
+import { useChannels } from "@/contexts/channel/ChannelContext";
+import { useRoom } from "@/contexts/room/RoomContext";
+import { useMessages } from "@/contexts/message/MessageContext";
+import type { UiMessage } from "@models/message";
 
 const Index = () => {
   const { workspaceId = "1", channelId } = useParams();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
+
   const [activeTab, setActiveTab] = useState("messages");
-  const { workspace, isLoading: isWorkspaceLoading, error: workspaceError } = useWorkspace();
-  const { channels, isLoading: isLoadingChannels } = useChannels(Number(workspaceId));
-  const currentChannelId = channelId ? Number(channelId) : undefined;
-  const currentChannel = channels?.find(c => c.id === currentChannelId);
-  const { user, logout } = useAuth();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
-  const { users } = useWorkspaceUsers();
-  
-  // Initialize presence tracking at the top level
-  usePresence();
-  
-  // Only fetch messages if we have a valid channel
+
+  const { user, logout } = useAuth();
+  const { getUserPresence } = usePresence();
   const {
-    messages,
-    isLoading: isLoadingMessages,
+    state: workspaceState,
+    loadWorkspace,
+  } = useWorkspace();
+  const {
+    channels,
+    channelsById,
+    isLoadingChannels,
+    typingUsers,
+    loadChannels,
+    setActiveChannel,
+    markChannelAsRead,
+  } = useChannels();
+  const { state: roomState } = useRoom();
+  const {
+    isLoadingMessages,
+    messageError,
     sendMessage,
-    isSending
-  } = useChannelMessages(currentChannelId || 0);
+    loadMessages,
+    getChannelMessages,
+  } = useMessages();
 
-  const handleSendMessage = (content: string) => {
-    if (currentChannel) {
-      sendMessage(content);
+  const currentChannelId = channelId ? Number(channelId) : 0;
+  const currentChannel = channelsById[currentChannelId];
+  const currentMessages = getChannelMessages(currentChannelId);
+  const currentTypingUsers = typingUsers(currentChannelId);
+
+  // Once the workspace is ready, load channels
+  useEffect(() => {
+    const workspaceNum = Number(workspaceId);
+    if (
+      workspaceState.workspace &&
+      channels.length === 0 &&
+      !isLoadingChannels
+    ) {
+      loadChannels(workspaceNum);
     }
-  };
+  }, [
+    workspaceId,
+    workspaceState.workspace,
+    channels,
+    isLoadingChannels,
+    loadChannels,
+  ]);
 
-  // Check if scrolled to bottom
+  // Only load the workspace (if not already loaded)
+  useEffect(() => {
+    const workspaceNum = Number(workspaceId);
+    if (
+      workspaceNum &&
+      !workspaceState.workspace &&
+      !workspaceState.isLoadingWorkspace
+    ) {
+      loadWorkspace(workspaceNum);
+    }
+  }, [
+    workspaceId,
+    workspaceState.workspace,
+    workspaceState.isLoadingWorkspace,
+    loadWorkspace,
+  ]);
+
+  // Once the channel is selected, load messages
+  useEffect(() => {
+    if (!currentChannelId) return;
+    if (
+      !isLoadingMessages(currentChannelId) &&
+      getChannelMessages(currentChannelId).length === 0
+    ) {
+      loadMessages(currentChannelId);
+      setActiveChannel(currentChannelId);
+    }
+  }, [
+    currentChannelId,
+    isLoadingMessages,
+    getChannelMessages,
+    loadMessages,
+    setActiveChannel,
+  ]);
+
+  // Navigate to first channel if none specified
+  useEffect(() => {
+    if (!channelId && !isLoadingChannels && channels.length > 0) {
+      navigate(`/w/${workspaceId}/c/${channels[0].id}`);
+    }
+  }, [workspaceId, channels, channelId, isLoadingChannels, navigate]);
+
+  // Scroll area logic
   const checkIfAtBottom = useCallback(() => {
     if (scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollContainer) {
-        const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
-        // Consider "at bottom" if within 30px of the bottom
+      const container = scrollAreaRef.current.querySelector(
+        "[data-radix-scroll-area-viewport]"
+      ) as HTMLElement;
+      if (container) {
+        const { scrollTop, scrollHeight, clientHeight } = container;
         const isBottom = Math.abs(scrollHeight - clientHeight - scrollTop) < 30;
         setIsAtBottom(isBottom);
         return isBottom;
@@ -64,89 +134,51 @@ const Index = () => {
     return false;
   }, []);
 
-  // Handle scroll events
   const handleScroll = useCallback(() => {
     checkIfAtBottom();
   }, [checkIfAtBottom]);
 
-  // Mark messages as read when appropriate
-  const markMessagesAsRead = useCallback(async () => {
-    if (currentChannel?.id && messages?.length > 0) {
-      try {
-        await api.channels.markRead(currentChannel.id);
-        // Update the unread count in the channels list
-        queryClient.setQueryData(['channels'], (oldChannels: Channel[] = []) => {
-          return oldChannels.map(channel => {
-            if (channel.id === currentChannel.id) {
-              return {
-                ...channel,
-                unread_count: 0
-              };
-            }
-            return channel;
-          });
-        });
-      } catch (error) {
-        console.error('Failed to mark messages as read:', error);
-      }
-    }
-  }, [currentChannel?.id, messages?.length, queryClient]);
-
-  // Auto-scroll to bottom when messages change or channel changes
   useEffect(() => {
     if (scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollContainer) {
-        // Only auto-scroll if we're already at the bottom or it's a channel change
-        if (isAtBottom || messages?.length === 0) {
-          scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      const container = scrollAreaRef.current.querySelector(
+        "[data-radix-scroll-area-viewport]"
+      ) as HTMLElement;
+      if (container) {
+        // If newly arriving at a channel, auto-scroll to bottom
+        if (isAtBottom) {
+          container.scrollTop = container.scrollHeight;
         }
-        // Add scroll event listener
-        scrollContainer.addEventListener('scroll', handleScroll);
-        return () => scrollContainer.removeEventListener('scroll', handleScroll);
+        container.addEventListener("scroll", handleScroll);
+        return () => container.removeEventListener("scroll", handleScroll);
       }
     }
-  }, [messages, currentChannel?.id, handleScroll, isAtBottom]);
+  }, [currentMessages, currentChannelId, handleScroll, isAtBottom]);
 
-  // Mark messages as read when:
-  // 1. Channel changes
-  // 2. New messages arrive and we're at bottom
-  // 3. Manually scrolled to bottom
+  // Mark channel as read when at bottom
   useEffect(() => {
-    const shouldMarkRead = !isLoadingMessages && (
-      isAtBottom || // We're at the bottom
-      messages?.length === 0 || // Empty channel
-      !messages // No messages yet
+    if (isAtBottom && currentChannelId) {
+      markChannelAsRead(currentChannelId);
+    }
+  }, [isAtBottom, currentChannelId, markChannelAsRead]);
+
+  // Show workspace loading
+  if (workspaceState.isLoadingWorkspace) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-lg text-gray-600">Loading workspace...</div>
+      </div>
     );
-
-    if (shouldMarkRead) {
-      markMessagesAsRead();
-    }
-  }, [isAtBottom, currentChannel?.id, messages, isLoadingMessages, markMessagesAsRead]);
-
-  // Redirect to first channel if no channel is selected
-  useEffect(() => {
-    if (!isLoadingChannels && channels?.length && !channelId) {
-      navigate(`/w/${workspaceId}/c/${channels[0].id}`);
-    }
-  }, [channels, channelId, workspaceId, navigate, isLoadingChannels]);
-
-  // Show loading state while data is being fetched
-  if (isWorkspaceLoading || isLoadingChannels) {
-    return <div className="h-screen flex items-center justify-center">
-      <div className="text-lg text-gray-600">Loading workspace...</div>
-    </div>;
   }
 
-  // Show error if workspace not found
-  if (!workspace || workspaceError) {
+  // Show workspace error
+  if (!workspaceState.workspace || workspaceState.workspaceError) {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-4">
         <div className="text-lg text-red-600">
-          {workspaceError?.message || 'Workspace not found'}
+          {workspaceState.workspaceError?.message || "Workspace not found"}
         </div>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           onClick={logout}
           className="flex items-center gap-1"
         >
@@ -157,6 +189,12 @@ const Index = () => {
     );
   }
 
+  const handleSendMessage = (content: string) => {
+    if (currentChannel) {
+      sendMessage(currentChannelId, content);
+    }
+  };
+
   return (
     <div className="h-screen flex">
       <Sidebar />
@@ -164,34 +202,37 @@ const Index = () => {
         <div className="border-b border-gray-200">
           <div className="p-4 flex justify-between items-center">
             <h1 className="text-xl font-semibold">
-              {currentChannel ? `#${currentChannel.name}` : 'Select a channel'}
+              {currentChannel ? `#${currentChannel.name}` : "Select a channel"}
             </h1>
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-auto">
+            <Tabs
+              value={activeTab}
+              onValueChange={setActiveTab}
+              className="w-auto"
+            >
               <TabsList className="bg-transparent border-none p-0 h-auto">
-                <TabsTrigger 
-                  value="messages" 
+                <TabsTrigger
+                  value="messages"
                   className="flex items-center gap-2 data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800 hover:bg-gray-50 rounded-md px-3 py-2 text-gray-600"
                 >
                   <MessageSquare className="h-4 w-4" />
                   <span>Messages</span>
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="files" 
+                <TabsTrigger
+                  value="files"
                   className="flex items-center gap-2 data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800 hover:bg-gray-50 rounded-md px-3 py-2 text-gray-600"
                 >
                   <File className="h-4 w-4" />
                   <span>Files</span>
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="pinned" 
+                <TabsTrigger
+                  value="pinned"
                   className="flex items-center gap-2 data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800 hover:bg-gray-50 rounded-md px-3 py-2 text-gray-600"
                 >
                   <Pin className="h-4 w-4" />
                   <span>Pinned</span>
                 </TabsTrigger>
-                
-                <TabsTrigger 
-                  value="members" 
+                <TabsTrigger
+                  value="members"
                   className="flex items-center gap-2 data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800 hover:bg-gray-50 rounded-md px-3 py-2 text-gray-600"
                 >
                   <Users className="h-4 w-4" />
@@ -207,68 +248,66 @@ const Index = () => {
             <div className="h-full flex flex-col">
               <ScrollArea className="flex-1">
                 <div className="p-4 space-y-2">
-                  {users?.map((user) => (
-                    <div key={user.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-gray-50">
-                      <div className="relative">
-                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                          {user.avatar_url ? (
-                            <img 
-                              src={user.avatar_url} 
-                              alt={user.name || user.email}
-                              className="w-full h-full rounded-full object-cover"
-                            />
-                          ) : (
-                            <span className="text-sm font-medium text-gray-600">
-                              {(user.name || user.email).slice(0, 2).toUpperCase()}
-                            </span>
-                          )}
+                  {currentTypingUsers.length > 0 ? (
+                    currentTypingUsers.map((userId) => {
+                      const presence = getUserPresence(userId);
+                      return (
+                        <div key={userId} className="flex items-center gap-2">
+                          <div
+                            className={cn(
+                              "w-2 h-2 rounded-full",
+                              presence?.status === "online"
+                                ? "bg-green-500"
+                                : "bg-gray-400"
+                            )}
+                          />
+                          <div className="text-sm">{userId}</div>
                         </div>
-                        <div className={cn(
-                          "absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white",
-                          user.isOnline ? "bg-green-500" : "bg-gray-400"
-                        )} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                          {user.name || user.email}
-                        </p>
-                        <p className="text-xs text-gray-500 truncate">
-                          {user.isOnline ? 'Online' : 'Offline'}
-                        </p>
-                      </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-sm text-gray-500">
+                      No active members in this channel
                     </div>
-                  ))}
+                  )}
                 </div>
               </ScrollArea>
             </div>
           )}
+
           {activeTab === "messages" && (
             <div className="h-full flex flex-col">
               <ScrollArea ref={scrollAreaRef} className="flex-1">
                 <div className="p-4 space-y-4">
-                  {isLoadingMessages ? (
+                  {isLoadingMessages(currentChannelId) ? (
                     <div>Loading messages...</div>
-                  ) : (
-                    <>
-                      {messages?.map((msg) => (
+                  ) : messageError(currentChannelId) ? (
+                    <div className="text-red-600">
+                      {messageError(currentChannelId)?.message}
+                    </div>
+                  ) : currentMessages && currentMessages.length > 0 ? (
+                    currentMessages.map((msg: UiMessage) => {
+                      if (!msg) return null;
+                      return (
                         <ChatMessage
                           key={msg.id}
-                          id={msg.id}
-                          message={msg.content}
-                          sender={msg.sender_name}
-                          timestamp={new Date(msg.created_at * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                          avatar={msg.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${msg.sender_name}`}
+                          message={msg}
+                          isTyping={currentTypingUsers.includes(msg.sender.id)}
                         />
-                      ))}
-                    </>
+                      );
+                    })
+                  ) : (
+                    <div className="text-sm text-gray-500">
+                      No messages in this channel yet
+                    </div>
                   )}
                 </div>
               </ScrollArea>
-              <div className="p-4 border-t border-slack-border">
+              <div className="p-4 border-t border-gray-200">
                 <ChatInput
-                  channelId={currentChannel?.id || 0}
+                  channelId={currentChannelId}
                   onSendMessage={handleSendMessage}
-                  disabled={!currentChannel || isSending}
+                  disabled={!currentChannel}
                 />
               </div>
             </div>

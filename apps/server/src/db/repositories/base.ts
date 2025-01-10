@@ -1,6 +1,8 @@
 import { Database } from "bun:sqlite";
 import type { SQLQueryBindings } from "bun:sqlite";
-import type { BaseModel } from '@platica/shared';
+import type { BaseModel, BaseRow } from '@models';
+import { validateTimestamp } from '@types';
+import { TimestampError } from '@platica/shared/src/utils/time';
 
 export interface DatabaseProvider {
   db: Database;
@@ -39,10 +41,92 @@ export abstract class BaseRepository<
     return [];
   }
 
+  private camelToSnake(str: string): string {
+    return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+  }
+
+  private snakeToCamel(str: string): string {
+    return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+  }
+
+  /**
+   * Get current timestamp in seconds
+   */
+  protected getCurrentTimestamp(): number {
+    return Math.floor(Date.now() / 1000);
+  }
+
+  private serializeRow<D extends object>(data: D): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
+    
+    // Convert keys to snake_case and handle special fields
+    for (const [key, value] of Object.entries(data)) {
+      const snakeKey = this.camelToSnake(key);
+      
+      // Handle JSON fields
+      if (this.getJsonFields().includes(key)) {
+        result[snakeKey] = JSON.stringify(value);
+      }
+      // Handle boolean fields
+      else if (this.getBooleanFields().includes(key)) {
+        result[snakeKey] = value ? 1 : 0;
+      }
+      // Handle regular fields
+      else {
+        result[snakeKey] = value;
+      }
+    }
+
+    return result;
+  }
+
+  protected deserializeRow<D extends object>(data: D): T {
+    const result: Record<string, unknown> = {};
+    
+    // Convert keys to camelCase and handle special fields
+    for (const [key, value] of Object.entries(data)) {
+      const camelKey = this.snakeToCamel(key);
+      
+      // Handle JSON fields
+      if (this.getJsonFields().includes(camelKey) && typeof value === 'string') {
+        try {
+          result[camelKey] = JSON.parse(value);
+        } catch (e) {
+          console.warn(`Failed to parse JSON for field ${camelKey}:`, e);
+          result[camelKey] = value;
+        }
+      }
+      // Handle boolean fields
+      else if (this.getBooleanFields().includes(camelKey)) {
+        result[camelKey] = Boolean(value);
+      }
+      // Handle timestamps
+      else if (['createdAt', 'updatedAt', 'deletedAt'].includes(camelKey)) {
+        try {
+          if (value !== null) {
+            result[camelKey] = validateTimestamp(Number(value));
+          } else {
+            result[camelKey] = null;
+          }
+        } catch (error) {
+          throw new TimestampError(
+            `Invalid ${camelKey} in ${this.getTableName()}: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+      // Handle regular fields
+      else {
+        result[camelKey] = value;
+      }
+    }
+
+    return result as T;
+  }
+
   async findById(id: number): Promise<T | undefined> {
     const result = this.db
       .prepare(`SELECT * FROM ${this.getTableName()} WHERE id = ?`)
-      .get(id) as T | null;
+      .get(id) as BaseRow | null;
     
     return result ? this.deserializeRow(result) : undefined;
   }
@@ -50,13 +134,13 @@ export abstract class BaseRepository<
   async findAll(): Promise<T[]> {
     const results = this.db
       .prepare(`SELECT * FROM ${this.getTableName()}`)
-      .all() as T[];
+      .all() as BaseRow[];
     
     return results.map(result => this.deserializeRow(result));
   }
 
   async create(data: CreateDTO): Promise<T> {
-    const now = Math.floor(Date.now() / 1000);
+    const now = this.getCurrentTimestamp();
     const serializedData = this.serializeRow(data);
     const fields = Object.keys(serializedData);
     const values = Object.values(serializedData) as SQLQueryBindings[];
@@ -74,7 +158,7 @@ export abstract class BaseRepository<
     `;
 
     const params: SQLQueryBindings[] = [...values, now, now];
-    const result = this.db.prepare(query).get(...params) as T;
+    const result = this.db.prepare(query).get(...params) as BaseRow;
     return this.deserializeRow(result);
   }
 
@@ -83,7 +167,7 @@ export abstract class BaseRepository<
       return this.findById(id);
     }
 
-    const now = Math.floor(Date.now() / 1000);
+    const now = this.getCurrentTimestamp();
     const serializedData = this.serializeRow(data);
     const fields = Object.keys(serializedData);
     const values = Object.values(serializedData) as SQLQueryBindings[];
@@ -97,7 +181,7 @@ export abstract class BaseRepository<
     `;
 
     const params: SQLQueryBindings[] = [...values, now, id];
-    const result = this.db.prepare(query).get(...params) as T | null;
+    const result = this.db.prepare(query).get(...params) as BaseRow | null;
     return result ? this.deserializeRow(result) : undefined;
   }
 
@@ -117,54 +201,5 @@ export abstract class BaseRepository<
       this.db.exec('ROLLBACK');
       throw error;
     }
-  }
-
-  private serializeRow<D extends object>(data: D): D {
-    const result = { ...data };
-    
-    // Handle JSON fields
-    const jsonFields = this.getJsonFields();
-    for (const field of jsonFields) {
-      if (field in result) {
-        (result as any)[field] = JSON.stringify((result as any)[field]);
-      }
-    }
-
-    // Handle boolean fields
-    const booleanFields = this.getBooleanFields();
-    for (const field of booleanFields) {
-      if (field in result) {
-        (result as any)[field] = (result as any)[field] ? 1 : 0;
-      }
-    }
-
-    return result;
-  }
-
-  protected deserializeRow<D extends object>(data: D): D {
-    const result = { ...data };
-    
-    // Handle JSON fields
-    const jsonFields = this.getJsonFields();
-    for (const field of jsonFields) {
-      if (field in result && typeof (result as any)[field] === 'string') {
-        try {
-          (result as any)[field] = JSON.parse((result as any)[field]);
-        } catch (e) {
-          // If JSON parsing fails, leave as is
-          console.warn(`Failed to parse JSON for field ${field}:`, e);
-        }
-      }
-    }
-
-    // Handle boolean fields
-    const booleanFields = this.getBooleanFields();
-    for (const field of booleanFields) {
-      if (field in result) {
-        (result as any)[field] = Boolean((result as any)[field]);
-      }
-    }
-
-    return result;
   }
 } 

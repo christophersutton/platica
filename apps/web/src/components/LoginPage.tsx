@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { api } from '../lib/api';
-import type { ApiError } from '../lib/api';
+import { api } from '@/lib/api';
+import type { ApiError } from '@types';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
@@ -92,4 +92,4 @@ export function LoginPage() {
       </div>
     </div>
   );
-} 
+}

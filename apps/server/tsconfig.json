@@ -1,27 +1,24 @@
 {
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    // Enable latest features
-    "lib": ["ESNext"],
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleDetection": "force",
-    "jsx": "react-jsx",
-    "allowJs": true,
-
-    // Bundler mode
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
-    "noEmit": true,
-
-    // Best practices
-    "strict": true,
-    "skipLibCheck": true,
-    "noFallthroughCasesInSwitch": true,
-
-    // Some stricter flags (disabled by default)
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@routes/*": ["./src/routes/*"],
+      "@services/*": ["./src/services/*"],
+      "@db/*": ["./src/db/*"],
+      "@middleware/*": ["./src/middleware/*"],
+      "@utils/*": ["./src/utils/*"],
+      "@platica/shared/*": ["../../packages/shared/src/*"],
+      "@models": ["../../packages/shared/src/models/index.ts"],
+      "@models/*": ["../../packages/shared/src/models/*"],
+      "@constants/*": ["../../packages/shared/src/constants/*"],
+      "@websockets": ["../../packages/shared/src/websockets/index.ts"],
+      "@types": ["../../packages/shared/src/types.ts"]
+    },
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
-  }
+  },
+  "include": ["src"]
 }

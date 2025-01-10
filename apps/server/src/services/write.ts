@@ -1,17 +1,18 @@
-import { MessageRepository } from '../db/repositories/message-repository';
-import { DatabaseService } from '../db/core/database';
+import { Database } from "bun:sqlite";
 import { WebSocketService } from './websockets';
+import { DatabaseService } from '../db/core/database';
+import { MessageRepository } from '../db/repositories/message-repository';
+import { WSEventType } from '@websockets';
+import type { Message } from '@models';
 import type { MessageCreateDTO } from '../db/repositories/message-repository';
-import type { Message } from '@platica/shared/types';
-import { WSEventType, type ChatMessage } from '@platica/shared/src/websocket';
 
 interface MessageData {
   type: 'message';
-  workspace_id: number;
-  channel_id: number;
-  sender_id: number;
+  workspaceId: number;
+  channelId: number;
+  senderId: number;
   content: string;
-  thread_id?: number;
+  threadId?: number;
 }
 
 export default class WriteService {
@@ -26,15 +27,16 @@ export default class WriteService {
   }
 
   async handleMessage(data: MessageData): Promise<void> {
-    const messageData = {
-      workspace_id: data.workspace_id,
-      channel_id: data.channel_id,
-      sender_id: data.sender_id,
+    const messageData: MessageCreateDTO = {
+      workspaceId: data.workspaceId,
+      channelId: data.channelId,
       content: data.content,
-      is_edited: false,
-      thread_id: data.thread_id ?? null,
-      deleted_at: null
-    } as MessageCreateDTO;
+      threadId: data.threadId,
+      senderId: data.senderId,
+      isEdited: false,
+      deletedAt: null,
+      attachments: '[]'
+    };
 
     // First create the message
     const createdMessage = await this.messageRepo.create(messageData);
@@ -48,25 +50,18 @@ export default class WriteService {
     }
     console.log('[WriteService] Got message metadata:', messageWithMeta);
 
-    // Use the message's created_at timestamp
-    const createdAt = messageWithMeta.created_at;
+    // Log the timestamp in a safe way
     console.log('[WriteService] Using timestamp:', {
-      raw: createdAt,
-      asDate: new Date(createdAt * 1000).toISOString()
+      unix: messageWithMeta.createdAt,
+      ms: messageWithMeta.createdAt * 1000
     });
 
-    const broadcastMessage: ChatMessage = {
-      type: WSEventType.CHAT,
-      channelId: data.channel_id,
-      content: data.content,
-      userId: data.sender_id,
-      messageId: messageWithMeta.id,
-      createdAt,
-      sender_name: messageWithMeta.sender_name,
-      avatar_url: messageWithMeta.avatar_url
-    };
-
     // Broadcast to all clients in the workspace
-    this.wsService.broadcastToWorkspace(data.workspace_id, broadcastMessage);
+    this.wsService.broadcastToWorkspace(data.workspaceId, {
+      type: WSEventType.CHAT,
+      payload: {
+        message: messageWithMeta
+      }
+    });
   }
 }

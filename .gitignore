@@ -138,7 +138,7 @@ jspm_packages/
 *.tgz
 
 #aider
-.aider*
+.aider.*
 
 # Database files
 /apps/server/data/*.sqlite-shm

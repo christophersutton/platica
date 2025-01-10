@@ -1,16 +1,7 @@
 import { Database } from "bun:sqlite";
 import { BaseRepository } from "./base";
-import type { User, BaseModel } from '@platica/shared/types';
-
-interface AuthToken extends BaseModel {
-  token: string;
-  user_id: number;
-  expires_at: number;
-  used: boolean;
-}
-
-type UserCreateDTO = Pick<User, 'email' | 'name' | 'avatar_url'>;
-type UserUpdateDTO = Partial<UserCreateDTO>;
+import type { User } from '@models/user';
+import type { AuthToken, AuthTokenRow, UserCreateDTO, UserUpdateDTO } from '@models/auth';
 
 export class AuthRepository extends BaseRepository<User, UserCreateDTO, UserUpdateDTO> {
   constructor(db: Database) {
@@ -34,18 +25,18 @@ export class AuthRepository extends BaseRepository<User, UserCreateDTO, UserUpda
     return this.create({
       email,
       name: email.split('@')[0],
-      avatar_url: null
+      avatarUrl: null
     });
   }
 
-  async createAuthToken(data: { user_id: number; expires_at: number }): Promise<string> {
+  async createAuthToken(data: { userId: number; expiresAt: number }): Promise<string> {
     const token = crypto.randomUUID();
     const now = Math.floor(Date.now() / 1000);
 
     this.db.prepare(`
       INSERT INTO auth_tokens (token, user_id, expires_at, used, created_at, updated_at)
       VALUES (?, ?, ?, 0, ?, ?)
-    `).run(token, data.user_id, data.expires_at, now, now);
+    `).run(token, data.userId, data.expiresAt, now, now);
 
     return token;
   }
@@ -54,14 +45,14 @@ export class AuthRepository extends BaseRepository<User, UserCreateDTO, UserUpda
     return this.transaction(async () => {
       // Get and verify token
       const now = Math.floor(Date.now() / 1000);
-      const authToken = this.db.prepare(`
+      const row = this.db.prepare(`
         SELECT * FROM auth_tokens
         WHERE token = ?
         AND used = 0
         AND expires_at > ?
-      `).get(token, now) as AuthToken | undefined;
+      `).get(token, now) as AuthTokenRow | undefined;
 
-      if (!authToken) return undefined;
+      if (!row) return undefined;
 
       // Mark token as used
       this.db.prepare(`
@@ -70,7 +61,16 @@ export class AuthRepository extends BaseRepository<User, UserCreateDTO, UserUpda
         WHERE token = ?
       `).run(now, token);
 
-      return authToken;
+      // Convert row to domain type
+      return {
+        id: row.id,
+        token: row.token,
+        userId: row.user_id,
+        expiresAt: row.expires_at,
+        used: Boolean(row.used),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      };
     });
   }
 

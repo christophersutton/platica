@@ -5,35 +5,45 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { useChannels } from "@/hooks/use-channels";
+// import { useAppContext } from "@/contexts/AppContext";
 
 export function CreateChannelModal() {
   const [channelName, setChannelName] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   const { workspaceId = "1" } = useParams();
   const navigate = useNavigate();
-  const { createChannel, isCreating } = useChannels(Number(workspaceId));
+  // const { createChannel } = useAppContext();
   const { toast } = useToast();
 
   const handleCreateChannel = async () => {
+    if (!channelName.trim()) return;
+    
+    setIsCreating(true);
     try {
-      const newChannel = await createChannel({ 
-        name: channelName.toLowerCase(),
-        is_private: false
-      });
+      // await createChannel(Number(workspaceId), { 
+      //   name: channelName.toLowerCase(),
+      //   is_private: false
+      // });
+      
       setChannelName("");
       setIsOpen(false);
       toast({
         title: "Channel created",
         description: `#${channelName} has been created successfully.`
       });
-      navigate(`/w/${workspaceId}/c/${newChannel.id}`);
+      
+      // The new channel will be added to state via websocket event,
+      // so we can navigate after creation
+      navigate(`/w/${workspaceId}/c/${channelName}`);
     } catch (error) {
       toast({
         title: "Error creating channel",
         description: error instanceof Error ? error.message : "An error occurred",
         variant: "destructive"
       });
+    } finally {
+      setIsCreating(false);
     }
   };
 

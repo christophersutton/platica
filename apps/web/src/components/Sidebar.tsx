@@ -1,40 +1,35 @@
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChevronDown, ChevronLeft, Hash, Plus, Clock, User, Settings, LogOut } from "lucide-react";
-import { useState, useCallback } from "react";
-import { useWebSocket } from "@/hooks/use-websocket";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { api } from "@/lib/api";
 import { CreateChannelModal } from "./CreateChannelModal";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
-import { useWorkspaceUsers } from "@/hooks/use-workspace-users";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { useChannels } from "@/hooks/use-channels";
-import { Link } from "react-router-dom";
-import { Badge } from "@/components/ui/badge";
+
+import { useChannels } from "@/contexts/channel/ChannelContext";
+import type { Channel } from '@models/channel';
+
+interface PresenceUser {
+  id: number;
+  isOnline: boolean;
+}
 
 export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { workspaceId = "1", channelId } = useParams();
   const navigate = useNavigate();
-  const { channels, isLoading: isLoadingChannels, refreshChannels } = useChannels(Number(workspaceId));
-  const { users, isLoading: isLoadingUsers } = useWorkspaceUsers();
   const { user } = useAuth();
+  // const { state } = useAppContext();
+  const { channels, isLoadingChannels } = useChannels();
   
-  useWebSocket({
-    workspaceId: Number(workspaceId),
-    onChannelCreated: useCallback(() => {
-      refreshChannels();
-    }, [refreshChannels])
-  });
-
-  // Filter out current user from DM list
-  const otherUsers = users.filter(u => u.id !== user?.id);
+  // // Filter out current user from presence list for DMs
+  // const onlineUsers: PresenceUser[] = Object.entries(state.presenceMap)
+  //   .filter(([id]) => Number(id) !== user?.id)
+  //   .map(([id, presence]) => ({
+  //     id: Number(id),
+  //     isOnline: presence.status === 'online'
+  //   }));
 
   return (
     <div 
@@ -56,7 +51,7 @@ export function Sidebar() {
             <ChevronLeft className="h-4 w-4" />
           ) : (
             <>
-              Workspace Name
+              {/* {state.workspace?.name || 'Workspace'} */}
               <ChevronDown className="h-3 w-3" />
             </>
           )}
@@ -71,7 +66,6 @@ export function Sidebar() {
               <CreateChannelModal />
             </div>
             {isLoadingChannels ? (
-              // Show loading skeleton
               Array.from({ length: 3 }).map((_, i) => (
                 <div
                   key={i}
@@ -96,7 +90,7 @@ export function Sidebar() {
                     <div className="flex items-center justify-between w-full">
                       <span className={cn(
                         "ml-0",
-                        Boolean(channel.has_unread) && Number(channel.id) !== Number(channelId) && "font-bold text-white",
+                        Boolean(channel.unreadCount) && Number(channel.id) !== Number(channelId) && "font-bold text-white",
                         Number(channelId) === channel.id && "font-normal"
                       )}>
                         {channel.name}
@@ -114,15 +108,15 @@ export function Sidebar() {
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
-            {isLoadingUsers ? (
-              // Show loading skeleton
+            {isLoadingChannels ? (
               Array.from({ length: 3 }).map((_, i) => (
                 <div
                   key={i}
                   className="h-7 mb-0.5 px-1.5 animate-pulse bg-slack-purple-dark/50 rounded"
                 />
               ))
-            ) : otherUsers.map((u) => (
+            ) : null }
+            {/* onlineUsers.map((u) => (
               <Button
                 key={u.id}
                 variant="ghost"
@@ -137,78 +131,12 @@ export function Sidebar() {
                   "h-2 w-2 rounded-full mr-0",
                   u.isOnline ? "bg-slack-green" : "bg-gray-400"
                 )} />
-                {!isCollapsed && <span className="ml-0">{u.name || u.email}</span>}
+                {!isCollapsed && <span className="ml-0">{u.id}</span>}
               </Button>
-            ))}
+            ))} */}
           </div>
         </div>
       </ScrollArea>
-
-      <div className="p-1 border-t border-slack-purple-dark">
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="ghost"
-              className={cn(
-                "w-full text-left text-gray-300 py-1 relative overflow-hidden",
-                "transition-colors duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
-                isCollapsed ? "justify-center" : "justify-start",
-                "hover:bg-slack-purple-dark/50"
-              )}
-            >
-              <div className="flex items-center space-x-1.5">
-                <div className="relative">
-                  <div className="w-7 h-7 rounded-full bg-slack-green flex items-center justify-center text-white text-sm font-medium">
-                    {user?.name?.split(' ').map(n => n[0]).join('').toUpperCase()}
-                  </div>
-                  <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-slack-green border-2 border-slack-purple" />
-                </div>
-                {!isCollapsed && (
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm truncate">{user?.name}</p>
-                  </div>
-                )}
-              </div>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent 
-            side="top" 
-            className="w-56 p-1 bg-white dark:bg-slate-900"
-          >
-            <div className="space-y-1">
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start text-xs h-7"
-              >
-                <User className="h-3.5 w-3.5 mr-1.5" />
-                Edit Profile
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start text-xs h-7"
-              >
-                <Settings className="h-3.5 w-3.5 mr-1.5" />
-                Set Status
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start text-xs h-7"
-              >
-                <Clock className="h-3.5 w-3.5 mr-1.5" />
-                Set Timezone
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start text-xs h-7 text-red-500 hover:text-red-600 hover:bg-red-50"
-                onClick={() => api.auth.logout()}
-              >
-                <LogOut className="h-3.5 w-3.5 mr-1.5" />
-                Logout
-              </Button>
-            </div>
-          </PopoverContent>
-        </Popover>
-      </div>
     </div>
   );
 }

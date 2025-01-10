@@ -1,7 +1,17 @@
-import type { ServerWebSocket } from 'bun';
-import type { UnixTimestamp } from '@platica/shared/types';
-import { WSEventType, type WebSocketMessage, type ChatMessage, type TypingMessage, validateMessage } from '@platica/shared/src/websocket';
-import { getCurrentUnixTimestamp } from '../utils/time';
+import type { ServerWebSocket } from "bun";
+import {
+  WSEventType,
+  type WebSocketEvent,
+  type ChatEvent,
+  type TypingEvent,
+  type OutgoingChatEvent,
+} from "@websockets";
+import { DatabaseService } from "../db/core/database";
+import type { UnixTimestamp } from "@types";
+import { getCurrentUnixTimestamp } from "../utils/time";
+import { validateTimestamp } from "@types";
+import type { Message } from "@models/message";
+import type { User } from "@models/user";
 
 interface WebSocketData {
   workspaceId: number;
@@ -15,26 +25,54 @@ interface Client {
   lastActivity: UnixTimestamp;
 }
 
-type MessageHandler<T extends WebSocketMessage = WebSocketMessage> = (ws: ServerWebSocket<WebSocketData>, message: T) => Promise<void>;
+interface DBMessage {
+  id: number;
+  workspace_id: number;
+  channel_id: number;
+  sender_id: number;
+  content: string;
+  created_at: number;
+  updated_at: number;
+}
+
+interface DBUser {
+  id: number;
+  name: string;
+  email: string;
+  avatar_url: string;
+  created_at: number;
+  updated_at: number;
+  deleted_at: number | null;
+}
+
+type MessageHandler<T extends WebSocketEvent = WebSocketEvent> = (
+  ws: ServerWebSocket<WebSocketData>,
+  message: T
+) => Promise<void>;
 
 export class WebSocketService {
   private static instance: WebSocketService;
   private clients: Map<ServerWebSocket<WebSocketData>, Client> = new Map();
-  private typingTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  private typingTimeouts: Map<string, ReturnType<typeof setTimeout>> =
+    new Map();
   private lastPresenceBroadcast: Map<string, number> = new Map();
   private messageHandlers: Map<WSEventType, MessageHandler> = new Map();
 
   private constructor() {
     // Clean up inactive clients periodically
     setInterval(() => this.cleanupInactiveClients(), 60000);
-    
+
     // Initialize message handlers
     this.initializeMessageHandlers();
   }
 
   private initializeMessageHandlers() {
-    this.messageHandlers.set(WSEventType.CHAT, (ws, message) => this.handleChat(ws, message as ChatMessage));
-    this.messageHandlers.set(WSEventType.TYPING, (ws, message) => this.handleTypingIndicator(ws, message as TypingMessage));
+    this.messageHandlers.set(WSEventType.CHAT, (ws, message) =>
+      this.handleChat(ws, message as ChatEvent)
+    );
+    this.messageHandlers.set(WSEventType.TYPING, (ws, message) =>
+      this.handleTypingIndicator(ws, message as TypingEvent)
+    );
     // Add more handlers as needed
   }
 
@@ -59,31 +97,34 @@ export class WebSocketService {
     const { workspaceId, userId } = ws.data;
 
     if (!workspaceId || !userId) {
-      ws.close(1008, 'Missing workspace_id or user_id');
+      ws.close(1008, "Missing workspace_id or user_id");
       return;
     }
 
     this.clients.set(ws, {
       workspaceId,
       userId,
-      lastActivity: getCurrentUnixTimestamp()
+      lastActivity: getCurrentUnixTimestamp(),
     });
 
     // Broadcast initial presence state to the new client
     const onlineUsers = this.getOnlineUsersInWorkspace(workspaceId);
-    ws.send(JSON.stringify({
-      type: WSEventType.PRESENCE_SYNC,
-      onlineUsers
-    }));
+    ws.send(
+      JSON.stringify({
+        type: WSEventType.PRESENCE_SYNC,
+        onlineUsers,
+      })
+    );
 
     // Then broadcast this user's presence to others, but only if we haven't recently
     const key = `${workspaceId}:${userId}`;
     const now = Date.now();
     const lastBroadcast = this.lastPresenceBroadcast.get(key) || 0;
-    
-    if (now - lastBroadcast > 5000) { // Only broadcast if more than 5 seconds since last broadcast
+
+    if (now - lastBroadcast > 5000) {
+      // Only broadcast if more than 5 seconds since last broadcast
       this.lastPresenceBroadcast.set(key, now);
-      this.broadcastPresence(workspaceId, userId, 'online');
+      this.broadcastPresence(workspaceId, userId, "online");
     }
   }
 
@@ -91,34 +132,44 @@ export class WebSocketService {
     const client = this.clients.get(ws);
     if (client) {
       this.clients.delete(ws);
-      
+
       // Check if this was the last connection for this user in this workspace
       let hasOtherConnections = false;
       for (const [_, otherClient] of this.clients.entries()) {
-        if (otherClient.workspaceId === client.workspaceId && 
-            otherClient.userId === client.userId) {
+        if (
+          otherClient.workspaceId === client.workspaceId &&
+          otherClient.userId === client.userId
+        ) {
           hasOtherConnections = true;
           break;
         }
       }
-      
+
       // Only broadcast offline status if this was the last connection
       if (!hasOtherConnections) {
-        this.broadcastPresence(client.workspaceId, client.userId, 'offline');
+        this.broadcastPresence(client.workspaceId, client.userId, "offline");
       }
     }
   }
 
-  public async handleMessage(ws: ServerWebSocket<WebSocketData>, rawMessage: string) {
+  public async handleMessage(
+    ws: ServerWebSocket<WebSocketData>,
+    rawMessage: string
+  ) {
     try {
       const message = JSON.parse(rawMessage);
-      
-      if (!validateMessage(message)) {
-        console.error('Invalid message format:', message);
-        ws.send(JSON.stringify({
-          type: WSEventType.ERROR,
-          message: 'Invalid message format'
-        }));
+
+      // Validate message has a valid event type
+      if (!message.type || !Object.values(WSEventType).includes(message.type)) {
+        console.error("Invalid message type:", message);
+        ws.send(
+          JSON.stringify({
+            type: WSEventType.ERROR,
+            payload: {
+              message: "Invalid message type",
+            },
+          })
+        );
         return;
       }
 
@@ -132,83 +183,179 @@ export class WebSocketService {
           await handler(ws, message);
         } catch (error) {
           console.error(`Error handling message type ${message.type}:`, error);
-          ws.send(JSON.stringify({
-            type: WSEventType.ERROR,
-            message: 'Internal server error'
-          }));
+          ws.send(
+            JSON.stringify({
+              type: WSEventType.ERROR,
+              payload: {
+                message: "Internal server error",
+              },
+            })
+          );
         }
       } else {
-        console.warn('No handler for message type:', message.type);
-        ws.send(JSON.stringify({
-          type: WSEventType.ERROR,
-          message: `Unsupported message type: ${message.type}`
-        }));
+        console.warn("No handler for message type:", message.type);
+        ws.send(
+          JSON.stringify({
+            type: WSEventType.ERROR,
+            payload: {
+              message: `Unsupported message type: ${message.type}`,
+            },
+          })
+        );
       }
     } catch (error) {
-      console.error('Failed to parse message:', error);
-      ws.send(JSON.stringify({
-        type: WSEventType.ERROR,
-        message: 'Invalid message format'
-      }));
+      console.error("Failed to parse message:", error);
+      ws.send(
+        JSON.stringify({
+          type: WSEventType.ERROR,
+          payload: {
+            message: "Invalid message format",
+          },
+        })
+      );
     }
   }
 
-  private async handleChat(ws: ServerWebSocket<WebSocketData>, message: ChatMessage) {
+  private async handleChat(
+    ws: ServerWebSocket<WebSocketData>,
+    message: OutgoingChatEvent | any
+  ) {
     const client = this.clients.get(ws);
     if (!client) {
-      throw new Error('Client not found');
+      throw new Error("Client not found");
     }
 
-    // Validate the message
-    if (!message.content.trim()) {
-      throw new Error('Message content cannot be empty');
+    // Handle both legacy format and new format
+    const content = message.payload?.content || message.content;
+
+    if (!content?.trim()) {
+      throw new Error("Message content cannot be empty");
     }
 
-    // Broadcast to workspace (use message as-is since it's already formatted)
-    this.broadcastToWorkspace(client.workspaceId, message);
+    // Get the database service
+    const dbService = DatabaseService.getWriteInstance();
+
+    // Save the message to the database
+    const savedMessage = dbService.db
+      .prepare(
+        `
+      INSERT INTO messages (workspace_id, channel_id, sender_id, content, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      RETURNING *
+    `
+      )
+      .get(
+        client.workspaceId,
+        message.channelId || message.payload?.channelId,
+        client.userId,
+        content,
+        getCurrentUnixTimestamp(),
+        getCurrentUnixTimestamp()
+      ) as DBMessage;
+
+    // Get sender info
+    const sender = dbService.db
+      .prepare(
+        `
+      SELECT id, name, email, avatar_url, created_at, updated_at, deleted_at
+      FROM users
+      WHERE id = ?
+    `
+      )
+      .get(client.userId) as DBUser;
+
+    // Format as a proper ChatEvent with full message object
+    const broadcastMessage: ChatEvent = {
+      type: WSEventType.CHAT,
+      payload: {
+        message: {
+          id: savedMessage.id,
+          workspaceId: savedMessage.workspace_id,
+          channelId: savedMessage.channel_id,
+          content: savedMessage.content,
+          createdAt: validateTimestamp(savedMessage.created_at),
+          updatedAt: validateTimestamp(savedMessage.updated_at),
+          deletedAt: null,
+          threadId: undefined,
+
+          sender: {
+            id: sender.id,
+            name: sender.name,
+            email: sender.email,
+            avatarUrl: sender.avatar_url,
+            createdAt: validateTimestamp(sender.created_at),
+            updatedAt: validateTimestamp(sender.updated_at),
+            deletedAt: sender.deleted_at
+              ? validateTimestamp(sender.deleted_at)
+              : null,
+          },
+
+          isEdited: false,
+        },
+      },
+    };
+
+    // Broadcast to workspace
+    this.broadcastToWorkspace(client.workspaceId, broadcastMessage);
   }
 
-  public async handleTypingIndicator(ws: ServerWebSocket<WebSocketData>, message: TypingMessage) {
+  public async handleTypingIndicator(
+    ws: ServerWebSocket<WebSocketData>,
+    message: TypingEvent
+  ) {
     const client = this.clients.get(ws);
     if (!client) return;
 
     const key = `${client.workspaceId}:${client.userId}`;
-    
+
     // Clear existing timeout
     if (this.typingTimeouts.has(key)) {
       clearTimeout(this.typingTimeouts.get(key)!);
     }
 
     // Set timeout to clear typing status after 3 seconds
-    this.typingTimeouts.set(key, setTimeout(() => {
-      this.typingTimeouts.delete(key);
-      // Broadcast typing stopped
-      this.broadcastToWorkspace(client.workspaceId, {
-        type: WSEventType.TYPING,
-        userId: client.userId,
-        channelId: message.channelId,
-        isTyping: false
-      });
-    }, 3000));
+    this.typingTimeouts.set(
+      key,
+      setTimeout(() => {
+        this.typingTimeouts.delete(key);
+        // Broadcast typing stopped
+        this.broadcastToWorkspace(client.workspaceId, {
+          type: WSEventType.TYPING,
+          payload: {
+            channelId: message.payload.channelId,
+            userId: client.userId,
+            isTyping: false,
+          },
+        });
+      }, 3000)
+    );
 
     // Broadcast typing started
     this.broadcastToWorkspace(client.workspaceId, {
       type: WSEventType.TYPING,
-      userId: client.userId,
-      channelId: message.channelId,
-      isTyping: true
+      payload: {
+        channelId: message.payload.channelId,
+        userId: client.userId,
+        isTyping: true,
+      },
     });
   }
 
-  public broadcastPresence(workspaceId: number, userId: number, status: 'online' | 'offline') {
+  public broadcastPresence(
+    workspaceId: number,
+    userId: number,
+    status: "online" | "offline"
+  ) {
     this.broadcastToWorkspace(workspaceId, {
       type: WSEventType.PRESENCE,
-      userId,
-      status
+      payload: {
+        userId,
+        status,
+      },
     });
   }
 
-  public broadcastToWorkspace(workspaceId: number, message: WebSocketMessage) {
+  public broadcastToWorkspace(workspaceId: number, message: WebSocketEvent) {
     for (const [ws, client] of this.clients.entries()) {
       if (client.workspaceId === workspaceId) {
         ws.send(JSON.stringify(message));
@@ -219,11 +366,12 @@ export class WebSocketService {
   private cleanupInactiveClients() {
     const now = getCurrentUnixTimestamp();
     for (const [ws, client] of this.clients.entries()) {
-      if (now - client.lastActivity > 300) { // 5 minutes
+      if (now - client.lastActivity > 300) {
+        // 5 minutes
         try {
-          ws.close(1000, 'Inactive');
+          ws.close(1000, "Inactive");
         } catch (error) {
-          console.error('Error closing inactive connection:', error);
+          console.error("Error closing inactive connection:", error);
         }
         this.clients.delete(ws);
       }
@@ -237,4 +385,3 @@ export class WebSocketService {
     }
   }
 }
-

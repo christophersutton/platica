@@ -1,38 +1,17 @@
 import { Database } from "bun:sqlite";
 import { BaseRepository } from "./base";
-import type { Workspace, WorkspaceMember, User, BaseModel, WorkspaceCreateDTO } from '@platica/shared/types';
-import { UserRole } from '@platica/shared/types';
-
-type WorkspaceUpdateDTO = Partial<WorkspaceCreateDTO>;
-
-interface WorkspaceWithMeta extends Workspace {
-  member_count: number;
-  channel_count: number;
-  role?: UserRole;
-}
-
-interface WorkspaceMemberWithUser extends WorkspaceMember {
-  user_name: string;
-  user_email: string;
-  user_avatar_url: string | null;
-}
-
-interface WorkspaceInvite extends BaseModel {
-  workspace_id: number;
-  inviter_id: number;
-  email: string;
-  role: UserRole;
-  status: 'pending' | 'accepted' | 'rejected';
-}
+import type { Workspace, WorkspaceMember, User, BaseModel, CreateWorkspaceDTO, UpdateWorkspaceDTO } from '@models';
+import { UserRole } from '@constants/enums';
+import type { WorkspaceWithMeta, WorkspaceMemberWithUser, WorkspaceInvite } from '../../types/repository';
 
 type WorkspaceInviteCreateDTO = {
-  workspace_id: number;
-  inviter_id: number;
+  workspaceId: number;
+  inviterId: number;
   email: string;
   role: UserRole;
 };
 
-export class WorkspaceRepository extends BaseRepository<Workspace, WorkspaceCreateDTO, WorkspaceUpdateDTO> {
+export class WorkspaceRepository extends BaseRepository<Workspace, CreateWorkspaceDTO, UpdateWorkspaceDTO> {
   constructor(db: Database) {
     super(db);
   }
@@ -42,7 +21,11 @@ export class WorkspaceRepository extends BaseRepository<Workspace, WorkspaceCrea
   }
 
   protected getJsonFields(): string[] {
-    return ['settings'];
+    return ['settings', 'notificationDefaults'];
+  }
+
+  protected getBooleanFields(): string[] {
+    return [];
   }
 
   async findBySlug(slug: string): Promise<Workspace | undefined> {
@@ -115,10 +98,10 @@ export class WorkspaceRepository extends BaseRepository<Workspace, WorkspaceCrea
 
   async updateUser(workspaceId: number, userId: number, data: {
     role?: UserRole;
-    display_name?: string;
+    displayName?: string;
     status?: string;
-    status_message?: string;
-    notification_preferences?: string;
+    statusMessage?: string;
+    notificationPreferences?: string;
   }): Promise<WorkspaceMember | undefined> {
     const now = Math.floor(Date.now() / 1000);
     const updates: string[] = [];
@@ -130,7 +113,7 @@ export class WorkspaceRepository extends BaseRepository<Workspace, WorkspaceCrea
     }
 
     // Store user preferences in settings JSON
-    if (data.display_name || data.status || data.status_message || data.notification_preferences) {
+    if (data.displayName || data.status || data.statusMessage || data.notificationPreferences) {
       const member = this.db.prepare(`
         SELECT settings FROM workspace_users
         WHERE workspace_id = ? AND user_id = ?
@@ -142,10 +125,10 @@ export class WorkspaceRepository extends BaseRepository<Workspace, WorkspaceCrea
 
       const newSettings = {
         ...currentSettings,
-        ...(data.display_name && { display_name: data.display_name }),
+        ...(data.displayName && { displayName: data.displayName }),
         ...(data.status && { status: data.status }),
-        ...(data.status_message && { status_message: data.status_message }),
-        ...(data.notification_preferences && { notification_preferences: data.notification_preferences })
+        ...(data.statusMessage && { statusMessage: data.statusMessage }),
+        ...(data.notificationPreferences && { notificationPreferences: data.notificationPreferences })
       };
 
       updates.push('settings = ?');
@@ -203,8 +186,8 @@ export class WorkspaceRepository extends BaseRepository<Workspace, WorkspaceCrea
       ) VALUES (?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `).get(
-      data.workspace_id,
-      data.inviter_id,
+      data.workspaceId,
+      data.inviterId,
       data.email,
       data.role,
       'pending',

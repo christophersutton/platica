@@ -1,62 +1,12 @@
-const API_BASE_URL = '/api';
+import type { User } from '@models/user';
+import type { Channel, ChannelMember } from '@models/channel';
+import type { ApiMessage, Message } from '@models/message';
+import type { Workspace } from '@models/workspace';
+import type { ApiWorkspaceUser } from '@models/user';
 
-export interface Channel {
-  id: number;
-  workspace_id: number;
-  name: string;
-  description: string | null;
-  settings: Record<string, unknown>;
-  created_at: number;
-  updated_at: number;
-  member_count?: number;
-  message_count?: number;
-  last_message_at?: number | null;
-  has_unread?: number;
-  member_status?: 'member' | 'invited' | null;
-}
-
-interface Message {
-  id: number;
-  content: string;
-  sender_id: number;
-  sender_name: string;
-  avatar_url: string | null;
-  created_at: number;
-  is_edited: boolean;
-  thread_id?: number;
-}
-
-interface User {
-  id: number;
-  email: string;
-  name?: string;
-  avatar_url?: string;
-}
-
-interface Workspace {
-  id: number;
-  name: string;
-  slug: string;
-  owner_id: number;
-  icon_url: string | null;
-  settings: Record<string, unknown>;
-  created_at: number;
-  updated_at: number;
-  member_count: number;
-  channel_count: number;
-  role: string;
-}
-
-interface WorkspaceUser {
-  workspace_id: number;
-  user_id: number;
-  role: string;
-  settings: Record<string, unknown>;
-  created_at: number;
-  updated_at: number;
-  user_name: string;
-  user_email: string;
-  user_avatar_url: string | null;
+interface ApiResponse<T> {
+  data: T;
+  error?: string;
 }
 
 interface ApiError {
@@ -64,10 +14,7 @@ interface ApiError {
   status: number;
 }
 
-interface ApiResponse<T> {
-  data: T;
-  error?: string;
-}
+const API_BASE_URL = '/api';
 
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem('auth_token');
@@ -108,7 +55,7 @@ export const api = {
       }),
       
     getProfile: () => 
-      fetchApi<User>('/profile'),
+      fetchApi<ApiWorkspaceUser>('/profile'),
 
     logout: () => {
       localStorage.removeItem('auth_token');
@@ -127,13 +74,7 @@ export const api = {
       }),
 
     getMessages: (channelId: number) =>
-      fetchApi<{ messages: Message[] }>(`/channels/${channelId}/messages`),
-
-    sendMessage: (channelId: number, data: { content: string; thread_id?: number; }) =>
-      fetchApi<{ message: Message }>(`/channels/${channelId}/messages`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+      fetchApi<{ messages: ApiMessage[] }>(`/channels/${channelId}/messages`),
 
     markRead: (channelId: number) =>
       fetchApi<{ success: boolean }>(`/channels/${channelId}/messages/read`, {
@@ -144,6 +85,28 @@ export const api = {
       fetchApi<void>(`/channels/${channelId}/read`, {
         method: 'POST'
       }),
+
+    members: {
+      list: (channelId: number) =>
+        fetchApi<{ members: ChannelMember[] }>(`/channels/${channelId}/members`),
+
+      add: (channelId: number, data: { userId: number; role?: string }) =>
+        fetchApi<{ success: boolean }>(`/channels/${channelId}/members`, {
+          method: 'POST',
+          body: JSON.stringify(data),
+        }),
+
+      remove: (channelId: number, userId: number) =>
+        fetchApi<{ success: boolean }>(`/channels/${channelId}/members/${userId}`, {
+          method: 'DELETE'
+        }),
+
+      update: (channelId: number, userId: number, data: { role: string }) =>
+        fetchApi<{ success: boolean }>(`/channels/${channelId}/members/${userId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(data),
+        })
+    }
   },
 
   workspaces: {
@@ -154,8 +117,9 @@ export const api = {
       fetchApi<{ workspaces: Workspace[] }>('/workspaces'),
 
     getUsers: (workspaceId: number) =>
-      fetchApi<WorkspaceUser[]>(`/workspaces/${workspaceId}/users`),
+      fetchApi<ApiWorkspaceUser[]>(`/workspaces/${workspaceId}/users`),
   },
 };
 
-export type { ApiError, Message, User, Workspace };
+// Export types that other components might need
+export type { ApiError, Message, User, Workspace, Channel, ApiWorkspaceUser };

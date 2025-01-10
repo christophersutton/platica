@@ -1,23 +1,16 @@
 import { Database } from "bun:sqlite";
 import { BaseRepository } from "./base";
-import type { Message, BaseModel, UnixTimestamp } from '@platica/shared/types';
+import type { Message, BaseModel } from '@models';
+import { validateTimestamp } from '@types';
+import type { MessageWithMeta } from '../../types/repository';
+import { TimestampError } from '@platica/shared/src/utils/time';
 
-export type MessageCreateDTO = Omit<Message, keyof BaseModel | 'attachments'> & {
+export type MessageCreateDTO = Omit<Message, keyof BaseModel | 'attachments' | 'sender'> & {
   attachments?: string; // JSON string
-  deleted_at: UnixTimestamp | null;
-  is_edited: boolean;
+  senderId: number;
 };
 
 export type MessageUpdateDTO = Partial<MessageCreateDTO>;
-
-interface MessageWithMeta extends Message {
-  sender_name: string;
-  avatar_url: string | null;
-  reaction_count: number;
-  reply_count?: number;
-  has_thread: 0 | 1;
-  attachments?: string; // JSON string of attachments
-}
 
 export class MessageRepository extends BaseRepository<Message, MessageCreateDTO, MessageUpdateDTO> {
   constructor(db: Database) {
@@ -28,50 +21,38 @@ export class MessageRepository extends BaseRepository<Message, MessageCreateDTO,
     return 'messages';
   }
 
-  async findByChannel(channelId: number, limit = 50, before?: number): Promise<MessageWithMeta[]> {
-    const query = `
-      SELECT 
-        m.*,
-        u.name as sender_name,
-        u.avatar_url,
-        (SELECT COUNT(*) FROM reactions r WHERE r.message_id = m.id) as reaction_count,
-        (SELECT COUNT(*) FROM messages r WHERE r.thread_id = m.id) as reply_count,
-        (EXISTS (SELECT 1 FROM messages r WHERE r.thread_id = m.id)) as has_thread
-      FROM messages m
-      JOIN users u ON m.sender_id = u.id
-      WHERE m.channel_id = ?
-        ${before ? 'AND m.created_at < (SELECT created_at FROM messages WHERE id = ?)' : ''}
-      ORDER BY m.created_at ASC
-      LIMIT ?
-    `;
-
-    const params = before 
-      ? [channelId, before, limit]
-      : [channelId, limit];
-
-    return this.db.prepare(query).all(...params) as MessageWithMeta[];
+  protected getJsonFields(): string[] {
+    return ['attachments'];
   }
 
-  async findByThread(threadId: number, limit = 50, before?: number): Promise<MessageWithMeta[]> {
-    const query = `
-      SELECT 
-        m.*,
-        u.name as sender_name,
-        u.avatar_url,
-        (SELECT COUNT(*) FROM reactions r WHERE r.message_id = m.id) as reaction_count
-      FROM messages m
-      JOIN users u ON m.sender_id = u.id
-      WHERE m.thread_id = ?
-        ${before ? 'AND m.id < ?' : ''}
-      ORDER BY m.created_at DESC
-      LIMIT ?
-    `;
+  protected getBooleanFields(): string[] {
+    return ['isEdited'];
+  }
 
-    const params = before 
-      ? [threadId, before, limit]
-      : [threadId, limit];
-
-    return this.db.prepare(query).all(...params) as MessageWithMeta[];
+  protected deserializeRow<D extends object>(data: D): Message {
+    const deserialized = super.deserializeRow(data);
+    
+    // Validate timestamps - they should already be in seconds from the database
+    try {
+      if (deserialized.createdAt) {
+        deserialized.createdAt = validateTimestamp(Number(deserialized.createdAt));
+      }
+      
+      if (deserialized.updatedAt) {
+        deserialized.updatedAt = validateTimestamp(Number(deserialized.updatedAt));
+      }
+      
+      if (deserialized.deletedAt) {
+        deserialized.deletedAt = validateTimestamp(Number(deserialized.deletedAt));
+      }
+    } catch (error) {
+      console.error('Timestamp validation failed:', error);
+      throw new TimestampError(
+        `Invalid timestamp in message ${deserialized.id}: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+    
+    return deserialized;
   }
 
   async findWithMeta(messageId: number): Promise<MessageWithMeta | undefined> {
@@ -80,92 +61,69 @@ export class MessageRepository extends BaseRepository<Message, MessageCreateDTO,
         m.*,
         u.name as sender_name,
         u.avatar_url,
-        (SELECT COUNT(*) FROM reactions r WHERE r.message_id = m.id) as reaction_count,
-        (SELECT COUNT(*) FROM messages r WHERE r.thread_id = m.id) as reply_count,
-        (EXISTS (SELECT 1 FROM messages r WHERE r.thread_id = m.id)) as has_thread
+        COUNT(r.message_id) as reaction_count,
+        CASE WHEN EXISTS(SELECT 1 FROM messages t WHERE t.thread_id = m.id) THEN 1 ELSE 0 END as has_thread
       FROM messages m
-      JOIN users u ON m.sender_id = u.id
+      LEFT JOIN users u ON m.sender_id = u.id
+      LEFT JOIN reactions r ON r.message_id = m.id
       WHERE m.id = ?
+      GROUP BY m.id
     `;
 
-    return this.db.prepare(query).get(messageId) as MessageWithMeta | undefined;
+    const row = this.db.query(query).get(messageId) as Record<string, unknown> | undefined;
+    if (!row) return undefined;
+
+    const deserialized = this.deserializeRow(row);
+    return {
+      ...deserialized,
+      sender: {
+        id: row.sender_id as number,
+        name: row.sender_name as string,
+        avatarUrl: row.avatar_url as string | null
+      },
+      reactionCount: Number(row.reaction_count),
+      hasThread: row.has_thread as 0 | 1
+    } as MessageWithMeta;
   }
 
-  override async create(data: MessageCreateDTO): Promise<Message> {
-    // Convert attachments to JSON string if present
-    const dbData = {
-      ...data,
-      attachments: data.attachments ? data.attachments : '[]'
-    };
-
-    return super.create(dbData);
-  }
-
-  override async update(id: number, data: MessageUpdateDTO): Promise<Message | undefined> {
-    // Convert attachments to JSON string if present
-    const dbData = {
-      ...data,
-      attachments: data.attachments ? data.attachments : undefined
-    };
-
-    return super.update(id, dbData);
-  }
-
-  async hasChannelAccess(channelId: number, userId: number): Promise<boolean> {
-    // First check if user is already a member
-    const isMember = this.db.prepare(`
-      SELECT 1 FROM channel_members 
-      WHERE channel_id = ? AND user_id = ?
-    `).get(channelId, userId);
-
-    if (isMember) {
-      return true;
-    }
-
-    // If not a member, check if it's a public channel
-    const channel = this.db.prepare(`
-      SELECT is_private FROM channels
-      WHERE id = ?
-    `).get(channelId) as { is_private: number } | undefined;
-
-    // Channel doesn't exist
-    if (!channel) {
-      return false;
-    }
-
-    // Allow access if channel is public (is_private = 0)
-    return channel.is_private === 0;
-  }
-
-  async createMessage(data: MessageCreateDTO): Promise<number> {
-    const message = await this.create(data);
-    return message.id;
-  }
-
-  async getChannelMessages(channelId: number, before?: number, limit = 50): Promise<MessageWithMeta[]> {
-    return this.findByChannel(channelId, limit, before);
-  }
-
-  async getThreadMessages(channelId: number, threadId: number): Promise<MessageWithMeta[]> {
-    // First verify the thread belongs to the channel
-    const threadMessage = await this.findById(threadId);
-    if (!threadMessage || threadMessage.channel_id !== channelId) {
-      throw new Error('Thread not found in channel');
-    }
-    return this.findByThread(threadId);
-  }
-
-  async softDelete(messageId: number): Promise<void> {
-    await this.update(messageId, { deleted_at: Math.floor(Date.now() / 1000) });
-  }
-
-  async markChannelAsRead(channelId: number, userId: number): Promise<void> {
-    const query = `
-      UPDATE channel_members 
-      SET last_read_at = ?, updated_at = ?
-      WHERE channel_id = ? AND user_id = ?
+  async findByChannel(channelId: number, limit?: number, before?: number): Promise<MessageWithMeta[]> {
+    let query = `
+      SELECT 
+        m.*,
+        u.name as sender_name,
+        u.avatar_url,
+        COUNT(r.message_id) as reaction_count,
+        CASE WHEN EXISTS(SELECT 1 FROM messages t WHERE t.thread_id = m.id) THEN 1 ELSE 0 END as has_thread
+      FROM messages m
+      LEFT JOIN users u ON m.sender_id = u.id
+      LEFT JOIN reactions r ON r.message_id = m.id
+      WHERE m.channel_id = ?
     `;
-    const now = Math.floor(Date.now() / 1000);
-    await this.db.prepare(query).run(now, now, channelId, userId);
+
+    const params: (string | number)[] = [channelId];
+
+    if (before) {
+      query += ` AND m.id < ?`;
+      params.push(before);
+    }
+
+    query += ` GROUP BY m.id ORDER BY m.created_at DESC`;
+
+    if (limit) {
+      query += ` LIMIT ?`;
+      params.push(limit);
+    }
+
+    const rows = this.db.query(query).all(...params) as Record<string, unknown>[];
+    return rows.map(row => ({
+      ...this.deserializeRow(row),
+      sender: {
+        id: row.sender_id as number,
+        name: row.sender_name as string,
+        avatarUrl: row.avatar_url as string | null
+      },
+      reactionCount: Number(row.reaction_count),
+      hasThread: row.has_thread as 0 | 1
+    })) as MessageWithMeta[];
   }
 } 
