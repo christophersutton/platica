@@ -18,11 +18,8 @@ import {
 import { useWorkspace } from "@/contexts/workspace/WorkspaceContext";
 import { useChannels } from "@/contexts/channel/ChannelContext";
 import { useRoom } from "@/contexts/room/RoomContext";
-// CHANGED: import from the same place where we export the provider
 import { useMessages } from "@/contexts/message/MessageContext";
-import type { UiChannel } from "@models/channel";
 import type { UiMessage } from "@models/message";
-import type { UiRoom } from "@models/room";
 
 const Index = () => {
   const { workspaceId = "1", channelId } = useParams();
@@ -51,8 +48,6 @@ const Index = () => {
   } = useChannels();
   const { state: roomState } = useRoom();
   const {
-    messages,
-    messagesById,
     isLoadingMessages,
     messageError,
     sendMessage,
@@ -63,52 +58,33 @@ const Index = () => {
   const currentChannelId = channelId ? Number(channelId) : 0;
   const currentChannel = channelsById[currentChannelId];
   const currentMessages = getChannelMessages(currentChannelId);
+  
   const currentTypingUsers = typingUsers(currentChannelId);
 
-  // Single effect to handle initial data loading
-  useEffect(() => {
-    const workspaceNum = Number(workspaceId);
-    if (workspaceNum > 0) {
-      // Load workspace if needed
-      if (!workspaceState.workspace && !workspaceState.isLoadingWorkspace) {
-        console.log("Index: Loading workspace:", workspaceNum);
-        loadWorkspace(workspaceNum);
-      }
+  // Only load the workspace
+useEffect(() => {
+  const workspaceNum = Number(workspaceId);
+  if (workspaceNum && !workspaceState.workspace && !workspaceState.isLoadingWorkspace) {
+    loadWorkspace(workspaceNum);
+  }
+}, [workspaceId, workspaceState.workspace, workspaceState.isLoadingWorkspace, loadWorkspace]);
 
-      // Load channels if we have a workspace and no channels
-      if (
-        workspaceState.workspace &&
-        !isLoadingChannels &&
-        channels.length === 0
-      ) {
-        console.log("Index: Loading channels for workspace:", workspaceNum);
-        loadChannels(workspaceNum);
-      }
+// Once the workspace is ready, load channels
+useEffect(() => {
+  const workspaceNum = Number(workspaceId);
+  if (workspaceState.workspace && channels.length === 0 && !isLoadingChannels) {
+    loadChannels(workspaceNum);
+  }
+}, [workspaceId, workspaceState.workspace, channels, isLoadingChannels, loadChannels]);
 
-      // Load messages if we have a channel ID
-      if (currentChannelId && !isLoadingMessages(currentChannelId)) {
-        const existingMessages = getChannelMessages(currentChannelId);
-        if (!existingMessages || existingMessages.length === 0) {
-          console.log("Index: Loading messages for channel:", currentChannelId);
-          loadMessages(currentChannelId);
-        }
-        setActiveChannel(currentChannelId);
-      }
-    }
-  }, [
-    workspaceId,
-    workspaceState.workspace,
-    workspaceState.isLoadingWorkspace,
-    channels.length,
-    isLoadingChannels,
-    currentChannelId,
-    loadWorkspace,
-    loadChannels,
-    loadMessages,
-    isLoadingMessages,
-    getChannelMessages,
-    setActiveChannel,
-  ]);
+// Once the channel is selected, load messages
+useEffect(() => {
+  if (!currentChannelId) return;
+  if (!isLoadingMessages(currentChannelId) && getChannelMessages(currentChannelId).length === 0) {
+    loadMessages(currentChannelId);
+    setActiveChannel(currentChannelId);
+  }
+}, [currentChannelId, isLoadingMessages, getChannelMessages, loadMessages, setActiveChannel]);
 
   // Separate effect just for navigation
   useEffect(() => {
@@ -287,7 +263,8 @@ const Index = () => {
                     </div>
                   ) : currentMessages && currentMessages.length > 0 ? (
                     currentMessages.map((msg: UiMessage) => {
-                      if (!msg || !msg.sender) return null;
+                      
+                      if (!msg ) return null;
                       return (
                         <ChatMessage
                           key={msg.id}

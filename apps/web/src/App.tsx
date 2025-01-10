@@ -13,8 +13,6 @@ import { WorkspaceProvider } from "@/contexts/workspace/WorkspaceContext";
 import { ChannelProvider } from "@/contexts/channel/ChannelContext";
 import { RoomProvider } from "@/contexts/room/RoomContext";
 import { ChatProvider } from "@/contexts/chat/ChatContext";
-
-// CHANGED: Import from MessageContext to keep consistent with `useMessages`
 import { MessageProvider } from "@/contexts/message/MessageContext";
 
 const queryClient = new QueryClient();

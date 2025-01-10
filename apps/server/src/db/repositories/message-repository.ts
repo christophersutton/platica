@@ -71,16 +71,19 @@ export class MessageRepository extends BaseRepository<Message, MessageCreateDTO,
       GROUP BY m.id
     `;
 
-    const row = this.db.query(query).get(messageId) as MessageWithMeta | undefined;
+    const row = this.db.query(query).get(messageId) as Record<string, unknown> | undefined;
     if (!row) return undefined;
 
     const deserialized = this.deserializeRow(row);
     return {
       ...deserialized,
-      sender_name: row.sender_name,
-      avatar_url: row.avatar_url,
-      reaction_count: Number(row.reaction_count),
-      has_thread: row.has_thread as 0 | 1
+      sender: {
+        id: row.sender_id as number,
+        name: row.sender_name as string,
+        avatarUrl: row.avatar_url as string | null
+      },
+      reactionCount: Number(row.reaction_count),
+      hasThread: row.has_thread as 0 | 1
     } as MessageWithMeta;
   }
 
@@ -112,13 +115,16 @@ export class MessageRepository extends BaseRepository<Message, MessageCreateDTO,
       params.push(limit);
     }
 
-    const rows = this.db.query(query).all(...params) as MessageWithMeta[];
+    const rows = this.db.query(query).all(...params) as Record<string, unknown>[];
     return rows.map(row => ({
       ...this.deserializeRow(row),
-      sender_name: row.sender_name,
-      avatar_url: row.avatar_url,
-      reaction_count: Number(row.reaction_count),
-      has_thread: row.has_thread as 0 | 1
+      sender: {
+        id: row.sender_id as number,
+        name: row.sender_name as string,
+        avatarUrl: row.avatar_url as string | null
+      },
+      reactionCount: Number(row.reaction_count),
+      hasThread: row.has_thread as 0 | 1
     })) as MessageWithMeta[];
   }
 } 

@@ -12,11 +12,9 @@ import type { UnixTimestamp } from '@types';
 export interface MessageWithMeta extends Message {
   channel?: Channel;
   user?: User;
-  sender_name: string;
-  avatar_url: string | null;
-  reaction_count: number;
-  reply_count?: number;
-  has_thread: 0 | 1;
+  reactionCount: number;
+  replyCount?: number;
+  hasThread: 0 | 1;
   attachments?: string; // JSON string of attachments
 }
 
