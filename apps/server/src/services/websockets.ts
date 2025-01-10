@@ -1,6 +1,19 @@
 import type { ServerWebSocket } from 'bun';
-import type { UnixTimestamp } from '@platica/shared/types';
-import { WSEventType, type WebSocketMessage, type ChatMessage, type TypingMessage, validateMessage } from '@platica/shared/src/websocket';
+import { 
+  WSEventType, 
+  type WebSocketEvent,
+  type ChatEvent,
+  type TypingEvent,
+  type PresenceEvent,
+  type PresenceSyncEvent,
+  isAuthEvent,
+  isChatEvent,
+  isTypingEvent,
+  isPresenceEvent,
+  isPresenceSyncEvent
+} from '@websockets';
+import { DatabaseService } from '../db/core/database';
+import type { UnixTimestamp } from '@types';
 import { getCurrentUnixTimestamp } from '../utils/time';
 
 interface WebSocketData {
@@ -15,7 +28,7 @@ interface Client {
   lastActivity: UnixTimestamp;
 }
 
-type MessageHandler<T extends WebSocketMessage = WebSocketMessage> = (ws: ServerWebSocket<WebSocketData>, message: T) => Promise<void>;
+type MessageHandler<T extends WebSocketEvent = WebSocketEvent> = (ws: ServerWebSocket<WebSocketData>, message: T) => Promise<void>;
 
 export class WebSocketService {
   private static instance: WebSocketService;
@@ -33,8 +46,8 @@ export class WebSocketService {
   }
 
   private initializeMessageHandlers() {
-    this.messageHandlers.set(WSEventType.CHAT, (ws, message) => this.handleChat(ws, message as ChatMessage));
-    this.messageHandlers.set(WSEventType.TYPING, (ws, message) => this.handleTypingIndicator(ws, message as TypingMessage));
+    this.messageHandlers.set(WSEventType.CHAT, (ws, message) => this.handleChat(ws, message as ChatEvent));
+    this.messageHandlers.set(WSEventType.TYPING, (ws, message) => this.handleTypingIndicator(ws, message as TypingEvent));
     // Add more handlers as needed
   }
 
@@ -113,11 +126,14 @@ export class WebSocketService {
     try {
       const message = JSON.parse(rawMessage);
       
-      if (!validateMessage(message)) {
-        console.error('Invalid message format:', message);
+      // Validate message has a valid event type
+      if (!message.type || !Object.values(WSEventType).includes(message.type)) {
+        console.error('Invalid message type:', message);
         ws.send(JSON.stringify({
           type: WSEventType.ERROR,
-          message: 'Invalid message format'
+          payload: {
+            message: 'Invalid message type'
+          }
         }));
         return;
       }
@@ -134,33 +150,39 @@ export class WebSocketService {
           console.error(`Error handling message type ${message.type}:`, error);
           ws.send(JSON.stringify({
             type: WSEventType.ERROR,
-            message: 'Internal server error'
+            payload: {
+              message: 'Internal server error'
+            }
           }));
         }
       } else {
         console.warn('No handler for message type:', message.type);
         ws.send(JSON.stringify({
           type: WSEventType.ERROR,
-          message: `Unsupported message type: ${message.type}`
+          payload: {
+            message: `Unsupported message type: ${message.type}`
+          }
         }));
       }
     } catch (error) {
       console.error('Failed to parse message:', error);
       ws.send(JSON.stringify({
         type: WSEventType.ERROR,
-        message: 'Invalid message format'
+        payload: {
+          message: 'Invalid message format'
+        }
       }));
     }
   }
 
-  private async handleChat(ws: ServerWebSocket<WebSocketData>, message: ChatMessage) {
+  private async handleChat(ws: ServerWebSocket<WebSocketData>, message: ChatEvent) {
     const client = this.clients.get(ws);
     if (!client) {
       throw new Error('Client not found');
     }
 
     // Validate the message
-    if (!message.content.trim()) {
+    if (!message.payload.message.content.trim()) {
       throw new Error('Message content cannot be empty');
     }
 
@@ -168,7 +190,7 @@ export class WebSocketService {
     this.broadcastToWorkspace(client.workspaceId, message);
   }
 
-  public async handleTypingIndicator(ws: ServerWebSocket<WebSocketData>, message: TypingMessage) {
+  public async handleTypingIndicator(ws: ServerWebSocket<WebSocketData>, message: TypingEvent) {
     const client = this.clients.get(ws);
     if (!client) return;
 
@@ -185,30 +207,36 @@ export class WebSocketService {
       // Broadcast typing stopped
       this.broadcastToWorkspace(client.workspaceId, {
         type: WSEventType.TYPING,
-        userId: client.userId,
-        channelId: message.channelId,
-        isTyping: false
+        payload: {
+          channelId: message.payload.channelId,
+          userId: client.userId,
+          isTyping: false
+        }
       });
     }, 3000));
 
     // Broadcast typing started
     this.broadcastToWorkspace(client.workspaceId, {
       type: WSEventType.TYPING,
-      userId: client.userId,
-      channelId: message.channelId,
-      isTyping: true
+      payload: {
+        channelId: message.payload.channelId,
+        userId: client.userId,
+        isTyping: true
+      }
     });
   }
 
   public broadcastPresence(workspaceId: number, userId: number, status: 'online' | 'offline') {
     this.broadcastToWorkspace(workspaceId, {
       type: WSEventType.PRESENCE,
-      userId,
-      status
+      payload: {
+        userId,
+        status
+      }
     });
   }
 
-  public broadcastToWorkspace(workspaceId: number, message: WebSocketMessage) {
+  public broadcastToWorkspace(workspaceId: number, message: WebSocketEvent) {
     for (const [ws, client] of this.clients.entries()) {
       if (client.workspaceId === workspaceId) {
         ws.send(JSON.stringify(message));

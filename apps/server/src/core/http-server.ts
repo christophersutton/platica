@@ -33,14 +33,14 @@ api.get('/health', async (c) => {
     await db.query('SELECT 1');
     return c.json({
       status: 'healthy',
-      timestamp: new Date().toISOString()
+      timestamp: Math.floor(Date.now() / 1000)
     } as const);
   } catch (error) {
     c.status(503);
     return c.json({
       status: 'unhealthy',
       error: 'Database connection failed',
-      timestamp: new Date().toISOString()
+      timestamp: Math.floor(Date.now() / 1000)
     } as const);
   }
 });

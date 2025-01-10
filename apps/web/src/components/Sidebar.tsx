@@ -7,6 +7,12 @@ import { CreateChannelModal } from "./CreateChannelModal";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
 import { useAppContext } from "@/contexts/AppContext";
+import type { Channel } from '@models/channel';
+
+interface PresenceUser {
+  id: number;
+  isOnline: boolean;
+}
 
 export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -21,7 +27,7 @@ export function Sidebar() {
   };
 
   // Filter out current user from presence list for DMs
-  const onlineUsers = Object.entries(state.presenceMap)
+  const onlineUsers: PresenceUser[] = Object.entries(state.presenceMap)
     .filter(([id]) => Number(id) !== user?.id)
     .map(([id, presence]) => ({
       id: Number(id),

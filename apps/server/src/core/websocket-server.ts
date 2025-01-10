@@ -1,13 +1,12 @@
 // websocket-server.ts
-import type { Server } from 'bun';
-import { verify } from 'hono/jwt';
-import { DatabaseService } from '../db/core/database';
-import WriteService from '../services/write';
-import { WebSocketService } from '../services/websockets';
-import { WebSocketRateLimiter } from '../middleware/websocket-rate-limiter';
-import { WSEventType, type WebSocketMessage, type ChatMessage } from '@platica/shared/src/websocket';
+import { verify } from "hono/jwt";
+import { DatabaseService } from "../db/core/database";
+import { WebSocketService } from "../services/websockets";
+import { WebSocketRateLimiter } from "../middleware/websocket-rate-limiter";
+import { WSEventType, type OutgoingChatEvent } from "@websockets";
+import WriteService from "../services/write";
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
 // Initialize services
 const dbService = DatabaseService.getWriteInstance();
@@ -25,7 +24,7 @@ interface WebSocketData {
 }
 
 interface AuthMessage {
-  type: 'auth';
+  type: "auth";
   token: string;
 }
 
@@ -36,26 +35,30 @@ export function startWebSocketServer(port: number) {
       try {
         const url = new URL(req.url);
         const params = url.searchParams;
-        
-        const workspaceId = Number(params.get('workspace_id'));
-        const userId = Number(params.get('user_id'));
+
+        const workspaceId = Number(params.get("workspace_id"));
+        const userId = Number(params.get("user_id"));
 
         if (isNaN(workspaceId) || isNaN(userId)) {
-          return new Response('Invalid workspace_id or user_id', { status: 400 });
+          return new Response("Invalid workspace_id or user_id", {
+            status: 400,
+          });
         }
 
         const success = server.upgrade(req, {
           data: {
             workspaceId,
             userId,
-            isAuthenticated: false
-          }
+            isAuthenticated: false,
+          },
         });
 
-        return success ? undefined : new Response('WebSocket upgrade failed', { status: 400 });
+        return success
+          ? undefined
+          : new Response("WebSocket upgrade failed", { status: 400 });
       } catch (error) {
-        console.error('WebSocket connection error:', error);
-        return new Response('Internal Server Error', { status: 500 });
+        console.error("WebSocket connection error:", error);
+        return new Response("Internal Server Error", { status: 500 });
       }
     },
     websocket: {
@@ -64,36 +67,54 @@ export function startWebSocketServer(port: number) {
           const data = JSON.parse(String(message));
 
           // Handle authentication message
-          if (data.type === 'auth') {
+          if (data.type === "auth") {
             const authMessage = data as AuthMessage;
-            if (!authMessage.token?.startsWith('Bearer ')) {
-              ws.send(JSON.stringify({ type: 'error', message: 'Invalid token format' }));
-              ws.close(1008, 'Invalid token format');
+            if (!authMessage.token?.startsWith("Bearer ")) {
+              ws.send(
+                JSON.stringify({
+                  type: "error",
+                  message: "Invalid token format",
+                })
+              );
+              ws.close(1008, "Invalid token format");
               return;
             }
 
-            const token = authMessage.token.split(' ')[1];
+            const token = authMessage.token.split(" ")[1];
             try {
               const payload = await verify(token, JWT_SECRET);
-              if (!payload || typeof payload.id !== 'number' || payload.id !== ws.data.userId) {
-                ws.send(JSON.stringify({ type: 'error', message: 'Invalid token' }));
-                ws.close(1008, 'Invalid token');
+              if (
+                !payload ||
+                typeof payload.id !== "number" ||
+                payload.id !== ws.data.userId
+              ) {
+                ws.send(
+                  JSON.stringify({ type: "error", message: "Invalid token" })
+                );
+                ws.close(1008, "Invalid token");
                 return;
               }
 
               // Verify workspace membership
-              console.log('Token verification successful for user:', ws.data.userId);
-              
+              console.log(
+                "Token verification successful for user:",
+                ws.data.userId
+              );
+
               try {
-                console.log('Database instance:', {
+                console.log("Database instance:", {
                   isConnected: dbService.db !== null,
-                  path: dbService.db.filename
+                  path: dbService.db.filename,
                 });
 
                 // First check if the workspace exists
-                const workspace = dbService.db.prepare(`
+                const workspace = dbService.db
+                  .prepare(
+                    `
                   SELECT id, name FROM workspaces WHERE id = ?
-                `).get(ws.data.workspaceId);
+                `
+                  )
+                  .get(ws.data.workspaceId);
 
                 // Add user metadata lookup
                 const getUserMetadata = dbService.db.prepare(`
@@ -102,157 +123,185 @@ export function startWebSocketServer(port: number) {
                   WHERE id = ?
                 `);
 
-                // Format message with metadata
-                const formatMessage = (message: Partial<ChatMessage>): ChatMessage => {
-                  const userMetadata = message.userId !== undefined 
-                    ? getUserMetadata.get(message.userId) as { sender_name: string; avatar_url: string | null } | undefined
-                    : undefined;
-                  
-                  return {
-                    type: WSEventType.CHAT,
-                    channelId: message.channelId ?? 0,
-                    userId: message.userId ?? 0,
-                    messageId: message.messageId ?? 0,
-                    content: message.content ?? '',
-                    sender_name: userMetadata?.sender_name || 'Unknown',
-                    avatar_url: userMetadata?.avatar_url ?? null,
-                    createdAt: Math.floor(Date.now() / 1000),
-                    threadId: message.threadId
-                  };
-                };
-
-                console.log('Workspace check:', {
+                console.log("Workspace check:", {
                   workspaceId: ws.data.workspaceId,
                   found: !!workspace,
-                  workspace
+                  workspace,
                 });
 
                 // Then check workspace membership
-                const isMember = dbService.db.prepare(`
+                const isMember = dbService.db
+                  .prepare(
+                    `
                   SELECT wu.*, w.name as workspace_name, u.email as user_email
                   FROM workspace_users wu
                   JOIN workspaces w ON w.id = wu.workspace_id
                   JOIN users u ON u.id = wu.user_id
                   WHERE wu.workspace_id = ? AND wu.user_id = ?
-                `).get(ws.data.workspaceId, ws.data.userId);
+                `
+                  )
+                  .get(ws.data.workspaceId, ws.data.userId);
 
-                console.log('Workspace membership check:', {
+                console.log("Workspace membership check:", {
                   workspaceId: ws.data.workspaceId,
                   userId: ws.data.userId,
                   isMember: !!isMember,
-                  details: isMember
+                  details: isMember,
                 });
 
                 if (!workspace) {
-                  ws.send(JSON.stringify({ type: 'error', message: 'Workspace not found' }));
-                  ws.close(1008, 'Workspace not found');
+                  ws.send(
+                    JSON.stringify({
+                      type: "error",
+                      message: "Workspace not found",
+                    })
+                  );
+                  ws.close(1008, "Workspace not found");
                   return;
                 }
 
                 if (!isMember) {
-                  ws.send(JSON.stringify({ type: 'error', message: 'Not a member of this workspace' }));
-                  ws.close(1008, 'Not a member of this workspace');
+                  ws.send(
+                    JSON.stringify({
+                      type: "error",
+                      message: "Not a member of this workspace",
+                    })
+                  );
+                  ws.close(1008, "Not a member of this workspace");
                   return;
                 }
-
               } catch (error) {
-                console.error('Database error during workspace membership check:', error);
-                ws.send(JSON.stringify({ type: 'error', message: 'Database error checking workspace membership' }));
-                ws.close(1011, 'Database error');
+                console.error(
+                  "Database error during workspace membership check:",
+                  error
+                );
+                ws.send(
+                  JSON.stringify({
+                    type: "error",
+                    message: "Database error checking workspace membership",
+                  })
+                );
+                ws.close(1011, "Database error");
                 return;
               }
 
               // Mark as authenticated
               ws.data.isAuthenticated = true;
               wsService.handleConnect(ws);
-              wsService.broadcastPresence(ws.data.workspaceId, ws.data.userId, 'online');
+              wsService.broadcastPresence(
+                ws.data.workspaceId,
+                ws.data.userId,
+                "online"
+              );
               return;
             } catch (error) {
-              ws.send(JSON.stringify({ type: 'error', message: 'Invalid token' }));
-              ws.close(1008, 'Invalid token');
+              ws.send(
+                JSON.stringify({ type: "error", message: "Invalid token" })
+              );
+              ws.close(1008, "Invalid token");
               return;
             }
           }
 
           // Require authentication for all other messages
           if (!ws.data.isAuthenticated) {
-            ws.send(JSON.stringify({ type: 'error', message: 'Not authenticated' }));
-            ws.close(1008, 'Not authenticated');
+            ws.send(
+              JSON.stringify({ type: "error", message: "Not authenticated" })
+            );
+            ws.close(1008, "Not authenticated");
             return;
           }
 
           // Check rate limit
           if (rateLimiter.isRateLimited(ws.data.userId.toString())) {
-            ws.send(JSON.stringify({
-              type: 'error',
-              message: 'Rate limit exceeded. Please wait before sending more messages.'
-            }));
+            ws.send(
+              JSON.stringify({
+                type: "error",
+                message:
+                  "Rate limit exceeded. Please wait before sending more messages.",
+              })
+            );
             return;
           }
-          
+
           switch (data.type) {
-            case 'typing':
+            case "typing":
               wsService.handleTypingIndicator(ws, {
                 type: WSEventType.TYPING,
-                channelId: data.channelId,
-                userId: ws.data.userId,
-                isTyping: true
+                payload: {
+                  channelId: data.channelId,
+                  userId: ws.data.userId,
+                  isTyping: true,
+                },
               });
               break;
-              
-            case 'chat':
-              console.log('[WebSocket Server] Received chat message:', data);
-              
+
+            case "chat":
+              console.log("[WebSocket Server] Received chat message:", data);
+
               // Get user metadata for the message
-              const userMetadata = dbService.db.prepare(`
+              const userMetadata = dbService.db
+                .prepare(
+                  `
                 SELECT name as sender_name, avatar_url
                 FROM users
                 WHERE id = ?
-              `).get(ws.data.userId) as { sender_name: string; avatar_url: string | null } | undefined;
+              `
+                )
+                .get(ws.data.userId) as
+                | { sender_name: string; avatar_url: string | null }
+                | undefined;
 
               // Format the message with metadata
-              const formattedMessage: ChatMessage = {
+              const formattedMessage: OutgoingChatEvent = {
                 type: WSEventType.CHAT,
-                channelId: data.channelId,
-                userId: ws.data.userId,
-                messageId: Date.now(),
-                content: data.content,
-                sender_name: userMetadata?.sender_name || 'Unknown',
-                avatar_url: userMetadata?.avatar_url ?? null,
-                createdAt: Math.floor(Date.now() / 1000),
-                threadId: data.threadId
+                payload: {
+                  workspaceId: ws.data.workspaceId,
+                  channelId: data.channelId,
+                  senderId: ws.data.userId,
+                  content: data.content,
+                },
               };
 
               // Handle the formatted message through the WebSocket service
-              await wsService.handleMessage(ws, JSON.stringify(formattedMessage));
+              await wsService.handleMessage(
+                ws,
+                JSON.stringify(formattedMessage)
+              );
 
               // Also save to database
               await writeService.handleMessage({
-                type: 'message',
-                workspace_id: ws.data.workspaceId,
-                channel_id: data.channelId,
-                sender_id: ws.data.userId,
-                content: data.content
+                type: "message",
+                workspaceId: ws.data.workspaceId,
+                channelId: data.channelId,
+                senderId: ws.data.userId,
+                content: data.content,
               });
-              
-              console.log('[WebSocket Server] Processed chat message');
+
+              console.log("[WebSocket Server] Processed chat message");
               break;
 
             default:
               console.warn(`Unknown message type: ${data.type}`);
           }
         } catch (error) {
-          console.error('WebSocket message error:', error);
-          ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
+          console.error("WebSocket message error:", error);
+          ws.send(
+            JSON.stringify({ type: "error", message: "Invalid message format" })
+          );
         }
       },
       close(ws) {
         if (ws.data.isAuthenticated) {
           wsService.handleDisconnect(ws);
-          wsService.broadcastPresence(ws.data.workspaceId, ws.data.userId, 'offline');
+          wsService.broadcastPresence(
+            ws.data.workspaceId,
+            ws.data.userId,
+            "offline"
+          );
         }
-      }
-    }
+      },
+    },
   });
 
   console.log(`✅ WebSocket server running on ws://localhost:${server.port}`);

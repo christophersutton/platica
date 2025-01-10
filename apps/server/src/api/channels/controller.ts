@@ -2,16 +2,17 @@ import type { Context } from 'hono';
 import { BaseController, ApiError } from '../base-controller';
 import { ChannelRepository } from '../../db/repositories/channel-repository';
 import { MessageRepository } from '../../db/repositories/message-repository';
+import { WorkspaceRepository } from '../../db/repositories/workspace-repository';
 import type { DatabaseProvider } from '../../db/repositories/base';
-import type { Channel, ChannelCreateDTO } from '@platica/shared/types';
+import type { Channel, CreateChannelDTO } from '@models/channel';
 import type { Variables } from '../../middleware/auth';
 import { WebSocketService } from '../../services/websockets';
-import { WSEventType } from '@platica/shared/src/websocket';
+import { WSEventType } from '@websockets';
+import type { PresenceEvent, ChannelCreatedEvent } from '@websockets';
 
 interface CreateChannelBody {
   name: string;
   description?: string;
-  is_private?: boolean;
 }
 
 interface AddMemberBody {
@@ -37,12 +38,32 @@ export class ChannelController extends BaseController {
 
   getWorkspaceChannels = async (c: Context): Promise<Response> => {
     return this.handle(c, async () => {
-      const workspaceId = this.requireNumberParam(c, 'workspaceId');
-      const { userId } = this.requireUser(c);
-      const userRole = c.get('userRole') || 'member';
+      try {
+        const workspaceId = this.requireNumberParam(c, 'workspaceId');
+        console.log('Workspace ID:', workspaceId);
 
-      const channels = await this.channelRepo.findByWorkspace(workspaceId, userId);
-      return { channels };
+        const { userId } = this.requireUser(c);
+        console.log('User ID:', userId);
+
+        const userRole = c.get('userRole') || 'member';
+        console.log('User Role:', userRole);
+
+        // Check workspace membership using workspace repository
+        const workspaceRepo = new WorkspaceRepository(this.channelRepo['db']);
+        const memberRole = await workspaceRepo.getMemberRole(workspaceId, userId);
+        console.log('Workspace Member Role:', memberRole);
+
+        if (!memberRole) {
+          throw new ApiError('Not a member of this workspace', 403);
+        }
+
+        const channels = await this.channelRepo.findByWorkspace(workspaceId, userId);
+        console.log('Found Channels:', channels?.length || 0);
+        return { channels };
+      } catch (error) {
+        console.error('Error in getWorkspaceChannels:', error);
+        throw error;
+      }
     });
   };
 
@@ -59,22 +80,6 @@ export class ChannelController extends BaseController {
       return memberRole;
     }
 
-    // If not a member but channel is public, auto-join
-    if (!channel.is_private) {
-      // Auto-join public channel
-      await this.channelRepo.addMember(channelId, userId, 'member');
-      
-      // Broadcast member joined event
-      this.wsService.broadcastToWorkspace(channel.workspace_id, {
-        type: WSEventType.MEMBER_JOINED,
-        channelId,
-        userId,
-        role: 'member'
-      });
-      
-      return 'member';
-    }
-
     throw new ApiError('Not a member of this channel', 403);
   }
 
@@ -86,45 +91,23 @@ export class ChannelController extends BaseController {
         const before = c.req.query('before');
         const limit = Math.min(Number(c.req.query('limit')) || 50, 100);
 
-        // Check if user can access the channel
-        const canAccess = await this.channelRepo.canAccess(channelId, userId);
-        if (!canAccess) {
-          throw new ApiError('Not authorized to access this channel', 403);
-        }
-
-        // Check if user is already a member
-        let isMember = await this.channelRepo.getMemberRole(channelId, userId);
-        
-        // If not a member but channel is public, auto-join
-        if (!isMember) {
-          const channel = await this.channelRepo.findById(channelId);
-          if (channel && !channel.is_private) {
-            await this.channelRepo.addMember(channelId, userId, 'member');
-            isMember = 'member';
-            
-            // Broadcast member joined event
-            this.wsService.broadcastToWorkspace(channel.workspace_id, {
-              type: WSEventType.MEMBER_JOINED,
-              channelId,
-              userId,
-              role: 'member'
-            });
-          }
+        // Check if user is a member
+        const memberRole = await this.channelRepo.getMemberRole(channelId, userId);
+        if (!memberRole) {
+          throw new ApiError('Not a member of this channel', 403);
         }
 
         // Get messages
         const messages = await this.messageRepo.findByChannel(
           channelId,
-          limit,
-          before ? Number(before) : undefined
+          // limit,
+          // before ? Number(before) : undefined
         );
 
-        // Only update last read timestamp if user is a member
-        if (isMember) {
-          await this.channelRepo.updateMember(channelId, userId, {
-            last_read_at: Math.floor(Date.now() / 1000)
-          });
-        }
+        // Update last read timestamp
+        await this.channelRepo.updateMember(channelId, userId, {
+          lastReadAt: Math.floor(Date.now() / 1000)
+        });
         
         return { messages };
       } catch (error) {
@@ -144,28 +127,24 @@ export class ChannelController extends BaseController {
       const body = await c.req.json<CreateChannelBody>();
 
       const channel = await this.channelRepo.create({
-        workspace_id: workspaceId,
+        workspaceId,
         name: body.name,
         description: body.description || undefined,
-        is_private: body.is_private || false,
-        is_archived: false,
-        created_by: userId,
+        isArchived: false,
+        createdBy: userId,
         settings: {}
-      } as ChannelCreateDTO);
+      } as CreateChannelDTO);
 
       // Add creator as admin
       await this.channelRepo.addMember(channel.id, userId, 'admin');
 
       // Broadcast new channel to all workspace members
-      this.wsService.broadcastToWorkspace(workspaceId, {
+      this.wsService.broadcastToWorkspace(channel.workspaceId, {
         type: WSEventType.CHANNEL_CREATED,
-        channelId: channel.id,
-        workspaceId: channel.workspace_id,
-        name: channel.name,
-        description: channel.description,
-        isPrivate: channel.is_private,
-        createdBy: channel.created_by
-      });
+        payload: {
+          channel
+        }
+      } as ChannelCreatedEvent);
 
       return { channel };
     });
@@ -223,11 +202,15 @@ export class ChannelController extends BaseController {
   async getMessages(c: Context<{ Variables: Variables }>) {
     const channelId = Number(c.req.param('channelId'));
     const userId = c.get('user').userId;
+    const before = c.req.query('before');
+    const limit = Math.min(Number(c.req.query('limit')) || 50, 100);
 
     try {
-      const messages = await this.messageRepo.getChannelMessages(channelId);
-      // Mark channel as read when getting messages
-      await this.messageRepo.markChannelAsRead(channelId, userId);
+      const messages = await this.messageRepo.findByChannel(channelId/*, limit, before ? Number(before) : undefined*/);
+      // Mark channel as read
+      await this.channelRepo.updateMember(channelId, userId, {
+        lastReadAt: Math.floor(Date.now() / 1000)
+      });
       return c.json({ messages });
     } catch (error) {
       console.error('Error getting channel messages:', error);
@@ -240,9 +223,9 @@ export class ChannelController extends BaseController {
       const channelId = this.requireNumberParam(c, 'channelId');
       const { userId } = this.requireUser(c);
 
-      // Update the last_read_at timestamp
+      // Update the lastReadAt timestamp
       await this.channelRepo.updateMember(channelId, userId, {
-        last_read_at: Math.floor(Date.now() / 1000)
+        lastReadAt: Math.floor(Date.now() / 1000)
       });
 
       return { success: true };

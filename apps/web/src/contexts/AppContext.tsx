@@ -9,88 +9,29 @@ import React, {
     useState,
   } from "react"
   import { useAuth } from "./AuthContext"
-  import { api, type Channel, type Message as ApiMessage, type User, type Workspace } from "@/lib/api"
+  import { api } from "@/lib/api"
+  import { WSEventType } from '@platica/shared/src/websockets'
+  import type { 
+    WebSocketEvent,
+    ChatEvent,
+    OutgoingChatEvent,
+    TypingEvent,
+    PresenceEvent,
+    PresenceSyncEvent,
+    ChannelCreatedEvent,
+    ErrorEvent 
+  } from '@platica/shared/src/websockets'
+  import type { Message, MessageWithClientState, CreateMessageDTO } from '@models/message'
+  import type { Channel } from '@models/channel'
+  import type { Workspace } from '@models/workspace'
+  import type { User } from '@models/user'
+  import type { ApiResponse } from '@platica/shared/src/api/types'
   
   /**
-   * WebSocket Message Types (from use-websocket.ts, etc.)
-   */
-  type OutgoingChatMessage = {
-    type: "chat"
-    channelId: number
-    content: string
-    userId: number
-  }
-  
-  type ChatMessage = {
-    type: "chat"
-    channelId: number
-    content: string
-    userId: number
-    messageId: number
-    createdAt: number
-    sender_name: string
-    avatar_url?: string
-    threadId?: number | null
-  }
-  
-  type PresenceMessage = {
-    type: "presence"
-    userId: number
-    status?: "online" | "offline"
-  }
-  
-  type PresenceSyncMessage = {
-    type: "presence_sync"
-    onlineUsers: number[]
-  }
-  
-  type TypingMessage = {
-    type: "typing"
-    channelId: number
-    userId: number
-    isTyping: boolean
-  }
-  
-  type ChannelCreatedMessage = {
-    type: "channel_created"
-    channel: Channel
-  }
-  
-  type ErrorMessage = {
-    type: "error"
-    message: string
-  }
-  
-  export type WebSocketMessage =
-    | OutgoingChatMessage
-    | ChatMessage
-    | PresenceMessage
-    | PresenceSyncMessage
-    | TypingMessage
-    | ChannelCreatedMessage
-    | ErrorMessage
-
-/**
- * We can unify the "ChannelMessage" shape with the "ApiMessage" from the server.
- * The shape is roughly the same as your "Message" interface in use-channel-messages.
- */
-interface ChannelMessage {
-    id: number
-    content: string
-    userId: number
-    channelId: number
-    createdAt: string // stored as ISO string
-    created_at: number
-    threadId?: number
-    sender_name: string
-    avatar_url: string | null
-  }
-  
-  /**
-   * Presence map, as in use-presence.ts
+   * Presence map for tracking user online status
    */
   interface UserPresence {
-    [userId: number]: {
+    [userId: User['id']]: {
       status: "online" | "offline"
       lastUpdate: number
     }
@@ -109,14 +50,14 @@ interface ChannelMessage {
     channelsError: Error | null
   
     // We'll store messages keyed by channelId
-    messages: Record<number, ChannelMessage[]>
+    messages: Record<Channel['id'], MessageWithClientState[]>
     isLoadingMessages: boolean
     messagesError: Error | null
   
     presenceMap: UserPresence
   
     // Who is typing in each channel
-    typingMap: Record<number, number[]> // channelId -> array of userIds
+    typingMap: Record<Channel['id'], User['id'][]> // channelId -> array of userIds
   
     // Mobile check
     isMobile: boolean
@@ -129,7 +70,7 @@ interface ChannelMessage {
   /**
    * Define the actions that replicate each original hook's behavior
    */
-  type ChannelUpdate = Partial<Channel> & { id: number }
+  type ChannelUpdate = Partial<Channel> & { id: Channel['id'] }
   
   type AppAction =
     | { type: "SET_WORKSPACE_LOADING" }
@@ -139,16 +80,16 @@ interface ChannelMessage {
     | { type: "SET_CHANNELS"; payload: Channel[] }
     | { type: "SET_CHANNELS_ERROR"; payload: Error }
     | { type: "SET_MESSAGES_LOADING" }
-    | { type: "SET_MESSAGES"; payload: { channelId: number; messages: ChannelMessage[] } }
+    | { type: "SET_MESSAGES"; payload: { channelId: Channel['id']; messages: MessageWithClientState[] } }
     | { type: "SET_MESSAGES_ERROR"; payload: Error }
-    | { type: "ADD_MESSAGE"; payload: { channelId: number; message: ChannelMessage } }
-    | { type: "MARK_CHANNEL_READ"; payload: number } // channelId
+    | { type: "ADD_MESSAGE"; payload: { channelId: Channel['id']; message: MessageWithClientState } }
+    | { type: "MARK_CHANNEL_READ"; payload: Channel['id'] } // channelId
     | { type: "UPDATE_CHANNEL"; payload: ChannelUpdate }
-    | { type: "SET_PRESENCE"; payload: { userId: number; status: "online" | "offline" } }
-    | { type: "SET_PRESENCE_SYNC"; payload: number[] } // onlineUsers
-    | { type: "CLEAR_TYPING"; payload: { channelId: number; userId: number } }
-    | { type: "ADD_TYPING"; payload: { channelId: number; userId: number } }
-    | { type: "REMOVE_TYPING"; payload: { channelId: number; userId: number } }
+    | { type: "SET_PRESENCE"; payload: { userId: User['id']; status: "online" | "offline" } }
+    | { type: "SET_PRESENCE_SYNC"; payload: User['id'][] } // onlineUsers
+    | { type: "CLEAR_TYPING"; payload: { channelId: Channel['id']; userId: User['id'] } }
+    | { type: "ADD_TYPING"; payload: { channelId: Channel['id']; userId: User['id'] } }
+    | { type: "REMOVE_TYPING"; payload: { channelId: Channel['id']; userId: User['id'] } }
     | { type: "SET_IS_MOBILE"; payload: boolean }
     | { type: "SET_WS_CONNECTED"; payload: boolean }
     | { type: "SET_WS_STATUS"; payload: 'connecting' | 'connected' | 'disconnected' }
@@ -243,7 +184,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
         return {
           ...state,
           channels: state.channels.map((c) =>
-            c.id === channelId ? { ...c, has_unread: 0 } : c
+            c.id === channelId ? { ...c, unreadCount: 0 } : c
           ),
         }
       }
@@ -408,18 +349,12 @@ const AppContext = createContext<{
       dispatch({ type: "SET_MESSAGES_LOADING" })
       try {
         const res = await api.channels.getMessages(channelId)
-        // Convert the shape to ChannelMessage
-        const messages = res.messages.map((m) => ({
-          id: m.id,
-          content: m.content,
-          userId: m.sender_id,
-          channelId,
-          createdAt: new Date(m.created_at).toISOString(),
-          created_at: m.created_at,
-          threadId: m.thread_id,
-          sender_name: m.sender_name,
-          avatar_url: m.avatar_url,
-        })) as ChannelMessage[]
+        // Convert API messages to client messages
+        const messages = res.messages.map(m => ({
+          ...m,
+          isSending: false,
+          hasFailed: false
+        } as MessageWithClientState))
         dispatch({ type: "SET_MESSAGES", payload: { channelId, messages } })
       } catch (error) {
         console.error("Failed to load messages:", error)
@@ -438,24 +373,26 @@ const AppContext = createContext<{
       }
     }, [token, isAuthLoading])
   
-    // Send message via WebSocket (like useChannelMessages + useWebSocket)
+    // Send message via WebSocket
     const sendMessage = useCallback(async (channelId: number, content: string) => {
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-        console.warn('WebSocket not ready, cannot send message');
-        // Optionally show a toast to user
-        return;
+        console.warn('WebSocket not ready, cannot send message')
+        return
       }
       
-      if (!user?.id) return;
+      if (!user?.id || !state.workspace?.id) return
       
-      const message: OutgoingChatMessage = {
-        type: "chat",
-        channelId,
-        content,
-        userId: user.id,
+      const outgoingEvent: OutgoingChatEvent = {
+        type: WSEventType.CHAT,
+        payload: {
+          workspaceId: state.workspace.id,
+          channelId,
+          senderId: user.id,
+          content
+        }
       }
-      wsRef.current.send(JSON.stringify(message));
-    }, [user]);
+      wsRef.current.send(JSON.stringify(outgoingEvent))
+    }, [user, state.workspace?.id])
   
     // -------------------------------
     // (E) "usePresence" & "useTypingIndicator" & "useWebSocket"
@@ -469,71 +406,76 @@ const AppContext = createContext<{
     // Create a stable message handler using useCallback
     const handleWebSocketMessage = useCallback((event: MessageEvent) => {
       try {
-        const data = JSON.parse(event.data) as WebSocketMessage
-        switch (data.type) {
-          case "error":
-            console.error("WebSocket error:", data.message)
-            if (data.message.includes("token") || data.message.includes("auth")) {
+        const wsEvent = JSON.parse(event.data) as WebSocketEvent
+        switch (wsEvent.type) {
+          case WSEventType.ERROR: {
+            console.error("WebSocket error:", wsEvent.payload.message)
+            if (wsEvent.payload.code === 'auth_failed') {
               wsRef.current?.close()
             }
             break
-          case "chat": {
-            if ('messageId' in data) {
-              console.debug('Received message:', data.messageId);
-              
-              const existingMessages = state.messages[data.channelId] || [];
-              const messageExists = existingMessages.some(m => m.id === data.messageId);
+          }
+          case WSEventType.CHAT: {
+            const { message } = (wsEvent as ChatEvent).payload
+            console.debug('Received message:', message.id)
+            
+            const existingMessages = state.messages[message.channelId] || []
+            const messageExists = existingMessages.some(m => m.id === message.id)
 
-              if (!messageExists) {
-                console.debug('Adding new message:', data.messageId);
-                const newMsg: ChannelMessage = {
-                  id: data.messageId,
-                  content: data.content,
-                  userId: data.userId,
-                  channelId: data.channelId,
-                  createdAt: new Date(data.createdAt).toISOString(),
-                  created_at: data.createdAt,
-                  sender_name: data.sender_name,
-                  avatar_url: data.avatar_url ?? null,
-                }
-                dispatch({ type: "ADD_MESSAGE", payload: { channelId: data.channelId, message: newMsg } })
+            if (!messageExists) {
+              console.debug('Adding new message:', message.id)
+              const newMsg: MessageWithClientState = {
+                ...message,
+                isSending: false,
+                hasFailed: false
+              }
+              dispatch({ type: "ADD_MESSAGE", payload: { channelId: message.channelId, message: newMsg } })
+              
+              // Update channel unread status
+              if (message.sender.id !== user?.id) {
+                const channel = state.channels.find(c => c.id === message.channelId)
                 dispatch({
                   type: "UPDATE_CHANNEL",
                   payload: { 
-                    id: data.channelId, 
-                    last_message_at: data.createdAt, 
-                    has_unread: data.userId === user?.id ? 0 : 1 
-                  },
+                    id: message.channelId,
+                    hasUnread: (channel?.hasUnread || 0) + 1
+                  }
                 })
-              } else {
-                console.debug('Duplicate message detected, ignoring:', data.messageId);
               }
+            } else {
+              console.debug('Duplicate message detected, ignoring:', message.id)
             }
             break
           }
-          case "presence":
-            if (data.status) {
-              dispatch({ type: "SET_PRESENCE", payload: { userId: data.userId, status: data.status } })
-            }
+          case WSEventType.PRESENCE: {
+            const { userId, status } = wsEvent.payload
+            dispatch({ type: "SET_PRESENCE", payload: { userId, status } })
             break
-          case "presence_sync":
-            dispatch({ type: "SET_PRESENCE_SYNC", payload: data.onlineUsers })
+          }
+          case WSEventType.PRESENCE_SYNC: {
+            const { onlineUsers } = wsEvent.payload
+            dispatch({ type: "SET_PRESENCE_SYNC", payload: onlineUsers })
             break
-          case "typing":
-            if (data.isTyping) {
-              dispatch({ type: "ADD_TYPING", payload: { channelId: data.channelId, userId: data.userId } })
+          }
+          case WSEventType.TYPING: {
+            const { channelId, userId, isTyping } = wsEvent.payload
+            if (isTyping) {
+              dispatch({ type: "ADD_TYPING", payload: { channelId, userId } })
             } else {
-              dispatch({ type: "REMOVE_TYPING", payload: { channelId: data.channelId, userId: data.userId } })
+              dispatch({ type: "REMOVE_TYPING", payload: { channelId, userId } })
             }
             break
-          case "channel_created":
-            dispatch({ type: "SET_CHANNELS", payload: [...state.channels, data.channel] })
+          }
+          case WSEventType.CHANNEL_CREATED: {
+            const { channel } = wsEvent.payload
+            dispatch({ type: "SET_CHANNELS", payload: [...state.channels, channel] })
             break
+          }
         }
       } catch (err) {
         console.error("WebSocket message parse error:", err)
       }
-    }, [state.messages, user?.id, dispatch]);
+    }, [state.messages, state.channels, user?.id])
   
     // Store the handler in a ref to avoid recreating the WebSocket connection
     const messageHandlerRef = useRef(handleWebSocketMessage);
@@ -641,22 +583,26 @@ const AppContext = createContext<{
       
       if (!user?.id) return;
       
-      const message: TypingMessage = {
-        type: "typing",
-        channelId,
-        userId: user.id,
-        isTyping: true,
+      const message: TypingEvent = {
+        type: WSEventType.TYPING,
+        payload: {
+          channelId,
+          userId: user.id,
+          isTyping: true,
+        }
       }
       wsRef.current.send(JSON.stringify(message));
     }, [user]);
   
     const clearTypingIndicator = useCallback((channelId: number) => {
       if (!user?.id || !wsRef.current) return
-      const message: TypingMessage = {
-        type: "typing",
-        channelId,
-        userId: user.id,
-        isTyping: false,
+      const message: TypingEvent = {
+        type: WSEventType.TYPING,
+        payload: {
+          channelId,
+          userId: user.id,
+          isTyping: false,
+        }
       }
       wsRef.current.send(JSON.stringify(message))
     }, [user])

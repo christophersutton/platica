@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { api } from '@/lib/api';
-import type { User } from '@/lib/api';
+import type { User } from '@models/user';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -47,4 +47,4 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   return children;
-} 
+}

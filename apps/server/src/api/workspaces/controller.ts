@@ -2,15 +2,22 @@ import type { Context } from 'hono';
 import { BaseController, ApiError } from '../base-controller';
 import type { DatabaseProvider } from '../../db/repositories/base';
 import { WorkspaceRepository } from '../../db/repositories/workspace-repository';
-import { UserRole, type NotificationPreferences, type Workspace, type WorkspaceCreateDTO } from '@platica/shared/types';
+import type { 
+  Workspace, 
+  CreateWorkspaceDTO,
+  UpdateWorkspaceDTO,
+  WorkspaceMember
+} from '@models/workspace';
+import type { User, NotificationPreferences } from '@models/user';
+import { UserRole } from '@constants/enums';
 
 interface CreateWorkspaceBody {
   name: string;
-  icon_url?: string | null;
+  iconUrl?: string | null;
   settings?: {
-    file_size_limit?: number;
-    default_message_retention_days?: number;
-    notification_defaults?: NotificationPreferences;
+    fileSizeLimit?: number;
+    defaultMessageRetentionDays?: number;
+    notificationDefaults?: NotificationPreferences;
   };
 }
 
@@ -23,10 +30,10 @@ interface InviteUserBody {
 
 interface UpdateUserBody {
   role?: UserRole;
-  display_name?: string;
+  displayName?: string;
   status?: string;
-  status_message?: string;
-  notification_preferences?: string;
+  statusMessage?: string;
+  notificationPreferences?: NotificationPreferences;
 }
 
 export class WorkspaceController extends BaseController {
@@ -73,8 +80,11 @@ export class WorkspaceController extends BaseController {
       const workspace = await this.workspaceRepo.create({
         name: body.name,
         slug,
-        owner_id: userId,
-        settings: body.settings || {}
+        ownerId: userId,
+        settings: body.settings || {},
+        fileSizeLimit: body.settings?.fileSizeLimit,
+        defaultMessageRetentionDays: body.settings?.defaultMessageRetentionDays,
+        notificationDefaults: body.settings?.notificationDefaults
       });
 
       // Add creator as admin
@@ -95,10 +105,12 @@ export class WorkspaceController extends BaseController {
         throw new ApiError('Only admins can update workspace settings', 403);
       }
 
-      // If name is being updated, generate a new slug
-      const updateData: Partial<WorkspaceCreateDTO> = {
-        ...body,
-        slug: body.name ? body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : undefined
+      const updateData: UpdateWorkspaceDTO = {
+        name: body.name,
+        settings: body.settings || {},
+        fileSizeLimit: body.settings?.fileSizeLimit,
+        defaultMessageRetentionDays: body.settings?.defaultMessageRetentionDays,
+        notificationDefaults: body.settings?.notificationDefaults
       };
 
       const workspace = await this.workspaceRepo.update(workspaceId, updateData);
@@ -123,8 +135,8 @@ export class WorkspaceController extends BaseController {
       }
 
       const invite = await this.workspaceRepo.createInvite({
-        workspace_id: workspaceId,
-        inviter_id: inviterId,
+        workspaceId,
+        inviterId,
         email: body.email,
         role: body.role || UserRole.MEMBER
       });
@@ -148,7 +160,13 @@ export class WorkspaceController extends BaseController {
         }
       }
 
-      const user = await this.workspaceRepo.updateUser(workspaceId, userId, body);
+      const user = await this.workspaceRepo.updateUser(workspaceId, userId, {
+        role: body.role,
+        displayName: body.displayName,
+        status: body.status,
+        statusMessage: body.statusMessage,
+        notificationPreferences: body.notificationPreferences ? JSON.stringify(body.notificationPreferences) : undefined
+      });
       if (!user) {
         throw new ApiError('User not found', 404);
       }

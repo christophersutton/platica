@@ -42,8 +42,8 @@ export class AuthController extends BaseController {
 
       // Generate and store token
       const token = await this.authRepo.createAuthToken({
-        user_id: user.id,
-        expires_at: Math.floor(Date.now() / 1000) + MAGIC_LINK_EXPIRY
+        userId: user.id,
+        expiresAt: Math.floor(Date.now() / 1000) + MAGIC_LINK_EXPIRY
       });
 
       // Generate magic link
@@ -79,7 +79,7 @@ export class AuthController extends BaseController {
       }
 
       // Get user
-      const user = await this.authRepo.findById(authToken.user_id);
+      const user = await this.authRepo.findById(authToken.userId);
       if (!user) {
         throw new ApiError('User not found', 404);
       }

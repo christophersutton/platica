@@ -3,9 +3,10 @@ import { Bold, Italic, Link, Send } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useAppContext } from "@/contexts/AppContext";
+import type { Channel } from '@models/channel'
 
 interface ChatInputProps {
-  channelId: number;
+  channelId: Channel['id'];
   onSendMessage: (message: string) => void;
   disabled?: boolean;
 }

@@ -14,6 +14,8 @@ DROP TABLE IF EXISTS workspace_invites;
 DROP TABLE IF EXISTS channel_invites;
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS workspaces;
+DROP TABLE IF EXISTS rooms;
+DROP TABLE IF EXISTS room_members;
 
 -- Core Tables
 
@@ -46,6 +48,9 @@ CREATE TABLE workspaces (
     slug TEXT NOT NULL UNIQUE,
     owner_id INTEGER NOT NULL,
     icon_url TEXT,
+    file_size_limit INTEGER,
+    default_message_retention_days INTEGER,
+    notification_defaults TEXT,
     settings TEXT NOT NULL DEFAULT '{}',
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
@@ -85,6 +90,10 @@ CREATE TABLE workspace_users (
     workspace_id INTEGER NOT NULL,
     user_id INTEGER NOT NULL,
     role TEXT NOT NULL, -- 'owner', 'admin', 'member', 'guest'
+    display_name TEXT,
+    status TEXT,
+    status_message TEXT,
+    notification_preferences TEXT,
     settings TEXT NOT NULL DEFAULT '{}',
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
@@ -100,7 +109,6 @@ CREATE TABLE channels (
     name TEXT NOT NULL,
     description TEXT,
     topic TEXT,
-    is_private BOOLEAN NOT NULL DEFAULT false,
     is_archived BOOLEAN NOT NULL DEFAULT false,
     created_by INTEGER NOT NULL,
     settings TEXT NOT NULL DEFAULT '{}',
@@ -115,8 +123,8 @@ CREATE TABLE channel_members (
     channel_id INTEGER NOT NULL,
     user_id INTEGER NOT NULL,
     role TEXT NOT NULL DEFAULT 'member', -- 'owner', 'admin', 'member'
-    is_muted BOOLEAN NOT NULL DEFAULT false,
     last_read_at INTEGER,
+    unread_mentions INTEGER NOT NULL DEFAULT 0,
     settings TEXT NOT NULL DEFAULT '{}',
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
@@ -133,7 +141,7 @@ CREATE TABLE messages (
     sender_id INTEGER NOT NULL,
     thread_id INTEGER,            -- NULL for top-level messages
     content TEXT NOT NULL,
-    attachments TEXT,             -- JSON array of attachment objects
+    type TEXT,                    -- Message type enum
     is_edited BOOLEAN NOT NULL DEFAULT false,
     edited_at INTEGER,
     deleted_at INTEGER,           -- Soft delete
@@ -178,10 +186,47 @@ CREATE TABLE files (
     size INTEGER NOT NULL,
     mime_type TEXT NOT NULL,
     s3_key TEXT NOT NULL,
+    deleted_at INTEGER,           -- Soft delete
     created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
     FOREIGN KEY (workspace_id) REFERENCES workspaces (id),
     FOREIGN KEY (uploader_id) REFERENCES users (id),
     FOREIGN KEY (message_id) REFERENCES messages (id)
+);
+
+-- Rooms table
+CREATE TABLE rooms (
+    id INTEGER PRIMARY KEY,
+    workspace_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    scheduled_start INTEGER NOT NULL,
+    scheduled_end INTEGER NOT NULL,
+    started_at INTEGER,
+    ended_at INTEGER,
+    status TEXT NOT NULL,
+    created_by INTEGER NOT NULL,
+    settings TEXT NOT NULL DEFAULT '{}',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER,
+    FOREIGN KEY (workspace_id) REFERENCES workspaces (id),
+    FOREIGN KEY (created_by) REFERENCES users (id)
+);
+
+-- Room members table
+CREATE TABLE room_members (
+    id INTEGER PRIMARY KEY,
+    room_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    role TEXT NOT NULL,
+    joined_at INTEGER NOT NULL,
+    left_at INTEGER,
+    state TEXT NOT NULL DEFAULT '{}',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (room_id) REFERENCES rooms (id),
+    FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
 -- Mentions table
@@ -201,3 +246,13 @@ CREATE INDEX idx_messages_thread_created ON messages(thread_id, created_at);
 CREATE INDEX idx_channel_members_user ON channel_members(user_id);
 CREATE INDEX idx_files_workspace ON files(workspace_id);
 CREATE INDEX idx_mentions_user ON mentions(user_id);
+CREATE INDEX idx_workspace_users_user ON workspace_users(user_id);
+CREATE INDEX idx_messages_type ON messages(type);
+CREATE INDEX idx_files_message ON files(message_id);
+
+-- Room indexes
+CREATE INDEX idx_rooms_workspace ON rooms(workspace_id);
+CREATE INDEX idx_rooms_status ON rooms(status);
+CREATE INDEX idx_rooms_scheduled ON rooms(scheduled_start);
+CREATE INDEX idx_room_members_user ON room_members(user_id);
+CREATE INDEX idx_room_members_active ON room_members(room_id, left_at);

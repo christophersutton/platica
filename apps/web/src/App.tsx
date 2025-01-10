@@ -6,13 +6,15 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "@/pages/Index";
 import { LoginPage } from '@/components/LoginPage';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { ChannelProvider } from './contexts/channel/ChannelContext';
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
+      <ChannelProvider>
+        <Toaster />
       <Sonner />
       <BrowserRouter>
         <Routes>
