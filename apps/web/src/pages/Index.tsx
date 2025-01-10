@@ -58,38 +58,65 @@ const Index = () => {
   const currentChannelId = channelId ? Number(channelId) : 0;
   const currentChannel = channelsById[currentChannelId];
   const currentMessages = getChannelMessages(currentChannelId);
-  
+
   const currentTypingUsers = typingUsers(currentChannelId);
 
   // Only load the workspace
-useEffect(() => {
-  const workspaceNum = Number(workspaceId);
-  if (workspaceNum && !workspaceState.workspace && !workspaceState.isLoadingWorkspace) {
-    loadWorkspace(workspaceNum);
-  }
-}, [workspaceId, workspaceState.workspace, workspaceState.isLoadingWorkspace, loadWorkspace]);
+  useEffect(() => {
+    const workspaceNum = Number(workspaceId);
+    if (
+      workspaceNum &&
+      !workspaceState.workspace &&
+      !workspaceState.isLoadingWorkspace
+    ) {
+      loadWorkspace(workspaceNum);
+    }
+  }, [
+    workspaceId,
+    workspaceState.workspace,
+    workspaceState.isLoadingWorkspace,
+    loadWorkspace,
+  ]);
 
-// Once the workspace is ready, load channels
-useEffect(() => {
-  const workspaceNum = Number(workspaceId);
-  if (workspaceState.workspace && channels.length === 0 && !isLoadingChannels) {
-    loadChannels(workspaceNum);
-  }
-}, [workspaceId, workspaceState.workspace, channels, isLoadingChannels, loadChannels]);
+  // Once the workspace is ready, load channels
+  useEffect(() => {
+    const workspaceNum = Number(workspaceId);
+    if (
+      workspaceState.workspace &&
+      channels.length === 0 &&
+      !isLoadingChannels
+    ) {
+      loadChannels(workspaceNum);
+    }
+  }, [
+    workspaceId,
+    workspaceState.workspace,
+    channels,
+    isLoadingChannels,
+    loadChannels,
+  ]);
 
-// Once the channel is selected, load messages
-useEffect(() => {
-  if (!currentChannelId) return;
-  if (!isLoadingMessages(currentChannelId) && getChannelMessages(currentChannelId).length === 0) {
-    loadMessages(currentChannelId);
-    setActiveChannel(currentChannelId);
-  }
-}, [currentChannelId, isLoadingMessages, getChannelMessages, loadMessages, setActiveChannel]);
+  // Once the channel is selected, load messages
+  useEffect(() => {
+    if (!currentChannelId) return;
+    if (
+      !isLoadingMessages(currentChannelId) &&
+      getChannelMessages(currentChannelId).length === 0
+    ) {
+      loadMessages(currentChannelId);
+      setActiveChannel(currentChannelId);
+    }
+  }, [
+    currentChannelId,
+    isLoadingMessages,
+    getChannelMessages,
+    loadMessages,
+    setActiveChannel,
+  ]);
 
   // Separate effect just for navigation
   useEffect(() => {
     if (!channelId && !isLoadingChannels && channels.length > 0) {
-      console.log("Index: Navigating to first channel:", channels[0].id);
       navigate(`/w/${workspaceId}/c/${channels[0].id}`);
     }
   }, [workspaceId, channels, channelId, isLoadingChannels, navigate]);
@@ -263,8 +290,7 @@ useEffect(() => {
                     </div>
                   ) : currentMessages && currentMessages.length > 0 ? (
                     currentMessages.map((msg: UiMessage) => {
-                      
-                      if (!msg ) return null;
+                      if (!msg) return null;
                       return (
                         <ChatMessage
                           key={msg.id}

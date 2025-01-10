@@ -20,53 +20,51 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <AuthProvider>
-        <WebSocketProvider>
-          <PresenceProvider>
-            <WorkspaceProvider>
-              <ChannelProvider>
-                <MessageProvider>
-                  <RoomProvider>
-                    <ChatProvider>
-                      <Toaster />
-                      <Sonner />
-                      <BrowserRouter>
-                        <Routes>
-                          <Route path="/login" element={<LoginPage />} />
-                          <Route
-                            path="/"
-                            element={
-                              <ProtectedRoute>
-                                <Navigate to="/w/1" replace />
-                              </ProtectedRoute>
-                            }
-                          />
-                          <Route
-                            path="/w/:workspaceId"
-                            element={
-                              <ProtectedRoute>
-                                <Index />
-                              </ProtectedRoute>
-                            }
-                          />
-                          <Route
-                            path="/w/:workspaceId/c/:channelId"
-                            element={
-                              <ProtectedRoute>
-                                <Index />
-                              </ProtectedRoute>
-                            }
-                          />
-                        </Routes>
-                      </BrowserRouter>
-                    </ChatProvider>
-                  </RoomProvider>
-                </MessageProvider>
-              </ChannelProvider>
-            </WorkspaceProvider>
-          </PresenceProvider>
-        </WebSocketProvider>
-      </AuthProvider>
+      <WebSocketProvider>
+        <PresenceProvider>
+          <WorkspaceProvider>
+            <ChannelProvider>
+              <MessageProvider>
+                <RoomProvider>
+                  <ChatProvider>
+                    <Toaster />
+                    <Sonner />
+                    <BrowserRouter>
+                      <Routes>
+                        <Route path="/login" element={<LoginPage />} />
+                        <Route
+                          path="/"
+                          element={
+                            <ProtectedRoute>
+                              <Navigate to="/w/1" replace />
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/w/:workspaceId"
+                          element={
+                            <ProtectedRoute>
+                              <Index />
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/w/:workspaceId/c/:channelId"
+                          element={
+                            <ProtectedRoute>
+                              <Index />
+                            </ProtectedRoute>
+                          }
+                        />
+                      </Routes>
+                    </BrowserRouter>
+                  </ChatProvider>
+                </RoomProvider>
+              </MessageProvider>
+            </ChannelProvider>
+          </WorkspaceProvider>
+        </PresenceProvider>
+      </WebSocketProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
