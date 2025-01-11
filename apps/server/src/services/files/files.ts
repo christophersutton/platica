@@ -28,7 +28,7 @@ interface FileRecord {
 
 export class FileService {
   private static instance: FileService;
-  private readonly s3: Bun.S3Client;
+  private readonly s3: S3Client;
   private readonly db: Database;
   private readonly bucket: string;
 
@@ -37,7 +37,7 @@ export class FileService {
     if (!bucket) throw new Error("S3_BUCKET environment variable not set");
 
     this.bucket = bucket;
-    this.s3 = new Bun.S3Client({
+    this.s3 = new S3Client({
       bucket,
       region: process.env.S3_REGION,
       accessKeyId: process.env.S3_ACCESS_KEY_ID,
