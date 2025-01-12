@@ -8,7 +8,7 @@ const DEMO_ATTACHMENTS: Record<string, SeedAttachment> = {
     size: 1024 * 1024 * 2, // 2MB
     mime_type: "image/png",
     s3_key: "diagrams/platica-architecture.png",
-    url: "https://images.unsplash.com/photo-1544083515-a13662b98bcd" // Placeholder architecture diagram
+    url: "https://images.unsplash.com/photo-1544083515-a13662b98bcd" // Placeholder
   },
   performance_report: {
     name: "performance-audit-jan2024.pdf",
@@ -22,14 +22,14 @@ const DEMO_ATTACHMENTS: Record<string, SeedAttachment> = {
     size: 1024 * 512, // 512KB
     mime_type: "image/png",
     s3_key: "bugs/presence-bug.png",
-    url: "https://images.unsplash.com/photo-1555949963-ff9fe0c870eb" // Placeholder bug screenshot
+    url: "https://images.unsplash.com/photo-1555949963-ff9fe0c870eb" // Placeholder
   },
   ui_mockup: {
     name: "reactions-ui-mockup.png",
     size: 1024 * 1024, // 1MB
     mime_type: "image/png",
     s3_key: "design/reactions-ui-mockup.png",
-    url: "https://images.unsplash.com/photo-1581291518633-83b4ebd1d83e" // Placeholder UI mockup
+    url: "https://images.unsplash.com/photo-1581291518633-83b4ebd1d83e" // Placeholder
   }
 };
 
@@ -42,7 +42,7 @@ export const ENGINEERING_HISTORY: SeedMessage[] = [
     type: MessageType.TEXT,
     thread: [
       {
-        content: "I've been looking at Socket.IO vs raw WebSocket. Here's what I found:\n- Socket.IO: Better fallback mechanisms, room management\n- Raw WebSocket: Lighter weight, better performance",
+        content: "I've been looking at Socket.IO vs raw WebSocket. Here's what I found:\\n- Socket.IO: Better fallback mechanisms, room management\\n- Raw WebSocket: Lighter weight, better performance",
         sender: 1,
         type: MessageType.TEXT
       },
@@ -62,7 +62,7 @@ export const ENGINEERING_HISTORY: SeedMessage[] = [
         type: MessageType.TEXT
       },
       {
-        content: "We can implement a simple heartbeat mechanism:\n- Client pings every 30s\n- Server tracks last ping time\n- Presence updates based on ping status",
+        content: "We can implement a simple heartbeat mechanism:\\n- Client pings every 30s\\n- Server tracks last ping time\\n- Presence updates based on ping status",
         sender: 1,
         type: MessageType.TEXT
       },
@@ -96,7 +96,7 @@ export const ENGINEERING_HISTORY: SeedMessage[] = [
         type: MessageType.TEXT
       },
       {
-        content: "Several benefits:\n1. Simple deployment (just a file)\n2. Surprisingly good performance\n3. Litestream handles replication to S3\n4. Zero-config primary-replica setup",
+        content: "Several benefits:\\n1. Simple deployment (just a file)\\n2. Surprisingly good performance\\n3. Litestream handles replication to S3\\n4. Zero-config primary-replica setup",
         sender: 2,
         type: MessageType.TEXT
       },
@@ -130,7 +130,7 @@ export const ENGINEERING_HISTORY: SeedMessage[] = [
     type: MessageType.TEXT,
     thread: [
       {
-        content: "Key components:\n1. Debounced typing events\n2. Presence heartbeat\n3. Hub-specific typing state\n4. Workspace-wide presence",
+        content: "Key components:\\n1. Debounced typing events\\n2. Presence heartbeat\\n3. Hub-specific typing state\\n4. Workspace-wide presence",
         sender: 3,
         type: MessageType.TEXT
       },
@@ -169,7 +169,7 @@ export const ENGINEERING_HISTORY: SeedMessage[] = [
     type: MessageType.TEXT,
     thread: [
       {
-        content: "Current load time is ~2s for initial hub load. Found a few issues:\n1. No pagination\n2. Loading full message history\n3. No caching",
+        content: "Current load time is ~2s for initial hub load. Found a few issues:\\n1. No pagination\\n2. Loading full message history\\n3. No caching",
         sender: 4,
         type: MessageType.TEXT
       },
@@ -179,7 +179,7 @@ export const ENGINEERING_HISTORY: SeedMessage[] = [
         type: MessageType.TEXT
       },
       {
-        content: "Good idea. We should also add:\n- Pagination (50 msgs per page)\n- Infinite scroll\n- Local storage caching",
+        content: "Good idea. We should also add:\\n- Pagination (50 msgs per page)\\n- Infinite scroll\\n- Local storage caching",
         sender: 4,
         type: MessageType.TEXT
       },
@@ -194,7 +194,7 @@ export const ENGINEERING_HISTORY: SeedMessage[] = [
         type: MessageType.TEXT
       },
       {
-        content: "Implementation plan approved. Priority tasks:\n1. Virtual scrolling\n2. Pagination\n3. FTS5 integration",
+        content: "Implementation plan approved. Priority tasks:\\n1. Virtual scrolling\\n2. Pagination\\n3. FTS5 integration",
         sender: 1,
         type: MessageType.SYSTEM
       }
@@ -213,12 +213,12 @@ export const ENGINEERING_HISTORY: SeedMessage[] = [
     type: MessageType.TEXT,
     thread: [
       {
-        content: "Key requirements:\n1. Direct browser->S3 upload\n2. Progress tracking\n3. Preview generation\n4. Virus scanning",
+        content: "Key requirements:\\n1. Direct browser-&gt;S3 upload\\n2. Progress tracking\\n3. Preview generation\\n4. Virus scanning",
         sender: 2,
         type: MessageType.TEXT
       },
       {
-        content: "For previews, we should handle:\n- Images (thumbnail generation)\n- PDFs (first page preview)\n- Videos (thumbnail frame)",
+        content: "For previews, we should handle:\\n- Images (thumbnail generation)\\n- PDFs (first page preview)\\n- Videos (thumbnail frame)",
         sender: 3,
         type: MessageType.TEXT
       },
@@ -228,7 +228,7 @@ export const ENGINEERING_HISTORY: SeedMessage[] = [
         type: MessageType.TEXT
       },
       {
-        content: "Good choice. Let's also add upload restrictions:\n- Max file size: 100MB\n- Allowed types: images, docs, pdfs\n- Rate limiting: 10 uploads/min",
+        content: "Good choice. Let's also add upload restrictions:\\n- Max file size: 100MB\\n- Allowed types: images, docs, pdfs\\n- Rate limiting: 10 uploads/min",
         sender: 1,
         type: MessageType.TEXT
       },
@@ -247,7 +247,7 @@ export const ENGINEERING_HISTORY: SeedMessage[] = [
     type: MessageType.TEXT,
     thread: [
       {
-        content: "Flow:\n1. User enters email\n2. We send magic link\n3. Link contains signed JWT\n4. JWT exchange for session token",
+        content: "Flow:\\n1. User enters email\\n2. We send magic link\\n3. Link contains signed JWT\\n4. JWT exchange for session token",
         sender: 1,
         type: MessageType.TEXT
       },
@@ -262,7 +262,7 @@ export const ENGINEERING_HISTORY: SeedMessage[] = [
         type: MessageType.TEXT
       },
       {
-        content: "Good call. Also need to handle:\n- Link reuse prevention\n- Device tracking\n- Session management",
+        content: "Good call. Also need to handle:\\n- Link reuse prevention\\n- Device tracking\\n- Session management",
         sender: 1,
         type: MessageType.TEXT
       },
@@ -283,7 +283,7 @@ export const ADDITIONAL_MESSAGES: SeedMessage[] = [
     sender: 4,
     type: MessageType.TEXT,
     thread: [
-      { content: "Steps to reproduce:\n1. Open two tabs\n2. Go offline in one\n3. Other tab still shows as online", sender: 4, type: MessageType.TEXT },
+      { content: "Steps to reproduce:\\n1. Open two tabs\\n2. Go offline in one\\n3. Other tab still shows as online", sender: 4, type: MessageType.TEXT },
       { content: "Good catch. We need to sync presence across tabs using BroadcastHub", sender: 1, type: MessageType.TEXT },
       { content: "PR with fix: https://github.com/platica/platica/pull/92", sender: 4, type: MessageType.SYSTEM }
     ],
@@ -304,7 +304,7 @@ export const ADDITIONAL_MESSAGES: SeedMessage[] = [
     sender: 3,
     type: MessageType.TEXT,
     thread: [
-      { content: "Agreed! Basic requirements:\n- Emoji picker\n- Reaction counts\n- Real-time updates", sender: 3, type: MessageType.TEXT },
+      { content: "Agreed! Basic requirements:\\n- Emoji picker\\n- Reaction counts\\n- Real-time updates", sender: 3, type: MessageType.TEXT },
       { content: "Let's use emoji-mart for the picker", sender: 4, type: MessageType.TEXT },
       { content: "Good choice. I'll start on the backend schema", sender: 2, type: MessageType.TEXT }
     ],
@@ -321,7 +321,7 @@ export const ADDITIONAL_MESSAGES: SeedMessage[] = [
     sender: 2,
     type: MessageType.TEXT,
     thread: [
-      { content: "A few concerns:\n1. N+1 query in thread loading\n2. Missing index on thread_id\n3. No pagination for thread replies", sender: 1, type: MessageType.TEXT },
+      { content: "A few concerns:\\n1. N+1 query in thread loading\\n2. Missing index on thread_id\\n3. No pagination for thread replies", sender: 1, type: MessageType.TEXT },
       { content: "Good points. I'll add the index and fix the N+1", sender: 2, type: MessageType.TEXT },
       { content: "Also consider adding a reply count cache", sender: 4, type: MessageType.TEXT },
       { content: "Updated PR: https://github.com/platica/platica/pull/103", sender: 2, type: MessageType.SYSTEM }
@@ -338,7 +338,7 @@ export const ADDITIONAL_MESSAGES: SeedMessage[] = [
     sender: 1,
     type: MessageType.TEXT,
     thread: [
-      { content: "Benefits:\n1. Faster FCP\n2. Better SEO\n3. Reduced client bundle", sender: 1, type: MessageType.TEXT },
+      { content: "Benefits:\\n1. Faster FCP\\n2. Better SEO\\n3. Reduced client bundle", sender: 1, type: MessageType.TEXT },
       { content: "We could use Next.js for this", sender: 3, type: MessageType.TEXT },
       { content: "Or SvelteKit? It has better performance metrics", sender: 4, type: MessageType.TEXT },
       { content: "Let's stick with React ecosystem for now. Next.js is more mature", sender: 1, type: MessageType.TEXT }
@@ -351,7 +351,7 @@ export const ADDITIONAL_MESSAGES: SeedMessage[] = [
     sender: 4,
     type: MessageType.TEXT,
     thread: [
-      { content: "Main issues:\n1. Large JS bundle (2.1MB)\n2. Slow message list rendering\n3. High memory usage", sender: 4, type: MessageType.TEXT },
+      { content: "Main issues:\\n1. Large JS bundle (2.1MB)\\n2. Slow message list rendering\\n3. High memory usage", sender: 4, type: MessageType.TEXT },
       { content: "We can lazy load the emoji picker and file preview components", sender: 2, type: MessageType.TEXT },
       { content: "And implement windowing for long message lists", sender: 3, type: MessageType.TEXT },
       { content: "Created tickets for each item: #234, #235, #236", sender: 4, type: MessageType.SYSTEM }
@@ -463,7 +463,7 @@ export function generateTimestamps(messageCount: number, baseTime: number = Math
   baseTime = Math.min(now, Math.max(now - 30 * 24 * 60 * 60, baseTime)); // No more than 30 days old
   
   for (let i = 0; i < messageCount; i++) {
-    // Random time between 1-5 minutes apart (reduced from 1-10 to keep messages closer together)
+    // Random time between 1-5 minutes apart
     const gap = Math.floor(Math.random() * 240) + 60; // 1-5 minutes in seconds
     const timestamp = Math.min(now, baseTime - (messageCount - i) * gap);
     timestamps.push(timestamp);
@@ -489,7 +489,7 @@ CODE_REVIEWS.forEach((review: SeedMessage) => {
   // Add reactions to the LGTM message
   if (review.thread) {
     review.thread[review.thread.length - 1].reactions = [
-      { emoji: "🎉", users: [0, 2, 3, 4] }  // Team celebrating the merge
+      { emoji: "🎉", users: [0, 2, 3, 4] }
     ];
   }
-}); 
+});

@@ -16,11 +16,10 @@ import {
   useUserPresence,
 } from "@/contexts/presence/PresenceContext";
 import { useWorkspace } from "@/contexts/workspace/WorkspaceContext";
-import { useHubs } from "@/contexts/hub
-/HubContext";
 import { useRoom } from "@/contexts/room/RoomContext";
 import { useMessages } from "@/contexts/message/MessageContext";
 import type { UiMessage } from "@models/message";
+import { useHubs } from "@/contexts/hub/HubContext";
 
 const Index = () => {
   const { workspaceId = "1", hubId } = useParams();
@@ -94,8 +93,7 @@ const Index = () => {
     loadWorkspace,
   ]);
 
-  // Once the hub
- is selected, load messages
+  // Once the hub is selected, load messages
   useEffect(() => {
     if (!currentHubId) return;
     if (
@@ -113,8 +111,7 @@ const Index = () => {
     setActiveHub,
   ]);
 
-  // Navigate to first hub
- if none specified
+  // Navigate to first hub if none specified
   useEffect(() => {
     if (!hubId && !isLoadingHubs && hubs.length > 0) {
       navigate(`/w/${workspaceId}/c/${hubs[0].id}`);
@@ -147,8 +144,7 @@ const Index = () => {
         "[data-radix-scroll-area-viewport]"
       ) as HTMLElement;
       if (container) {
-        // If newly arriving at a hub
-, auto-scroll to bottom
+        // If newly arriving at a hub , auto-scroll to bottom
         if (isAtBottom) {
           container.scrollTop = container.scrollHeight;
         }
@@ -158,8 +154,7 @@ const Index = () => {
     }
   }, [currentMessages, currentHubId, handleScroll, isAtBottom]);
 
-  // Mark hub
- as read when at bottom
+  // Mark hub as read when at bottom
   useEffect(() => {
     if (isAtBottom && currentHubId) {
       markHubAsRead(currentHubId);
@@ -207,8 +202,7 @@ const Index = () => {
         <div className="border-b border-gray-200">
           <div className="p-4 flex justify-between items-center">
             <h1 className="text-xl font-semibold">
-              {currentHub ? `#${currentHub.name}` : "Select a hub
-"}
+              {currentHub ? `#${currentHub.name}` : "Select a hub"}
             </h1>
             <Tabs
               value={activeTab}

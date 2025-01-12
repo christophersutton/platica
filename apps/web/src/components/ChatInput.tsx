@@ -4,8 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useMessages } from "@/contexts/message/MessageContext";
 import { useWebSocket } from "@/contexts/websocket/WebSocketContext";
-import type { Hub } from '@models/hub
-'
+import type { Hub } from '@models/hub'
 
 interface ChatInputProps {
   hubId: Hub['id'];

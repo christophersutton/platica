@@ -33,14 +33,12 @@ export function CreateHubModal() {
         description: `#${hubName} has been created successfully.`
       });
       
-      // The new hub
- will be added to state via websocket event,
+      // The new hu will be added to state via websocket event,
       // so we can navigate after creation
       navigate(`/w/${workspaceId}/c/${hubName}`);
     } catch (error) {
       toast({
-        title: "Error creating hub
-",
+        title: "Error creating hub",
         description: error instanceof Error ? error.message : "An error occurred",
         variant: "destructive"
       });

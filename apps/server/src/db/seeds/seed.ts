@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { join } from "path";
 import { MessageType, UserStatus } from "@platica/shared/constants/enums";
-import { ALL_ENGINEERING_MESSAGES, generateTimestamps } from "./engineering-history";
+import { ALL_ENGINEERING_MESSAGES, generateTimestamps } from "./engineering_history";
 import type { SeedMessage, SeedAttachment, SeedReaction } from "./types";
 
 const db = new Database(join(import.meta.dir, "../../../data/db.sqlite"));
@@ -43,11 +43,11 @@ const DEMO_USERS = [
 ];
 
 const CHANNELS = [
-  { name: 'general', description: 'General discussion', isPrivate: false },
-  { name: 'random', description: 'Random chatter and fun stuff', isPrivate: false },
-  { name: 'engineering', description: 'Technical discussions', isPrivate: false },
-  { name: 'design', description: 'Design discussions and feedback', isPrivate: false },
-  { name: 'team-leads', description: 'Private hub for team leads', isPrivate: true },
+  { name: 'general', description: 'General discussion' },
+  { name: 'random', description: 'Random chatter and fun stuff' },
+  { name: 'engineering', description: 'Technical discussions' },
+  { name: 'design', description: 'Design discussions and feedback' },
+  { name: 'team-leads', description: 'Private hub for team leads' },
 ];
 
 // Different message sets for each hub
@@ -189,9 +189,7 @@ async function seed() {
             created_by, created_at, updated_at
           )
           VALUES (?, ?, ?, ?, unixepoch(), unixepoch())
-        `, [workspaceId, hub
-.name, hub
-.description, testUser.id]);
+        `, [workspaceId, hub.name, hub.description, testUser.id]);
         
         const hubResult = db.query("SELECT last_insert_rowid() as id").get() as { id: number };
         return hubResult.id;
@@ -199,13 +197,10 @@ async function seed() {
 
       // Add all users to public hubs and admins to private hubs
       console.log("Adding users to hubs...");
-      hubIds.forEach((hubId, hubIndex) => {
-        const isPrivate = CHANNELS[hubIndex].isPrivate;
-        const eligibleUsers = isPrivate 
-          ? [testUser.id, ...userIds.slice(0, 2)] // Only admins for private hubs
-          : [testUser.id, ...userIds]; // All users for public hubs
+      hubIds.forEach((hubId) => {
+        const allUsers = [testUser.id, ...userIds];
 
-        eligibleUsers.forEach(userId => {
+        allUsers.forEach(userId => {
           db.run(`
             INSERT INTO hub_members (
               hub_id, user_id, role, unread_mentions,
@@ -222,7 +217,6 @@ async function seed() {
         const hubName = CHANNELS[index].name;
         
         // Special handling for engineering hub
-
         if (hubName === 'engineering') {
           const baseTime = Math.floor(Date.now() / 1000) - (24 * 60 * 60); // Start from 24 hours ago
           const timestamps = generateTimestamps(ALL_ENGINEERING_MESSAGES.length, baseTime);
@@ -366,7 +360,7 @@ async function seed() {
                         replyId,
                         reactingUserId,
                         reaction.emoji,
-                        replyTime + Math.floor(Math.random() * 300) // Random reaction time within 5 minutes
+                        replyTime + Math.floor(Math.random() * 300) // Random reaction time
                       ]);
                     });
                   });
@@ -421,4 +415,4 @@ async function seed() {
   }
 }
 
-seed(); 
+seed();

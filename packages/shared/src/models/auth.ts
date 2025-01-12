@@ -10,6 +10,7 @@ export interface AuthToken extends BaseModel {
   userId: User['id']
   expiresAt: UnixTimestamp
   used: boolean
+  workspaceId?: number
 }
 
 /**
@@ -21,6 +22,7 @@ export interface AuthTokenRow {
   user_id: User['id']
   expires_at: UnixTimestamp
   used: boolean
+  workspace_id?: number
   created_at: UnixTimestamp
   updated_at: UnixTimestamp
 }
@@ -51,6 +53,7 @@ export type UserUpdateDTO = Partial<UserCreateDTO>
  */
 export interface MagicLinkRequestDTO {
   email: string
+  workspaceId?: string
 }
 
 /**

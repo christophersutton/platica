@@ -34,13 +34,13 @@ export function VerifyAuthContent() {
     // Do the verification
     api.auth.verifyToken(token)
       .then(result => {
-        return login(result.token);
+        return login(result.token).then(() => result);
       })
-      .then(success => {
-        if (success) {
-          navigate('/', { replace: true });
+      .then(result => {
+        if (result.workspaceId) {
+          navigate(`/w/${result.workspaceId}`, { replace: true });
         } else {
-          throw new Error('Login failed');
+          navigate('/', { replace: true });
         }
       })
       .catch(error => {

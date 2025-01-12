@@ -1,5 +1,4 @@
-import { type Hub, type UiHub } from "@models/hub
-";
+import { type Hub, type UiHub } from "@models/hub";
 
 // Helper to convert Hub to UiHub
 function toUiHub(hub

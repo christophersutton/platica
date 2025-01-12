@@ -88,6 +88,12 @@ export class WorkspaceRepository extends BaseRepository<Workspace, CreateWorkspa
   }
 
   async addUser(workspaceId: number, userId: number, role: UserRole = UserRole.MEMBER): Promise<void> {
+    // First check if user is already a member
+    const existingRole = await this.getMemberRole(workspaceId, userId);
+    if (existingRole) {
+      return; // User is already a member, silently succeed
+    }
+
     const now = Math.floor(Date.now() / 1000);
     this.db.prepare(`
       INSERT INTO workspace_users (workspace_id, user_id, role, settings, created_at, updated_at)

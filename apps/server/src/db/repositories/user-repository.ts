@@ -66,16 +66,16 @@ export class UserRepository extends BaseRepository<User, UserCreateDTO, UserUpda
     });
   }
 
-  async createAuthToken(data: { userId: number; expiresAt: number }): Promise<string> {
+  async createAuthToken(data: { userId: number; expiresAt: number; workspaceId?: number }): Promise<string> {
     const token = crypto.randomUUID();
     const now = Math.floor(Date.now() / 1000);
 
     this.db
       .prepare(
-        `INSERT INTO auth_tokens (token, user_id, expires_at, used, created_at, updated_at)
-         VALUES (?, ?, ?, 0, ?, ?)`
+        `INSERT INTO auth_tokens (token, user_id, expires_at, workspace_id, used, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 0, ?, ?)`
       )
-      .run(token, data.userId, data.expiresAt, now, now);
+      .run(token, data.userId, data.expiresAt, data.workspaceId || null, now, now);
 
     return token;
   }
@@ -107,6 +107,7 @@ export class UserRepository extends BaseRepository<User, UserCreateDTO, UserUpda
         token: row.token,
         userId: row.user_id,
         expiresAt: row.expires_at,
+        workspaceId: row.workspace_id || undefined,
         used: Boolean(row.used),
         createdAt: validateTimestamp(row.created_at),
         updatedAt: validateTimestamp(row.updated_at),

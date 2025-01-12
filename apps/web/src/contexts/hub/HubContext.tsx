@@ -6,8 +6,7 @@ import React, {
   useReducer,
 } from "react";
 import { api } from "@/lib/api";
-import { type UiHub } from "@models/hub
-";
+import { type UiHub } from "@models/hub";
 import { useAuth } from "../AuthContext";
 import { useWebSocket } from "../websocket/WebSocketContext";
 import {
@@ -162,8 +161,7 @@ export function HubProvider({ children }: { children: React.ReactNode }) {
         await api.hubs.markAsRead(hubId);
         dispatch({ type: "MARK_CHANNEL_READ", payload: hubId });
       } catch (error) {
-        console.error("Failed to mark hub
- as read:", error);
+        console.error("Failed to mark hubas read:", error);
       }
     },
     [token, isAuthLoading]

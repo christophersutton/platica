@@ -1,6 +1,5 @@
 import type { User } from '@models/user';
-import type { Hub, HubMember } from '@models/hub
-';
+import type { Hub, HubMember } from '@models/hub';
 import type { ApiMessage, Message } from '@models/message';
 import type { Workspace } from '@models/workspace';
 import type { ApiWorkspaceUser } from '@models/user';
@@ -50,14 +49,14 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
 
 export const api = {
   auth: {
-    requestMagicLink: (email: string) =>
+    requestMagicLink: (email: string, options?: { workspaceId?: string }) =>
       fetchApi<{ message: string; magicLink?: string; token?: string }>('/auth/magic-link', {
         method: 'POST',
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, workspaceId: options?.workspaceId }),
       }),
     
     verifyToken: (token: string, options?: RequestInit) =>
-      fetchApi<{ token: string; user: User }>('/auth/verify', {
+      fetchApi<{ token: string; user: User; workspaceId?: number }>('/auth/verify', {
         method: 'POST',
         body: JSON.stringify({ token }),
         ...options,

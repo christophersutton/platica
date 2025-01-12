@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { useHubs } from "@/contexts/hub
-/HubContext";
+import { useHubs } from "@/contexts/hub/HubContext";
 
 export function CreateHubModal() {
   const [hubName, setHubName] = useState("");
@@ -32,14 +31,12 @@ export function CreateHubModal() {
         description: `#${hubName} has been created successfully.`
       });
       
-      // The new hub
- will be added to state via websocket event,
+      // The new hubwill be added to state via websocket event,
       // so we can navigate after creation
       navigate(`/w/${workspaceId}/c/${hubName}`);
     } catch (error) {
       toast({
-        title: "Error creating hub
-",
+        title: "Error creating hub",
         description: error instanceof Error ? error.message : "An error occurred",
         variant: "destructive"
       });

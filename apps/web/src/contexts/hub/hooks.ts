@@ -5,14 +5,14 @@ import { useAuth } from '../AuthContext'
 import { api } from '@/lib/api'
 import { WSEventType } from '@platica/shared/src/websockets'
 import type { HubMemberEvent } from '@platica/shared/src/websockets'
-import type { HubMember, HubMemberRole } from '@platica/shared/src/models/hub
-'
+import type { HubMember, HubMemberRole } from '@platica/shared/src/models/hub'
 import type { 
   ChatEvent,
   TypingEvent,
   WebSocketEvent
 } from '@platica/shared/src/websockets'
 import { getCurrentUnixTimestamp } from '@platica/shared/src/utils/time'
+import type { ValidatedUnixTimestamp } from '@platica/shared/types'
 
 /**
  * Hook to manage subscription to a hub
@@ -84,8 +84,7 @@ export function useHubMembers(hubId: number | null) {
       setMembers(response.members)
     } catch (err) {
       setError(err as Error)
-      console.error('Failed to load hub
- members:', err)
+      console.error('Failed to load hubmembers:', err)
     } finally {
       setLoading(false)
     }
@@ -98,8 +97,7 @@ export function useHubMembers(hubId: number | null) {
       await api.hubs.members.add(hubId, { userId, role })
       setMembers(prev => [...prev, { id: userId, role, hubId } as HubMember])
     } catch (err) {
-      console.error('Failed to add hub
- member:', err)
+      console.error('Failed to add hubmember:', err)
       throw err
     }
   }, [hubId])
@@ -111,8 +109,7 @@ export function useHubMembers(hubId: number | null) {
       await api.hubs.members.remove(hubId, userId)
       setMembers(prev => prev.filter(m => m.id !== userId))
     } catch (err) {
-      console.error('Failed to remove hub
- member:', err)
+      console.error('Failed to remove hubmember:', err)
       throw err
     }
   }, [hubId])
@@ -173,7 +170,7 @@ export function useHubMembers(hubId: number | null) {
         if (message.type !== WSEventType.CHANNEL_MEMBER_UPDATED) return;
         const event = message as HubMemberEvent;
         if (event.hubId !== hubId) return;
-        const now = getCurrentUnixTimestamp();
+        const now = getCurrentUnixTimestamp() as ValidatedUnixTimestamp;
         setMembers(prev => prev.map(m => 
           m.id === event.userId 
             ? { ...m, role: event.role as HubMemberRole || m.role, updatedAt: now }

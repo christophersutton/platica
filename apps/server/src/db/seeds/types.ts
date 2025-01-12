@@ -20,4 +20,4 @@ export interface SeedMessage {
   thread?: SeedMessage[]; // For threaded replies
   attachments?: SeedAttachment[];
   reactions?: SeedReaction[];
-} 
+}

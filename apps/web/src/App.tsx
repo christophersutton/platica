@@ -11,14 +11,14 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { PresenceProvider } from "@/contexts/presence/PresenceContext";
 import { WebSocketProvider } from "@/contexts/websocket/WebSocketContext";
 import { WorkspaceProvider } from "@/contexts/workspace/WorkspaceContext";
-import { HubProvider } from "@/contexts/hub
-/HubContext";
+import { HubProvider } from "@/contexts/hub/HubContext";
 import { RoomProvider } from "@/contexts/room/RoomContext";
 import { ChatProvider } from "@/contexts/chat/ChatContext";
 import { MessageProvider } from "@/contexts/message/MessageContext";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { api } from "@/lib/api";
+import { SignupPage } from "@/components/SignupPage";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +37,7 @@ const App = () => (
                     <BrowserRouter>
                       <Routes>
                         <Route path="/login" element={<LoginPage />} />
+                        <Route path="/signup" element={<SignupPage />} />
                         <Route path="/auth/verify" element={<VerifyAuthContent />} />
                         <Route
                           path="/"
