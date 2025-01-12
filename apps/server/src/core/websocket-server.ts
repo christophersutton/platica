@@ -68,8 +68,11 @@ export function startWebSocketServer(port: number) {
 
           // Handle authentication message
           if (data.type === "auth") {
-            const authMessage = data as AuthMessage;
-            if (!authMessage.token?.startsWith("Bearer ")) {
+            const authMessage = data ;
+            console.log("Auth message:", authMessage);
+            console.log("Token:", authMessage.token);
+            console.log("Token starts with Bearer:", authMessage.payload);
+            if (!authMessage.payload.token?.startsWith("Bearer ")) {
               ws.send(
                 JSON.stringify({
                   type: "error",
@@ -80,7 +83,7 @@ export function startWebSocketServer(port: number) {
               return;
             }
 
-            const token = authMessage.token.split(" ")[1];
+            const token = authMessage.payload.token.split(" ")[1];
             try {
               const payload = await verify(token, JWT_SECRET);
               if (
