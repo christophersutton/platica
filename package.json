@@ -31,6 +31,7 @@
   "module": "index.ts",
   "type": "module",
   "dependencies": {
-    "hono": "^4.6.16"
+    "hono": "^4.6.16",
+    "resend": "^4.0.1"
   }
 }

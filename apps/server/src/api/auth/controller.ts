@@ -1,11 +1,11 @@
-import type { Context } from 'hono';
-import { sign } from 'hono/jwt';
-import { BaseController, ApiError } from '../base-controller';
-import type { Database } from 'bun:sqlite';
-import { AuthRepository } from '../../db/repositories/auth-repository.js';
-import { EmailService } from '../../services/email.js';
+import type { Context } from "hono";
+import { sign } from "hono/jwt";
+import { BaseController, ApiError } from "../base-controller";
+import type { Database } from "bun:sqlite";
+import { AuthRepository } from "../../db/repositories/auth-repository.js";
+import { EmailService } from "../../services/email.js";
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 const MAGIC_LINK_EXPIRY = 15 * 60; // 15 minutes in seconds
 
 interface MagicLinkBody {
@@ -43,28 +43,28 @@ export class AuthController extends BaseController {
       // Generate and store token
       const token = await this.authRepo.createAuthToken({
         userId: user.id,
-        expiresAt: Math.floor(Date.now() / 1000) + MAGIC_LINK_EXPIRY
+        expiresAt: Math.floor(Date.now() / 1000) + MAGIC_LINK_EXPIRY,
       });
 
       // Generate magic link
       const magicLink = `${process.env.APP_URL}/auth/verify?token=${token}`;
 
       // In development, return the token directly
-      if (process.env.NODE_ENV === 'development') {
-        return {
-          message: 'Magic link generated (development mode)',
-          magicLink,
-          token
-        };
-      }
+      // if (process.env.NODE_ENV === 'development') {
+      //   return {
+      //     message: 'Magic link generated (development mode)',
+      //     magicLink,
+      //     token
+      //   };
+      // }
 
       // In production, send email
-      if (process.env.NODE_ENV === 'production') {
-        // Send magic link via email
-        await EmailService.sendMagicLink(email, magicLink);
-      }
+      // if (process.env.NODE_ENV === 'production') {
+      // Send magic link via email
+      await EmailService.sendMagicLink(email, magicLink);
+      // }
 
-      return { message: 'Magic link sent to your email' };
+      return { message: "Magic link sent to your email" };
     });
   };
 
@@ -75,38 +75,41 @@ export class AuthController extends BaseController {
       // Verify and consume token
       const authToken = await this.authRepo.verifyAndConsumeToken(token);
       if (!authToken) {
-        throw new ApiError('Invalid or expired token', 401);
+        throw new ApiError("Invalid or expired token", 401);
       }
 
       // Get user
       const user = await this.authRepo.findById(authToken.userId);
       if (!user) {
-        throw new ApiError('User not found', 404);
+        throw new ApiError("User not found", 404);
       }
 
       // Generate JWT
-      const jwt = await sign({
-        id: user.id,
-        email: user.email
-      }, JWT_SECRET);
+      const jwt = await sign(
+        {
+          id: user.id,
+          email: user.email,
+        },
+        JWT_SECRET
+      );
 
       return {
         token: jwt,
         user: {
           id: user.id,
           email: user.email,
-          name: user.name
-        }
+          name: user.name,
+        },
       };
     });
   };
 
   getProfile = async (c: Context): Promise<Response> => {
     return this.handle(c, async () => {
-      const { userId } = c.get('user');
+      const { userId } = c.get("user");
       const user = await this.authRepo.findById(userId);
       if (!user) {
-        throw new ApiError('User not found', 404);
+        throw new ApiError("User not found", 404);
       }
       return user;
     });
@@ -114,13 +117,13 @@ export class AuthController extends BaseController {
 
   updateProfile = async (c: Context): Promise<Response> => {
     return this.handle(c, async () => {
-      const { userId } = c.get('user');
+      const { userId } = c.get("user");
       const data = await this.requireBody<UpdateProfileBody>(c);
       const user = await this.authRepo.update(userId, data);
       if (!user) {
-        throw new ApiError('Failed to update user', 500);
+        throw new ApiError("Failed to update user", 500);
       }
       return user;
     });
   };
-} 
+}
