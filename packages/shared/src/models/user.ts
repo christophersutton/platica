@@ -4,6 +4,7 @@ import type { BaseModel } from '@models/base'
 import type { Workspace } from '@models/workspace'
 import type { Hub } from '@models/hub'
 
+export * from '@constants/enums'
 /**
  * Core User domain type
  */

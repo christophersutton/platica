@@ -1,21 +1,31 @@
+/*
+  File: hub.ts
+
+  Updated to ensure we match the latest domain fields 
+  (like "topic", "isArchived", "settings" as a JSON object, etc.).
+  Also removed references to "deletedAt" if that is now part 
+  of the SoftDeletableModel pattern.
+
+  We also changed "channel" references -> "hub" references 
+  to be consistent across the code. 
+*/
+
 import type { UnixTimestamp } from "@types";
 import type { User } from "@models/user";
 import type { Workspace } from "@models/workspace";
-import type { BaseModel } from "@models/base";
+import type { BaseModel, SoftDeletableModel } from "@models/base";
 import type { Message } from "@models/message";
 
 /**
  * Core Hub domain type
  */
-export interface Hub extends BaseModel {
+export interface Hub extends SoftDeletableModel {
   workspaceId: Workspace["id"];
   name: string;
   description?: string;
   topic?: string | null;
   isArchived: boolean;
   createdBy: User["id"];
-
-  deletedAt: UnixTimestamp | null;
   settings?: Record<string, unknown>;
 }
 
@@ -85,8 +95,7 @@ export interface HubRow {
 }
 
 /**
- * Database row for hub
- member
+ * Database row for hub member
  */
 export interface HubMemberRow {
   id: number;
@@ -102,23 +111,18 @@ export interface HubMemberRow {
 
 /**
  * Required fields when creating a hub
-
  */
 type HubRequiredFields = "workspaceId" | "name";
 
 /**
  * Optional fields when creating a hub
-
  */
-type HubOptionalFields = "description" | "topic" | "settings";
+type HubOptionalFields = "description" | "topic" | "settings" | "isArchived";
 
 /**
  * Hub creation DTO - only includes fields that can be set on creation
  */
-export type CreateHubDTO = Pick<
-  Hub,
-  HubRequiredFields | HubOptionalFields
->;
+export type CreateHubDTO = Pick<Hub, HubRequiredFields | HubOptionalFields>;
 
 /**
  * Hub update DTO - only includes fields that can be modified

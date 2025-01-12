@@ -1,3 +1,16 @@
+/*
+  File: seed.ts
+
+  Fix references from 'channels' to 'hubs', 
+  ensuring 'channel_invites' references are removed. 
+  The new name is "hubs" / "hub_members". 
+  Also ensure references to "channel" are changed to "hub" 
+  or "HUBS" as needed.
+
+  Also note that some lines used "channel_members" references 
+  which should now be "hub_members". 
+*/
+
 import { Database } from "bun:sqlite";
 import { join } from "path";
 import { MessageType, UserStatus } from "@platica/shared/constants/enums";
@@ -42,7 +55,7 @@ const DEMO_USERS = [
   { email: 'david@demo.com', name: 'David Kim', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=David', display_name: 'David K.' },
 ];
 
-const CHANNELS = [
+const HUBS = [
   { name: 'general', description: 'General discussion' },
   { name: 'random', description: 'Random chatter and fun stuff' },
   { name: 'engineering', description: 'Technical discussions' },
@@ -50,9 +63,7 @@ const CHANNELS = [
   { name: 'team-leads', description: 'Private hub for team leads' },
 ];
 
-// Different message sets for each hub
-
-const CHANNEL_MESSAGES: Record<string, SeedMessage[]> = {
+const HUB_MESSAGES: Record<string, SeedMessage[]> = {
   general: [
     { content: "Hey everyone! Welcome to our new workspace 👋", sender: 0, type: MessageType.TEXT },
     { content: "Thanks for having us! Excited to collaborate here.", sender: 1, type: MessageType.TEXT },
@@ -95,10 +106,8 @@ async function seed() {
   console.log("🌱 Starting database seed...");
   
   try {
-    // Transaction to ensure data consistency
     db.transaction(() => {
       console.log("Creating test user:", TEST_EMAIL);
-      // Create test user first (if doesn't exist)
       db.run(`
         INSERT OR IGNORE INTO users (email, name, avatar_url, created_at, updated_at)
         VALUES (?, ?, ?, unixepoch(), unixepoch())
@@ -107,7 +116,6 @@ async function seed() {
       const testUser = db.query("SELECT id FROM users WHERE email = ?").get(TEST_EMAIL) as { id: number };
       console.log("Test user created with ID:", testUser.id);
 
-      // Create a demo workspace with new fields
       console.log("Creating demo workspace...");
       db.run(`
         INSERT INTO workspaces (
@@ -129,7 +137,7 @@ async function seed() {
       const workspaceId = result.id;
       console.log("Demo workspace created with ID:", workspaceId);
 
-      // Add test user as admin with new fields
+      // Add test user as admin
       console.log("Adding test user as workspace admin...");
       db.run(`
         INSERT INTO workspace_users (
@@ -158,7 +166,7 @@ async function seed() {
         return userResult.id;
       });
 
-      // Add demo users to workspace with new fields
+      // Add demo users to workspace
       console.log("Adding demo users to workspace...");
       userIds.forEach((userId, index) => {
         const user = DEMO_USERS[index];
@@ -182,11 +190,10 @@ async function seed() {
 
       // Create hubs
       console.log("Creating hubs...");
-      const hubIds = CHANNELS.map(hub => {
+      const hubIds = HUBS.map(hub => {
         db.run(`
           INSERT INTO hubs (
-            workspace_id, name, description, 
-            created_by, created_at, updated_at
+            workspace_id, name, description, created_by, created_at, updated_at
           )
           VALUES (?, ?, ?, ?, unixepoch(), unixepoch())
         `, [workspaceId, hub.name, hub.description, testUser.id]);
@@ -195,7 +202,7 @@ async function seed() {
         return hubResult.id;
       });
 
-      // Add all users to public hubs and admins to private hubs
+      // Add all users to each hub
       console.log("Adding users to hubs...");
       hubIds.forEach((hubId) => {
         const allUsers = [testUser.id, ...userIds];
@@ -211,27 +218,22 @@ async function seed() {
         });
       });
 
-      // Add messages to each hub with message types
+      // Add messages to each hub
       console.log("Adding messages to hubs...");
       hubIds.forEach((hubId, index) => {
-        const hubName = CHANNELS[index].name;
+        const hubName = HUBS[index].name;
         
-        // Special handling for engineering hub
         if (hubName === 'engineering') {
-          const baseTime = Math.floor(Date.now() / 1000) - (24 * 60 * 60); // Start from 24 hours ago
+          const baseTime = Math.floor(Date.now() / 1000) - (24 * 60 * 60);
           const timestamps = generateTimestamps(ALL_ENGINEERING_MESSAGES.length, baseTime);
           
-          // Add main messages
           ALL_ENGINEERING_MESSAGES.forEach((message: SeedMessage, messageIndex) => {
             const sender = message.sender === 0 ? testUser.id : userIds[message.sender - 1];
             const timestamp = timestamps[messageIndex];
             
-            // Insert main message
             db.run(`
-              INSERT INTO messages (
-                workspace_id, hub_id, sender_id,
-                content, type, created_at, updated_at
-              )
+              INSERT INTO messages (workspace_id, hub_id, sender_id,
+                content, type, created_at, updated_at)
               VALUES (?, ?, ?, ?, ?, ?, ?)
             `, [
               workspaceId,
@@ -246,7 +248,6 @@ async function seed() {
             const messageResult = db.query("SELECT last_insert_rowid() as id").get() as { id: number };
             const messageId = messageResult.id;
 
-            // Add attachments if any
             if (hasAttachments(message)) {
               message.attachments.forEach((attachment: SeedAttachment) => {
                 db.run(`
@@ -270,42 +271,34 @@ async function seed() {
               });
             }
 
-            // Add reactions if any
             if (hasReactions(message)) {
               message.reactions.forEach((reaction: SeedReaction) => {
                 reaction.users.forEach((userIndex: number) => {
                   const reactingUserId = userIndex === 0 ? testUser.id : userIds[userIndex - 1];
                   db.run(`
                     INSERT INTO reactions (
-                      message_id, user_id, emoji,
-                      created_at
+                      message_id, user_id, emoji, created_at
                     )
                     VALUES (?, ?, ?, ?)
                   `, [
                     messageId,
                     reactingUserId,
                     reaction.emoji,
-                    timestamp + Math.floor(Math.random() * 300) // Random reaction time within 5 minutes
+                    timestamp + Math.floor(Math.random() * 300)
                   ]);
                 });
               });
             }
 
-            // Handle thread replies
             if (hasThread(message)) {
               const threadId = messageId;
-              
-              // Add thread replies
               message.thread.forEach((reply: SeedMessage, replyIndex: number) => {
                 const replySender = reply.sender === 0 ? testUser.id : userIds[reply.sender - 1];
-                const replyTime = timestamp + ((replyIndex + 1) * 60); // 1 minute between replies
+                const replyTime = timestamp + ((replyIndex + 1) * 60);
                 
                 db.run(`
-                  INSERT INTO messages (
-                    workspace_id, hub_id, sender_id,
-                    thread_id, content, type,
-                    created_at, updated_at
-                  )
+                  INSERT INTO messages (workspace_id, hub_id, sender_id,
+                    thread_id, content, type, created_at, updated_at)
                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 `, [
                   workspaceId,
@@ -321,7 +314,6 @@ async function seed() {
                 const replyResult = db.query("SELECT last_insert_rowid() as id").get() as { id: number };
                 const replyId = replyResult.id;
 
-                // Add attachments to replies if any
                 if (reply.attachments?.length) {
                   reply.attachments.forEach((attachment: SeedAttachment) => {
                     db.run(`
@@ -345,22 +337,20 @@ async function seed() {
                   });
                 }
 
-                // Add reactions to replies if any
                 if (reply.reactions?.length) {
                   reply.reactions.forEach((reaction: SeedReaction) => {
                     reaction.users.forEach((userIndex: number) => {
                       const reactingUserId = userIndex === 0 ? testUser.id : userIds[userIndex - 1];
                       db.run(`
                         INSERT INTO reactions (
-                          message_id, user_id, emoji,
-                          created_at
+                          message_id, user_id, emoji, created_at
                         )
                         VALUES (?, ?, ?, ?)
                       `, [
                         replyId,
                         reactingUserId,
                         reaction.emoji,
-                        replyTime + Math.floor(Math.random() * 300) // Random reaction time
+                        replyTime + Math.floor(Math.random() * 300)
                       ]);
                     });
                   });
@@ -369,8 +359,7 @@ async function seed() {
             }
           });
         } else {
-          // Original message seeding for other hubs
-          const messages = CHANNEL_MESSAGES[hubName as keyof typeof CHANNEL_MESSAGES] || [];
+          const messages = HUB_MESSAGES[hubName as keyof typeof HUB_MESSAGES] || [];
           const baseTime = Math.floor(Date.now() / 1000) - (messages.length * 300);
           
           messages.forEach((message: SeedMessage, messageIndex) => {
@@ -395,7 +384,6 @@ async function seed() {
       });
     })();
 
-    // Verify the data was inserted
     const counts = {
       users: db.query("SELECT COUNT(*) as count FROM users").get() as { count: number },
       hubs: db.query("SELECT COUNT(*) as count FROM hubs").get() as { count: number },
