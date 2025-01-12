@@ -107,9 +107,9 @@ Each domain context subscribes to relevant WebSocket events:
 
 ```typescript
 // Example: Hub Context
-useWebSocketSubscription(WSEventType.CHANNEL_MESSAGE, handleMessage)
-useWebSocketSubscription(WSEventType.CHANNEL_TYPING, handleTyping)
-useWebSocketSubscription(WSEventType.CHANNEL_PRESENCE, handlePresence)
+useWebSocketSubscription(WSEventType.HUB_MESSAGE, handleMessage)
+useWebSocketSubscription(WSEventType.HUB_TYPING, handleTyping)
+useWebSocketSubscription(WSEventType.HUB_PRESENCE, handlePresence)
 ```
 
 ## State Normalization

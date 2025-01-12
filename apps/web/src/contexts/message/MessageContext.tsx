@@ -82,46 +82,35 @@ export function MessageProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      dispatch({ type: "SET_CHANNEL_LOADING", payload: { hubId } });
+      dispatch({ type: "SET_HUB_LOADING", payload: { hubId } });
 
       try {
         const response = await api.hubs.getMessages(hubId);
         if (response.messages && response.messages.length > 0) {
           dispatch({
-            type: "SET_CHANNEL_MESSAGES",
+            type: "SET_HUB_MESSAGES",
             payload: {
               hubId,
-              messages: response.messages,
-            },
-          });
-
-          // If the backend pages in blocks of 50 messages, for example:
-          dispatch({
-            type: "SET_PAGINATION",
-            payload: {
-              hubId,
-              hasMore: response.messages.length === 50,
-              lastMessageId:
-                response.messages[response.messages.length - 1]?.id || null,
-            },
+              messages: response.messages
+            }
           });
         } else {
           // Even with no messages, mark loading as complete
           dispatch({
-            type: "SET_CHANNEL_MESSAGES",
+            type: "SET_HUB_MESSAGES",
             payload: {
               hubId,
-              messages: [],
-            },
+              messages: []
+            }
           });
         }
       } catch (error) {
         dispatch({
-          type: "SET_CHANNEL_ERROR",
+          type: "SET_HUB_ERROR",
           payload: {
             hubId,
-            error: error as Error,
-          },
+            error: error as Error
+          }
         });
       }
     },
@@ -166,7 +155,7 @@ export function MessageProvider({ children }: { children: React.ReactNode }) {
   );
 
   const setActiveHub = useCallback((hubId: number | null) => {
-    dispatch({ type: "SET_ACTIVE_CHANNEL", payload: hubId });
+    dispatch({ type: "SET_ACTIVE_HUB", payload: hubId });
   }, []);
 
   const getHubMessages = useCallback(

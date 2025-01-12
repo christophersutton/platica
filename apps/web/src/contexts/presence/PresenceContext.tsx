@@ -2,7 +2,7 @@ import React, { createContext, useContext, useReducer, useCallback, useEffect } 
 import { useWebSocket } from "../websocket/WebSocketContext";
 import { useAuth } from "../AuthContext";
 import { presenceReducer, createInitialState } from "./presenceReducer";
-import type { PresenceState, UserPresence } from "./types";
+import type { UserPresence } from "./types";
 import { WSEventType } from "@platica/shared/src/websockets";
 import type {
   PresenceEvent,

@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    "incremental": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Path aliases */
+    "baseUrl": "../..",
+    "paths": {
+      "@platica/shared/*": ["packages/shared/src/*"],
+      "@server/*": ["apps/server/src/*"],
+      "@web/*": ["apps/web/src/*"],
+      "@models/*": ["packages/shared/src/models/*"],
+      "@constants/*": ["packages/shared/src/constants/*"],
+      "@websocket/*": ["packages/shared/src/websocket/*"],
+      "@types": ["packages/shared/src/types.ts"]
+    },
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src"]
+}

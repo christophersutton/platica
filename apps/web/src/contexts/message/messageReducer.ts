@@ -92,13 +92,13 @@ function processMessage(message: ApiMessage | Message): UiMessage {
 }
 
 export type MessageAction =
-  | { type: "SET_ACTIVE_CHANNEL"; payload: number | null }
-  | { type: "SET_CHANNEL_LOADING"; payload: { hubId: number } }
+  | { type: "SET_ACTIVE_HUB"; payload: number | null }
+  | { type: "SET_HUB_LOADING"; payload: { hubId: number } }
   | { type: "SET_SENDING_MESSAGE" }
-  | { type: "SET_CHANNEL_ERROR"; payload: { hubId: number; error: Error } }
+  | { type: "SET_HUB_ERROR"; payload: { hubId: number; error: Error } }
   | { type: "SET_SENDING_ERROR"; payload: Error }
   | {
-      type: "SET_CHANNEL_MESSAGES";
+      type: "SET_HUB_MESSAGES";
       payload: { hubId: number; messages: ApiMessage[] };
     }
   | { type: "ADD_MESSAGE"; payload: Message }
@@ -140,13 +140,13 @@ export function messageReducer(
   action: MessageAction
 ): MessageState {
   switch (action.type) {
-    case "SET_ACTIVE_CHANNEL":
+    case "SET_ACTIVE_HUB":
       return {
         ...state,
         activeHubId: action.payload,
       };
 
-    case "SET_CHANNEL_LOADING":
+    case "SET_HUB_LOADING":
       return {
         ...state,
         loading: {
@@ -178,7 +178,7 @@ export function messageReducer(
         },
       };
 
-    case "SET_CHANNEL_ERROR":
+    case "SET_HUB_ERROR":
       return {
         ...state,
         loading: {
@@ -210,7 +210,7 @@ export function messageReducer(
         },
       };
 
-    case "SET_CHANNEL_MESSAGES": {
+    case "SET_HUB_MESSAGES": {
       const { hubId, messages } = action.payload;
 
       const newById = { ...state.byId };

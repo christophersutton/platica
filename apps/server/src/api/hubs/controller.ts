@@ -5,7 +5,7 @@ import { MessageRepository } from '../../db/repositories/message-repository';
 import { WorkspaceRepository } from '../../db/repositories/workspace-repository';
 import type { DatabaseProvider } from '../../db/repositories/base';
 import { WebSocketService } from '../../services/websockets';
-import { WSEventType } from '@websockets';
+import { HubEventType, WSEventType } from '@websockets';
 import type { PresenceEvent, HubCreatedEvent } from '@websockets';
 
 // NEW: We'll also import the HubSchema if we want to parse or validate 
@@ -91,16 +91,16 @@ export class HubController extends BaseController {
         name: parsed.name,
         description: parsed.description,
         isArchived: false,
-        createdBy: userId,
         settings: {}
       });
 
       await this.hubRepo.addMember(hub.id, userId, 'admin');
 
       this.wsService.broadcastToWorkspace(workspaceId, {
-        type: WSEventType.CHANNEL_CREATED,
+        type: WSEventType.HUB,
         payload: {
-          hub
+          hub,
+          hubEventType: HubEventType.HUB_CREATED
         }
       } as HubCreatedEvent);
 
@@ -123,6 +123,7 @@ export class HubController extends BaseController {
     });
   };
 
+  
   removeMember = async (c: Context): Promise<Response> => {
     return this.handle(c, async () => {
       const hubId = this.requireNumberParam(c, 'hubId');
