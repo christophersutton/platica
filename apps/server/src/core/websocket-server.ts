@@ -68,7 +68,10 @@ export function startWebSocketServer(port: number) {
 
           // Handle authentication message
           if (data.type === "auth") {
-            const authMessage = data as AuthMessage;
+            const authMessage = data.payload as AuthMessage;
+            console.log("Auth message:", authMessage);
+            console.log("Token:", authMessage.token);
+            
             if (!authMessage.token?.startsWith("Bearer ")) {
               ws.send(
                 JSON.stringify({
@@ -243,12 +246,7 @@ export function startWebSocketServer(port: number) {
               
               const formattedMessage: OutgoingChatEvent = {
                 type: WSEventType.CHAT,
-                payload: {
-                  workspaceId: ws.data.workspaceId,
-                  channelId: data.channelId,
-                  senderId: ws.data.userId,
-                  content: data.content,
-                },
+                payload: data.payload
               };
 
               await wsService.handleMessage(
@@ -260,9 +258,9 @@ export function startWebSocketServer(port: number) {
               await writeService.handleMessage({
                 type: "message",
                 workspaceId: ws.data.workspaceId,
-                channelId: data.channelId,
+                channelId: data.payload.channelId,
                 senderId: ws.data.userId,
-                content: data.content,
+                content: data.payload.content,
               });
 
               console.log("[WebSocket Server] Processed chat message");
