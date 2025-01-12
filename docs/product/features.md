@@ -4,7 +4,7 @@
 
 Platica provides three distinct types of communication spaces, each optimized for different types of interaction:
 
-### Channels
+### Hubs
 - Persistent, topic-focused streams
 - Public for organizational transparency
 - Ideal for ongoing discussions and knowledge sharing
@@ -21,42 +21,32 @@ Platica provides three distinct types of communication spaces, each optimized fo
 
 ### Chats
 - Ephemeral direct communication
-- Automatically archived after period of inactivity
 - Focus on quick discussions and clarifications
-- Integrated presence and availability management
+- Integrated presence and availability management through use of secretaries
 
 ## Knowledge Management
 
 ### Minutes
 - AI-generated summaries of meetings and discussions
 - Automatic action item extraction
-- Linked to original conversations for context
 - Searchable and categorizable
 - Integration with task management systems
 
 ### Memos
 - Permanent knowledge documents
 - Rich formatting and media support
-- Automatic linking to related conversations
-- Integration with external knowledge bases
+- Automatic linking to related minutes
 
 ### Bulletins
 - Official organizational announcements
 - Guaranteed delivery and tracking
 - Priority notification handling
-- Compliance and audit features
-- Analytics and engagement tracking
 
 ## AI Integration
 
 ### Secretary
-- AI assistants for each workspace
+- AI assistants assigned to people, hubs, and rooms. 
 - Automatic summarization and organization
 - Meeting facilitation and note-taking
 - Knowledge base maintenance
 - Natural language task automation
-
-## For detailed technical implementations of these features, see:
-- [Technical Features Documentation](../technical/features/)
-- [API Documentation](../technical/api/)
-- [Frontend Implementation](../technical/frontend/)
