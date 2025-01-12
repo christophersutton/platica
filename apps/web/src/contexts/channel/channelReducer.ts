@@ -1,9 +1,12 @@
-import { type Channel, type UiChannel } from "@models/channel";
+import { type Hub, type UiHub } from "@models/hub
+";
 
-// Helper to convert Channel to UiChannel
-function toUiChannel(channel: Channel): UiChannel {
+// Helper to convert Hub to UiHub
+function toUiHub(hub
+: Hub): UiHub {
   return {
-    ...channel,
+    ...hub
+,
     memberCount: 0,
     messageCount: 0,
     lastMessageAt: null,
@@ -14,24 +17,24 @@ function toUiChannel(channel: Channel): UiChannel {
 }
 
 // Normalized state structure
-export interface ChannelState {
-  byId: Record<number, UiChannel>;
+export interface HubState {
+  byId: Record<number, UiHub>;
   allIds: number[];
-  workspaceChannels: Record<number, number[]>; // workspaceId -> channelIds
-  activeChannelId: number | null;
+  workspaceHubs: Record<number, number[]>; // workspaceId -> hubIds
+  activeHubId: number | null;
   loading: {
-    channels: boolean;
+    hubs: boolean;
     creating: boolean;
     updating: Record<number, boolean>;
   };
   errors: {
-    channels: Error | null;
+    hubs: Error | null;
     creating: Error | null;
     updating: Record<number, Error | null>;
   };
   // Typing state
   typing: {
-    byChannel: Record<
+    byHub: Record<
       number,
       {
         userIds: number[];
@@ -42,94 +45,99 @@ export interface ChannelState {
 }
 
 // Action types
-export type ChannelAction =
+export type HubAction =
   | { type: "SET_CHANNELS_LOADING" }
   | {
       type: "SET_CHANNELS";
-      payload: { channels: Channel[]; workspaceId: number };
+      payload: { hubs: Hub[]; workspaceId: number };
     }
   | { type: "SET_CHANNELS_ERROR"; payload: Error }
-  | { type: "UPDATE_CHANNEL"; payload: Partial<Channel> & { id: number } }
+  | { type: "UPDATE_CHANNEL"; payload: Partial<Hub> & { id: number } }
   | {
       type: "SET_CHANNEL_UPDATING";
-      payload: { channelId: number; updating: boolean };
+      payload: { hubId: number; updating: boolean };
     }
   | {
       type: "SET_CHANNEL_UPDATE_ERROR";
-      payload: { channelId: number; error: Error | null };
+      payload: { hubId: number; error: Error | null };
     }
-  | { type: "ADD_CHANNEL"; payload: Channel }
+  | { type: "ADD_CHANNEL"; payload: Hub }
   | { type: "SET_CREATING_CHANNEL" }
   | { type: "SET_CREATING_CHANNEL_ERROR"; payload: Error }
   | { type: "SET_ACTIVE_CHANNEL"; payload: number | null }
   | { type: "MARK_CHANNEL_READ"; payload: number }
   | {
       type: "UPDATE_UNREAD_COUNT";
-      payload: { channelId: number; count: number };
+      payload: { hubId: number; count: number };
     }
   | {
       type: "SET_USER_TYPING";
-      payload: { channelId: number; userId: number; isTyping: boolean };
+      payload: { hubId: number; userId: number; isTyping: boolean };
     };
 
-export function createInitialState(): ChannelState {
+export function createInitialState(): HubState {
   return {
     byId: {},
     allIds: [],
-    workspaceChannels: {},
-    activeChannelId: null,
+    workspaceHubs: {},
+    activeHubId: null,
     loading: {
-      channels: false,
+      hubs: false,
       creating: false,
       updating: {},
     },
     errors: {
-      channels: null,
+      hubs: null,
       creating: null,
       updating: {},
     },
     typing: {
-      byChannel: {},
+      byHub: {},
     },
   };
 }
 
-export function channelReducer(
-  state: ChannelState,
-  action: ChannelAction
-): ChannelState {
+export function hubReducer(
+  state: HubState,
+  action: HubAction
+): HubState {
   switch (action.type) {
     case "SET_CHANNELS_LOADING":
       return {
         ...state,
-        loading: { ...state.loading, channels: true },
-        errors: { ...state.errors, channels: null },
+        loading: { ...state.loading, hubs: true },
+        errors: { ...state.errors, hubs: null },
       };
 
     case "SET_CHANNELS": {
-      const { channels, workspaceId } = action.payload;
+      const { hubs, workspaceId } = action.payload;
 
       const byId = { ...state.byId };
-      const channelIds = new Set<number>();
+      const hubIds = new Set<number>();
 
-      channels.forEach((channel) => {
-        byId[channel.id] = {
-          ...toUiChannel(channel),
-          ...byId[channel.id], // Preserve existing UI state if any
+      hubs.forEach((hub
+) => {
+        byId[hub
+.id] = {
+          ...toUiHub(hub
+),
+          ...byId[hub
+.id], // Preserve existing UI state if any
         };
-        channelIds.add(channel.id);
+        hubIds.add(hub
+.id);
       });
 
       const newState = {
         ...state,
         byId,
-        allIds: [...new Set([...state.allIds, ...channelIds])],
-        workspaceChannels: {
-          ...state.workspaceChannels,
-          [workspaceId]: Array.from(channelIds),
+        allIds: [...new Set([...state.allIds, ...hubIds])],
+        workspaceHubs: {
+          ...state.workspaceHubs,
+          [workspaceId]: Array.from(hubIds),
         },
-        loading: { ...state.loading, channels: false },
-        errors: { ...state.errors, channels: null },
+        loading: { ...state.loading, hubs: false },
+        errors: { ...state.errors, hubs: null },
       };
 
       return newState;
@@ -138,20 +146,23 @@ export function channelReducer(
     case "SET_CHANNELS_ERROR":
       return {
         ...state,
-        loading: { ...state.loading, channels: false },
-        errors: { ...state.errors, channels: action.payload },
+        loading: { ...state.loading, hubs: false },
+        errors: { ...state.errors, hubs: action.payload },
       };
 
     case "UPDATE_CHANNEL": {
-      const channel = state.byId[action.payload.id];
-      if (!channel) return state;
+      const hub
+ = state.byId[action.payload.id];
+      if (!hub
+) return state;
 
       return {
         ...state,
         byId: {
           ...state.byId,
           [action.payload.id]: {
-            ...channel,
+            ...hub
+,
             ...action.payload,
           },
         },
@@ -165,7 +176,7 @@ export function channelReducer(
           ...state.loading,
           updating: {
             ...state.loading.updating,
-            [action.payload.channelId]: action.payload.updating,
+            [action.payload.hubId]: action.payload.updating,
           },
         },
       };
@@ -177,7 +188,7 @@ export function channelReducer(
           ...state.errors,
           updating: {
             ...state.errors.updating,
-            [action.payload.channelId]: action.payload.error,
+            [action.payload.hubId]: action.payload.error,
           },
         },
       };
@@ -187,13 +198,13 @@ export function channelReducer(
         ...state,
         byId: {
           ...state.byId,
-          [action.payload.id]: toUiChannel(action.payload),
+          [action.payload.id]: toUiHub(action.payload),
         },
         allIds: [...state.allIds, action.payload.id],
-        workspaceChannels: {
-          ...state.workspaceChannels,
+        workspaceHubs: {
+          ...state.workspaceHubs,
           [action.payload.workspaceId]: [
-            ...(state.workspaceChannels[action.payload.workspaceId] || []),
+            ...(state.workspaceHubs[action.payload.workspaceId] || []),
             action.payload.id,
           ],
         },
@@ -218,32 +229,38 @@ export function channelReducer(
     case "SET_ACTIVE_CHANNEL":
       return {
         ...state,
-        activeChannelId: action.payload,
+        activeHubId: action.payload,
       };
 
     case "MARK_CHANNEL_READ": {
-      const channel = state.byId[action.payload];
-      if (!channel) return state;
+      const hub
+ = state.byId[action.payload];
+      if (!hub
+) return state;
 
       return {
         ...state,
         byId: {
           ...state.byId,
-          [action.payload]: { ...channel, unreadCount: 0 },
+          [action.payload]: { ...hub
+, unreadCount: 0 },
         },
       };
     }
 
     case "UPDATE_UNREAD_COUNT": {
-      const channel = state.byId[action.payload.channelId];
-      if (!channel) return state;
+      const hub
+ = state.byId[action.payload.hubId];
+      if (!hub
+) return state;
 
       return {
         ...state,
         byId: {
           ...state.byId,
-          [action.payload.channelId]: {
-            ...channel,
+          [action.payload.hubId]: {
+            ...hub
+,
             unreadCount: action.payload.count,
           },
         },
@@ -251,9 +268,9 @@ export function channelReducer(
     }
 
     case "SET_USER_TYPING": {
-      const { channelId, userId, isTyping } = action.payload;
+      const { hubId, userId, isTyping } = action.payload;
       const now = Date.now();
-      const channelTyping = state.typing.byChannel[channelId] || {
+      const hubTyping = state.typing.byHub[hubId] || {
         userIds: [],
         lastUpdated: {},
       };
@@ -261,19 +278,19 @@ export function channelReducer(
       // If user is typing, add them to the list if not already there
       // If user stopped typing, remove them from the list
       const userIds = isTyping
-        ? [...new Set([...channelTyping.userIds, userId])]
-        : channelTyping.userIds.filter((id) => id !== userId);
+        ? [...new Set([...hubTyping.userIds, userId])]
+        : hubTyping.userIds.filter((id) => id !== userId);
 
       return {
         ...state,
         typing: {
           ...state.typing,
-          byChannel: {
-            ...state.typing.byChannel,
-            [channelId]: {
+          byHub: {
+            ...state.typing.byHub,
+            [hubId]: {
               userIds,
               lastUpdated: {
-                ...channelTyping.lastUpdated,
+                ...hubTyping.lastUpdated,
                 [userId]: now,
               },
             },

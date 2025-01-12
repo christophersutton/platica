@@ -6,22 +6,25 @@ import type { AuthMiddleware } from '../../middleware/auth';
 export function setupMessageRoutes(app: Hono, db: DatabaseProvider, auth: AuthMiddleware): void {
   const controller = MessageController.create(db);
 
-  // Channel message routes
-  const channelMessages = new Hono();
-  channelMessages.use('/*', auth.jwtAuth);
-  channelMessages.use('/*', auth.channelAuth);
+  // Hub message routes
+  const hubMessages = new Hono();
+  hubMessages.use('/*', auth.jwtAuth);
+  hubMessages.use('/*', auth.hubAuth);
 
-  // Create message in channel
-  channelMessages.post('/', controller.createMessage);
+  // Create message in hub
+
+  hubMessages.post('/', controller.createMessage);
 
   // Get thread messages
-  channelMessages.get('/threads/:threadId', controller.getThreadMessages);
+  hubMessages.get('/threads/:threadId', controller.getThreadMessages);
 
-  // Mark channel as read
-  channelMessages.post('/read', controller.markAsRead);
+  // Mark hub
+ as read
+  hubMessages.post('/read', controller.markAsRead);
 
-  // Mount channel message routes
-  app.route('/channels/:channelId/messages', channelMessages);
+  // Mount hub
+ message routes
+  app.route('/hubs/:hubId/messages', hubMessages);
 
   // Message-specific routes
   const messages = new Hono();

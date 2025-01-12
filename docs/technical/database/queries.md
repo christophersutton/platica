@@ -23,21 +23,21 @@ abstract class BaseRepository<T extends BaseModel> {
 
 ### Message Queries
 
-#### Get Channel Messages
+#### Get Hub Messages
 ```typescript
-function getChannelMessages({
-    channelId,
+function getHubMessages({
+    hubId,
     limit = 50,
     before,
     after
 }: {
-    channelId: number;
+    hubId: number;
     limit?: number;
     before?: number;
     after?: number;
 }): Promise<Message[]> {
-    const conditions = ['channel_id = ?'];
-    const params = [channelId];
+    const conditions = ['hub_id = ?'];
+    const params = [hubId];
     
     if (before) {
         conditions.push('id < ?');
@@ -123,21 +123,21 @@ function getActiveRooms(workspaceId: number): Promise<Room[]> {
 
 ### Using Indexes
 ```typescript
-// Good: Uses channel_id + created_at index
+// Good: Uses hub_id + created_at index
 const messages = await db.prepare(`
     SELECT * FROM messages
-    WHERE channel_id = ?
+    WHERE hub_id = ?
     ORDER BY created_at DESC
     LIMIT 50
-`).all(channelId);
+`).all(hubId);
 
 // Bad: Doesn't use available indexes
 const messages = await db.prepare(`
     SELECT * FROM messages
-    WHERE channel_id = ?
+    WHERE hub_id = ?
     ORDER BY (created_at + updated_at) DESC
     LIMIT 50
-`).all(channelId);
+`).all(hubId);
 ```
 
 ### Batch Operations
@@ -164,13 +164,13 @@ function createReactions(reactions: Reaction[]): Promise<void> {
 ### JSON Operations
 ```typescript
 // Update specific settings field
-function updateChannelSettings(
-    channelId: number,
+function updateHubSettings(
+    hubId: number,
     key: string,
     value: unknown
 ): Promise<void> {
     return db.prepare(`
-        UPDATE channels
+        UPDATE hubs
         SET settings = json_set(
             settings,
             '$.' || ?,
@@ -178,7 +178,7 @@ function updateChannelSettings(
             '$.' || ? || ' IS NULL'
         )
         WHERE id = ?
-    `).run(key, JSON.stringify(value), key, channelId);
+    `).run(key, JSON.stringify(value), key, hubId);
 }
 ```
 

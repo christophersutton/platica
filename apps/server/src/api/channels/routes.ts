@@ -1,45 +1,54 @@
 import { Hono } from 'hono';
 import type { DatabaseProvider } from '../../db/repositories/base';
-import { ChannelController } from './controller';
+import { HubController } from './controller';
 import type { AuthMiddleware } from '../../middleware/auth';
 
-export function setupChannelRoutes(app: Hono, db: DatabaseProvider, auth: AuthMiddleware): void {
-  const controller = ChannelController.create(db);
+export function setupHubRoutes(app: Hono, db: DatabaseProvider, auth: AuthMiddleware): void {
+  const controller = HubController.create(db);
 
-  // Channel routes
-  const channels = new Hono();
-  channels.use('/*', auth.jwtAuth);
-  channels.use('/:channelId/*', auth.channelAuth);
+  // Hub routes
+  const hubs = new Hono();
+  hubs.use('/*', auth.jwtAuth);
+  hubs.use('/:hubId/*', auth.hubAuth);
 
-  // Get channel messages
-  channels.get('/:channelId/messages', controller.getChannelMessages);
+  // Get hub
+ messages
+  hubs.get('/:hubId/messages', controller.getHubMessages);
   
-  // Get channel members
-  channels.get('/:channelId/members', controller.getMembers);
+  // Get hub
+ members
+  hubs.get('/:hubId/members', controller.getMembers);
   
-  // Add member to channel
-  channels.post('/:channelId/members', controller.addMember);
+  // Add member to hub
+
+  hubs.post('/:hubId/members', controller.addMember);
   
-  // Remove member from channel
-  channels.delete('/:channelId/members/:userId', controller.removeMember);
+  // Remove member from hub
 
-  // Mark channel as read
-  channels.post('/:channelId/read', controller.markAsRead);
+  hubs.delete('/:hubId/members/:userId', controller.removeMember);
 
-  // Mount channel routes
-  app.route('/channels', channels);
+  // Mark hub
+ as read
+  hubs.post('/:hubId/read', controller.markAsRead);
 
-  // Workspace-specific channel routes
-  const workspaceChannels = new Hono();
-  workspaceChannels.use('/*', auth.jwtAuth);
-  workspaceChannels.use('/*', auth.workspaceAuth);
+  // Mount hub
+ routes
+  app.route('/hubs', hubs);
 
-  // List workspace channels
-  workspaceChannels.get('/', controller.getWorkspaceChannels);
+  // Workspace-specific hub
+ routes
+  const workspaceHubs = new Hono();
+  workspaceHubs.use('/*', auth.jwtAuth);
+  workspaceHubs.use('/*', auth.workspaceAuth);
+
+  // List workspace hubs
+  workspaceHubs.get('/', controller.getWorkspaceHubs);
   
-  // Create channel in workspace
-  workspaceChannels.post('/', controller.createChannel);
+  // Create hub
+ in workspace
+  workspaceHubs.post('/', controller.createHub);
 
-  // Mount workspace channel routes
-  app.route('/workspaces/:workspaceId/channels', workspaceChannels);
+  // Mount workspace hub
+ routes
+  app.route('/workspaces/:workspaceId/hubs', workspaceHubs);
 } 

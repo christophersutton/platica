@@ -14,14 +14,14 @@ async function main() {
     console.log("🗑️  Cleaning up existing tables...");
     db.transaction(() => {
       const tables = [
-        'channel_invites',
+        'hub_invites',
         'workspace_invites',
         'reactions',
         'mentions',
         'files',
         'messages',
-        'channel_members',
-        'channels',
+        'hub_members',
+        'hubs',
         'workspace_users',
         'workspaces',
         'users',

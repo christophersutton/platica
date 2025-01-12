@@ -11,7 +11,8 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { PresenceProvider } from "@/contexts/presence/PresenceContext";
 import { WebSocketProvider } from "@/contexts/websocket/WebSocketContext";
 import { WorkspaceProvider } from "@/contexts/workspace/WorkspaceContext";
-import { ChannelProvider } from "@/contexts/channel/ChannelContext";
+import { HubProvider } from "@/contexts/hub
+/HubContext";
 import { RoomProvider } from "@/contexts/room/RoomContext";
 import { ChatProvider } from "@/contexts/chat/ChatContext";
 import { MessageProvider } from "@/contexts/message/MessageContext";
@@ -27,7 +28,7 @@ const App = () => (
       <WorkspaceProvider>
         <WebSocketProvider>
           <PresenceProvider>
-            <ChannelProvider>
+            <HubProvider>
               <MessageProvider>
                 <RoomProvider>
                   <ChatProvider>
@@ -54,7 +55,7 @@ const App = () => (
                           }
                         />
                         <Route
-                          path="/w/:workspaceId/c/:channelId"
+                          path="/w/:workspaceId/c/:hubId"
                           element={
                             <ProtectedRoute>
                               <Index />
@@ -66,7 +67,7 @@ const App = () => (
                   </ChatProvider>
                 </RoomProvider>
               </MessageProvider>
-            </ChannelProvider>
+            </HubProvider>
           </PresenceProvider>
         </WebSocketProvider>
       </WorkspaceProvider>

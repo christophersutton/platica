@@ -1,4 +1,4 @@
-import type { BaseModel, Channel, ChannelMember, Message, SoftDeletableModel, Workspace, WorkspaceMember } from '@models';
+import type { BaseModel, Hub, HubMember, Message, SoftDeletableModel, Workspace, WorkspaceMember } from '@models';
 import type { User } from '@models';
 import type { UserRole } from '@constants/enums';
 import type { UnixTimestamp } from '@types';
@@ -10,7 +10,8 @@ import type { UnixTimestamp } from '@types';
  */
 
 export interface MessageWithMeta extends Message {
-  channel?: Channel;
+  hub
+?: Hub;
   user?: User;
   reactionCount: number;
   replyCount?: number;
@@ -18,9 +19,9 @@ export interface MessageWithMeta extends Message {
   attachments?: string; // JSON string of attachments
 }
 
-export interface ChannelWithMeta extends Channel {
+export interface HubWithMeta extends Hub {
   workspace?: Workspace;
-  members?: ChannelMemberWithUser[];
+  members?: HubMemberWithUser[];
   messages?: Message[];
   member_count: number;
   message_count: number;
@@ -29,7 +30,7 @@ export interface ChannelWithMeta extends Channel {
   member_status?: 'member' | 'invited' | null;
 }
 
-export interface ChannelMemberWithUser extends ChannelMember {
+export interface HubMemberWithUser extends HubMember {
   user: User;
   user_name: string;
   user_email: string;
@@ -38,10 +39,10 @@ export interface ChannelMemberWithUser extends ChannelMember {
 }
 
 export interface WorkspaceWithMeta extends Workspace {
-  channels?: Channel[];
+  hubs?: Hub[];
   members?: WorkspaceMemberWithUser[];
   member_count: number;
-  channel_count: number;
+  hub_count: number;
   role?: UserRole;
 }
 

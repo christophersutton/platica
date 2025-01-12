@@ -6,37 +6,38 @@ import React, {
   useReducer,
 } from "react";
 import { api } from "@/lib/api";
-import { type UiChannel } from "@models/channel";
+import { type UiHub } from "@models/hub
+";
 import { useAuth } from "../AuthContext";
 import { useWebSocket } from "../websocket/WebSocketContext";
 import {
-  channelReducer,
+  hubReducer,
   createInitialState,
-} from "./channelReducer";
+} from "./hubReducer";
 import { WSEventType } from "@platica/shared/src/websockets";
 import type {
-  ChannelCreatedEvent,
+  HubCreatedEvent,
   TypingEvent,
 } from "@platica/shared/src/websockets";
 
-interface ChannelContextValue {
+interface HubContextValue {
   // State
-  channels: UiChannel[];
-  channelsById: Record<number, UiChannel>;
-  activeChannelId: number | null;
-  isLoadingChannels: boolean;
-  isCreatingChannel: boolean;
-  channelsError: Error | null;
+  hubs: UiHub[];
+  hubsById: Record<number, UiHub>;
+  activeHubId: number | null;
+  isLoadingHubs: boolean;
+  isCreatingHub: boolean;
+  hubsError: Error | null;
   creatingError: Error | null;
 
   // Typing state
-  typingUsers: (channelId: number) => number[];
-  isUserTyping: (channelId: number, userId: number) => boolean;
-  setTyping: (channelId: number, isTyping: boolean) => void;
+  typingUsers: (hubId: number) => number[];
+  isUserTyping: (hubId: number, userId: number) => boolean;
+  setTyping: (hubId: number, isTyping: boolean) => void;
 
   // Actions
-  loadChannels: (workspaceId: number) => Promise<void>;
-  createChannel: (
+  loadHubs: (workspaceId: number) => Promise<void>;
+  createHub: (
     workspaceId: number,
     data: {
       name: string;
@@ -44,25 +45,26 @@ interface ChannelContextValue {
       is_private?: boolean;
     }
   ) => Promise<void>;
-  markChannelAsRead: (channelId: number) => Promise<void>;
-  setActiveChannel: (channelId: number | null) => void;
-  getChannelById: (channelId: number) => UiChannel | undefined;
-  getWorkspaceChannels: (workspaceId: number) => UiChannel[];
+  markHubAsRead: (hubId: number) => Promise<void>;
+  setActiveHub: (hubId: number | null) => void;
+  getHubById: (hubId: number) => UiHub | undefined;
+  getWorkspaceHubs: (workspaceId: number) => UiHub[];
 }
 
-const ChannelContext = createContext<ChannelContextValue | null>(null);
+const HubContext = createContext<HubContextValue | null>(null);
 
-export function ChannelProvider({ children }: { children: React.ReactNode }) {
+export function HubProvider({ children }: { children: React.ReactNode }) {
   const { token, isLoading: isAuthLoading, user } = useAuth();
   const { subscribe, send } = useWebSocket();
-  const [state, dispatch] = useReducer(channelReducer, createInitialState());
+  const [state, dispatch] = useReducer(hubReducer, createInitialState());
 
   // Subscribe to relevant WebSocket events
   useEffect(() => {
-    const unsubscribeChannel = subscribe(
+    const unsubscribeHub = subscribe(
       WSEventType.CHANNEL_CREATED,
-      (message: ChannelCreatedEvent) => {
-        dispatch({ type: "ADD_CHANNEL", payload: message.payload.channel });
+      (message: HubCreatedEvent) => {
+        dispatch({ type: "ADD_CHANNEL", payload: message.payload.hub
+ });
       }
     );
 
@@ -72,7 +74,7 @@ export function ChannelProvider({ children }: { children: React.ReactNode }) {
         dispatch({
           type: "SET_USER_TYPING",
           payload: {
-            channelId: message.payload.channelId,
+            hubId: message.payload.hubId,
             userId: message.payload.userId,
             isTyping: message.payload.isTyping,
           },
@@ -81,7 +83,7 @@ export function ChannelProvider({ children }: { children: React.ReactNode }) {
     );
 
     return () => {
-      unsubscribeChannel();
+      unsubscribeHub();
       unsubscribeTyping();
     };
   }, [subscribe]);
@@ -91,10 +93,10 @@ export function ChannelProvider({ children }: { children: React.ReactNode }) {
     const TYPING_TIMEOUT = 3000; // 3 seconds
     const interval = setInterval(() => {
       const now = Date.now();
-      Object.entries(state.typing.byChannel).forEach(
-        ([channelId, channelTyping]) => {
-          const staleUsers = channelTyping.userIds.filter((userId) => {
-            const lastUpdate = channelTyping.lastUpdated[userId];
+      Object.entries(state.typing.byHub).forEach(
+        ([hubId, hubTyping]) => {
+          const staleUsers = hubTyping.userIds.filter((userId) => {
+            const lastUpdate = hubTyping.lastUpdated[userId];
             return now - lastUpdate > TYPING_TIMEOUT;
           });
 
@@ -102,7 +104,7 @@ export function ChannelProvider({ children }: { children: React.ReactNode }) {
             dispatch({
               type: "SET_USER_TYPING",
               payload: {
-                channelId: Number(channelId),
+                hubId: Number(hubId),
                 userId,
                 isTyping: false,
               },
@@ -113,18 +115,18 @@ export function ChannelProvider({ children }: { children: React.ReactNode }) {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [state.typing.byChannel]);
+  }, [state.typing.byHub]);
 
-  const loadChannels = useCallback(
+  const loadHubs = useCallback(
     async (workspaceId: number) => {
       if (!token || isAuthLoading) return;
       dispatch({ type: "SET_CHANNELS_LOADING" });
       try {
-        const res = await api.channels.list(workspaceId);
+        const res = await api.hubs.list(workspaceId);
         dispatch({
           type: "SET_CHANNELS",
           payload: {
-            channels: res.channels,
+            hubs: res.hubs,
             workspaceId,
           },
         });
@@ -135,7 +137,7 @@ export function ChannelProvider({ children }: { children: React.ReactNode }) {
     [token, isAuthLoading]
   );
 
-  const createChannel = useCallback(
+  const createHub = useCallback(
     async (
       workspaceId: number,
       data: { name: string; description?: string; is_private?: boolean }
@@ -143,8 +145,9 @@ export function ChannelProvider({ children }: { children: React.ReactNode }) {
       if (!token || isAuthLoading) return;
       dispatch({ type: "SET_CREATING_CHANNEL" });
       try {
-        const response = await api.channels.create(workspaceId, data);
-        dispatch({ type: "ADD_CHANNEL", payload: response.channel });
+        const response = await api.hubs.create(workspaceId, data);
+        dispatch({ type: "ADD_CHANNEL", payload: response.hub
+ });
       } catch (error) {
         dispatch({ type: "SET_CREATING_CHANNEL_ERROR", payload: error as Error });
       }
@@ -152,58 +155,59 @@ export function ChannelProvider({ children }: { children: React.ReactNode }) {
     [token, isAuthLoading]
   );
 
-  const markChannelAsRead = useCallback(
-    async (channelId: number) => {
+  const markHubAsRead = useCallback(
+    async (hubId: number) => {
       if (!token || isAuthLoading) return;
       try {
-        await api.channels.markAsRead(channelId);
-        dispatch({ type: "MARK_CHANNEL_READ", payload: channelId });
+        await api.hubs.markAsRead(hubId);
+        dispatch({ type: "MARK_CHANNEL_READ", payload: hubId });
       } catch (error) {
-        console.error("Failed to mark channel as read:", error);
+        console.error("Failed to mark hub
+ as read:", error);
       }
     },
     [token, isAuthLoading]
   );
 
-  const setActiveChannel = useCallback((channelId: number | null) => {
-    dispatch({ type: "SET_ACTIVE_CHANNEL", payload: channelId });
+  const setActiveHub = useCallback((hubId: number | null) => {
+    dispatch({ type: "SET_ACTIVE_CHANNEL", payload: hubId });
   }, []);
 
-  const getChannelById = useCallback(
-    (channelId: number) => state.byId[channelId],
+  const getHubById = useCallback(
+    (hubId: number) => state.byId[hubId],
     [state.byId]
   );
 
-  const getWorkspaceChannels = useCallback(
-    (workspaceId: number): UiChannel[] => {
-      const channelIds = state.workspaceChannels[workspaceId] || [];
-      return channelIds
+  const getWorkspaceHubs = useCallback(
+    (workspaceId: number): UiHub[] => {
+      const hubIds = state.workspaceHubs[workspaceId] || [];
+      return hubIds
         .map((id) => state.byId[id])
-        .filter((ch): ch is UiChannel => ch !== undefined);
+        .filter((ch): ch is UiHub => ch !== undefined);
     },
-    [state.workspaceChannels, state.byId]
+    [state.workspaceHubs, state.byId]
   );
 
   const typingUsers = useCallback(
-    (channelId: number) => state.typing.byChannel[channelId]?.userIds || [],
-    [state.typing.byChannel]
+    (hubId: number) => state.typing.byHub[hubId]?.userIds || [],
+    [state.typing.byHub]
   );
 
   const isUserTyping = useCallback(
-    (channelId: number, userId: number) =>
-      state.typing.byChannel[channelId]?.userIds.includes(userId) || false,
-    [state.typing.byChannel]
+    (hubId: number, userId: number) =>
+      state.typing.byHub[hubId]?.userIds.includes(userId) || false,
+    [state.typing.byHub]
   );
 
   // Actually update typing status & send to WS
   const setTyping = useCallback(
-    (channelId: number, isTyping: boolean) => {
+    (hubId: number, isTyping: boolean) => {
       if (!user) return;
 
       dispatch({
         type: "SET_USER_TYPING",
         payload: {
-          channelId,
+          hubId,
           userId: user.id,
           isTyping,
         },
@@ -212,7 +216,7 @@ export function ChannelProvider({ children }: { children: React.ReactNode }) {
       send({
         type: WSEventType.TYPING,
         payload: {
-          channelId,
+          hubId,
           userId: user.id,
           isTyping,
         },
@@ -221,34 +225,34 @@ export function ChannelProvider({ children }: { children: React.ReactNode }) {
     [user, send]
   );
 
-  const value: ChannelContextValue = {
-    channels: state.allIds.map((id) => state.byId[id]),
-    channelsById: state.byId,
-    activeChannelId: state.activeChannelId,
-    isLoadingChannels: state.loading.channels,
-    isCreatingChannel: state.loading.creating,
-    channelsError: state.errors.channels,
+  const value: HubContextValue = {
+    hubs: state.allIds.map((id) => state.byId[id]),
+    hubsById: state.byId,
+    activeHubId: state.activeHubId,
+    isLoadingHubs: state.loading.hubs,
+    isCreatingHub: state.loading.creating,
+    hubsError: state.errors.hubs,
     creatingError: state.errors.creating,
     typingUsers,
     isUserTyping,
     setTyping,
-    loadChannels,
-    createChannel,
-    markChannelAsRead,
-    setActiveChannel,
-    getChannelById,
-    getWorkspaceChannels,
+    loadHubs,
+    createHub,
+    markHubAsRead,
+    setActiveHub,
+    getHubById,
+    getWorkspaceHubs,
   };
 
   return (
-    <ChannelContext.Provider value={value}>{children}</ChannelContext.Provider>
+    <HubContext.Provider value={value}>{children}</HubContext.Provider>
   );
 }
 
-export function useChannels() {
-  const ctx = useContext(ChannelContext);
+export function useHubs() {
+  const ctx = useContext(HubContext);
   if (!ctx) {
-    throw new Error("useChannels must be used within ChannelProvider");
+    throw new Error("useHubs must be used within HubProvider");
   }
   return ctx;
 }

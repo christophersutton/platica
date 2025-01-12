@@ -4,15 +4,16 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useMessages } from "@/contexts/message/MessageContext";
 import { useWebSocket } from "@/contexts/websocket/WebSocketContext";
-import type { Channel } from '@models/channel'
+import type { Hub } from '@models/hub
+'
 
 interface ChatInputProps {
-  channelId: Channel['id'];
+  hubId: Hub['id'];
   onSendMessage: (message: string) => void;
   disabled?: boolean;
 }
 
-export function ChatInput({ channelId, onSendMessage, disabled }: ChatInputProps) {
+export function ChatInput({ hubId, onSendMessage, disabled }: ChatInputProps) {
   const [message, setMessage] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { user } = useAuth();
@@ -36,7 +37,7 @@ export function ChatInput({ channelId, onSendMessage, disabled }: ChatInputProps
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim() && !disabled) {
-      sendMessage(channelId, message.trim());
+      sendMessage(hubId, message.trim());
       setMessage("");
     }
   };
@@ -85,7 +86,7 @@ export function ChatInput({ channelId, onSendMessage, disabled }: ChatInputProps
             onKeyDown={handleKeyDown}
             placeholder={isDisabled ? 
               "Reconnecting to chat..." : 
-              `Message #${channelId}`
+              `Message #${hubId}`
             }
             className="w-full resize-none rounded-lg border border-gray-300 p-3 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
             rows={2}

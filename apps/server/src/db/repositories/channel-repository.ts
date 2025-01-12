@@ -1,15 +1,15 @@
 import { Database } from "bun:sqlite";
 import { BaseRepository } from "./base";
-import type { Channel, CreateChannelDTO, UpdateChannelDTO } from '@models';
-import type { ChannelWithMeta, ChannelMemberWithUser } from '../../types/repository';
+import type { Hub, CreateHubDTO, UpdateHubDTO } from '@models';
+import type { HubWithMeta, HubMemberWithUser } from '../../types/repository';
 
-export class ChannelRepository extends BaseRepository<Channel, CreateChannelDTO, UpdateChannelDTO> {
+export class HubRepository extends BaseRepository<Hub, CreateHubDTO, UpdateHubDTO> {
   constructor(db: Database) {
     super(db);
   }
 
   getTableName(): string {
-    return 'channels';
+    return 'hubs';
   }
 
   protected getJsonFields(): string[] {
@@ -21,21 +21,21 @@ export class ChannelRepository extends BaseRepository<Channel, CreateChannelDTO,
   }
 
 
-  async findByWorkspace(workspaceId: number, userId?: number): Promise<ChannelWithMeta[]> {
+  async findByWorkspace(workspaceId: number, userId?: number): Promise<HubWithMeta[]> {
     try {
-      console.log('Finding channels for workspace:', workspaceId, 'user:', userId);
+      console.log('Finding hubs for workspace:', workspaceId, 'user:', userId);
       
       const query = `
         SELECT 
           c.*,
-          (SELECT COUNT(*) FROM channel_members cm WHERE cm.channel_id = c.id) as member_count,
-          (SELECT COUNT(*) FROM messages m WHERE m.channel_id = c.id AND m.deleted_at IS NULL) as message_count,
-          (SELECT MAX(created_at) FROM messages m WHERE m.channel_id = c.id AND m.deleted_at IS NULL) as last_message_at
+          (SELECT COUNT(*) FROM hub_members cm WHERE cm.hub_id = c.id) as member_count,
+          (SELECT COUNT(*) FROM messages m WHERE m.hub_id = c.id AND m.deleted_at IS NULL) as message_count,
+          (SELECT MAX(created_at) FROM messages m WHERE m.hub_id = c.id AND m.deleted_at IS NULL) as last_message_at
           ${userId ? `
             ,CASE WHEN EXISTS(
               SELECT 1 FROM messages m 
-              LEFT JOIN channel_members cm ON cm.channel_id = c.id AND cm.user_id = ?
-              WHERE m.channel_id = c.id 
+              LEFT JOIN hub_members cm ON cm.hub_id = c.id AND cm.user_id = ?
+              WHERE m.hub_id = c.id 
               AND m.deleted_at IS NULL
               AND (
                 cm.last_read_at IS NULL 
@@ -43,14 +43,14 @@ export class ChannelRepository extends BaseRepository<Channel, CreateChannelDTO,
               )
             ) THEN 1 ELSE 0 END as has_unread
             ,CASE 
-              WHEN EXISTS(SELECT 1 FROM channel_members WHERE channel_id = c.id AND user_id = ?) THEN 'member'
-              WHEN EXISTS(SELECT 1 FROM channel_invites WHERE channel_id = c.id AND invitee_id = ?) THEN 'invited'
+              WHEN EXISTS(SELECT 1 FROM hub_members WHERE hub_id = c.id AND user_id = ?) THEN 'member'
+              WHEN EXISTS(SELECT 1 FROM hub_invites WHERE hub_id = c.id AND invitee_id = ?) THEN 'invited'
               ELSE NULL
             END as member_status
           ` : ''}
-        FROM channels c
+        FROM hubs c
         WHERE c.workspace_id = ?
-        ${userId ? 'AND EXISTS(SELECT 1 FROM channel_members WHERE channel_id = c.id AND user_id = ?)' : ''}
+        ${userId ? 'AND EXISTS(SELECT 1 FROM hub_members WHERE hub_id = c.id AND user_id = ?)' : ''}
         ORDER BY c.name ASC
       `;
 
@@ -61,8 +61,8 @@ export class ChannelRepository extends BaseRepository<Channel, CreateChannelDTO,
       console.log('Executing query with params:', params);
       console.log('Query:', query);
       
-      const results = this.db.prepare(query).all(...params) as ChannelWithMeta[];
-      console.log('Found channels:', results?.length || 0);
+      const results = this.db.prepare(query).all(...params) as HubWithMeta[];
+      console.log('Found hubs:', results?.length || 0);
       
       return results
     } catch (error) {
@@ -71,42 +71,42 @@ export class ChannelRepository extends BaseRepository<Channel, CreateChannelDTO,
     }
   }
 
-  async findWithMeta(channelId: number, userId?: number): Promise<ChannelWithMeta | undefined> {
+  async findWithMeta(hubId: number, userId?: number): Promise<HubWithMeta | undefined> {
     const query = `
       SELECT 
         c.*,
-        (SELECT COUNT(*) FROM channel_members cm WHERE cm.channel_id = c.id) as member_count,
-        (SELECT COUNT(*) FROM messages m WHERE m.channel_id = c.id AND m.deleted_at IS NULL) as message_count,
-        (SELECT MAX(created_at) FROM messages m WHERE m.channel_id = c.id AND m.deleted_at IS NULL) as last_message_at
+        (SELECT COUNT(*) FROM hub_members cm WHERE cm.hub_id = c.id) as member_count,
+        (SELECT COUNT(*) FROM messages m WHERE m.hub_id = c.id AND m.deleted_at IS NULL) as message_count,
+        (SELECT MAX(created_at) FROM messages m WHERE m.hub_id = c.id AND m.deleted_at IS NULL) as last_message_at
         ${userId ? `
           ,CASE WHEN EXISTS(
             SELECT 1 FROM messages m 
-            WHERE m.channel_id = c.id 
+            WHERE m.hub_id = c.id 
             AND m.deleted_at IS NULL
             AND m.created_at > COALESCE(
-              (SELECT last_read_at FROM channel_members WHERE channel_id = c.id AND user_id = ?),
+              (SELECT last_read_at FROM hub_members WHERE hub_id = c.id AND user_id = ?),
               0
             )
           ) THEN 1 ELSE 0 END as has_unread
           ,CASE 
-            WHEN EXISTS(SELECT 1 FROM channel_members WHERE channel_id = c.id AND user_id = ?) THEN 'member'
-            WHEN EXISTS(SELECT 1 FROM channel_invites WHERE channel_id = c.id AND invitee_id = ?) THEN 'invited'
+            WHEN EXISTS(SELECT 1 FROM hub_members WHERE hub_id = c.id AND user_id = ?) THEN 'member'
+            WHEN EXISTS(SELECT 1 FROM hub_invites WHERE hub_id = c.id AND invitee_id = ?) THEN 'invited'
             ELSE NULL
           END as member_status
         ` : ''}
-      FROM channels c
+      FROM hubs c
       WHERE c.id = ?
     `;
 
     const params = userId 
-      ? [userId, userId, userId, channelId]
-      : [channelId];
+      ? [userId, userId, userId, hubId]
+      : [hubId];
 
-    const result = this.db.prepare(query).get(...params) as ChannelWithMeta | undefined;
+    const result = this.db.prepare(query).get(...params) as HubWithMeta | undefined;
     return result 
   }
 
-  async findMembers(channelId: number): Promise<ChannelMemberWithUser[]> {
+  async findMembers(hubId: number): Promise<HubMemberWithUser[]> {
     const results = this.db.prepare(`
       SELECT 
         cm.*,
@@ -114,26 +114,26 @@ export class ChannelRepository extends BaseRepository<Channel, CreateChannelDTO,
         u.email as user_email,
         u.avatar_url as user_avatar_url,
         wu.role as workspace_role
-      FROM channel_members cm
+      FROM hub_members cm
       JOIN users u ON cm.user_id = u.id
-      JOIN channels c ON cm.channel_id = c.id
+      JOIN hubs c ON cm.hub_id = c.id
       LEFT JOIN workspace_users wu ON u.id = wu.user_id AND wu.workspace_id = c.workspace_id
-      WHERE cm.channel_id = ?
+      WHERE cm.hub_id = ?
       ORDER BY u.name ASC
-    `).all(channelId) as ChannelMemberWithUser[];
+    `).all(hubId) as HubMemberWithUser[];
 
     return results
   }
 
-  async addMember(channelId: number, userId: number, role: string = 'member'): Promise<void> {
+  async addMember(hubId: number, userId: number, role: string = 'member'): Promise<void> {
     const now = Math.floor(Date.now() / 1000);
     this.db.prepare(`
-      INSERT INTO channel_members (channel_id, user_id, role, settings, created_at, updated_at)
+      INSERT INTO hub_members (hub_id, user_id, role, settings, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?)
-    `).run(channelId, userId, role, '{}', now, now);
+    `).run(hubId, userId, role, '{}', now, now);
   }
 
-  async updateMember(channelId: number, userId: number, data: { role?: string; lastReadAt?: number }): Promise<void> {
+  async updateMember(hubId: number, userId: number, data: { role?: string; lastReadAt?: number }): Promise<void> {
     if (!data.role && !data.lastReadAt) return;
 
     const now = Math.floor(Date.now() / 1000);
@@ -154,39 +154,40 @@ export class ChannelRepository extends BaseRepository<Channel, CreateChannelDTO,
     values.push(now);
 
     this.db.prepare(`
-      UPDATE channel_members
+      UPDATE hub_members
       SET ${updates.join(', ')}
-      WHERE channel_id = ? AND user_id = ?
-    `).run(...values, channelId, userId);
+      WHERE hub_id = ? AND user_id = ?
+    `).run(...values, hubId, userId);
   }
 
-  async removeMember(channelId: number, userId: number): Promise<void> {
+  async removeMember(hubId: number, userId: number): Promise<void> {
     this.db.prepare(`
-      DELETE FROM channel_members
-      WHERE channel_id = ? AND user_id = ?
-    `).run(channelId, userId);
+      DELETE FROM hub_members
+      WHERE hub_id = ? AND user_id = ?
+    `).run(hubId, userId);
   }
 
-  async getMemberRole(channelId: number, userId: number): Promise<string | undefined> {
+  async getMemberRole(hubId: number, userId: number): Promise<string | undefined> {
     const result = this.db.prepare(`
-      SELECT role FROM channel_members
-      WHERE channel_id = ? AND user_id = ?
-    `).get(channelId, userId) as { role: string } | undefined;
+      SELECT role FROM hub_members
+      WHERE hub_id = ? AND user_id = ?
+    `).get(hubId, userId) as { role: string } | undefined;
 
     return result?.role;
   }
 
-  async canAccess(channelId: number, userId: number): Promise<boolean> {
+  async canAccess(hubId: number, userId: number): Promise<boolean> {
     try {
       // Check if user is a member
       const isMember = this.db.prepare(`
-        SELECT 1 FROM channel_members 
-        WHERE channel_id = ? AND user_id = ?
-      `).get(channelId, userId);
+        SELECT 1 FROM hub_members 
+        WHERE hub_id = ? AND user_id = ?
+      `).get(hubId, userId);
 
       return !!isMember;
     } catch (error) {
-      console.error('Error checking channel access:', error);
+      console.error('Error checking hub
+ access:', error);
       return false;
     }
   }

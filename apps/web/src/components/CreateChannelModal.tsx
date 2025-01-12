@@ -7,38 +7,40 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 // import { useAppContext } from "@/contexts/AppContext";
 
-export function CreateChannelModal() {
-  const [channelName, setChannelName] = useState("");
+export function CreateHubModal() {
+  const [hubName, setHubName] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const { workspaceId = "1" } = useParams();
   const navigate = useNavigate();
-  // const { createChannel } = useAppContext();
+  // const { createHub } = useAppContext();
   const { toast } = useToast();
 
-  const handleCreateChannel = async () => {
-    if (!channelName.trim()) return;
+  const handleCreateHub = async () => {
+    if (!hubName.trim()) return;
     
     setIsCreating(true);
     try {
-      // await createChannel(Number(workspaceId), { 
-      //   name: channelName.toLowerCase(),
+      // await createHub(Number(workspaceId), { 
+      //   name: hubName.toLowerCase(),
       //   is_private: false
       // });
       
-      setChannelName("");
+      setHubName("");
       setIsOpen(false);
       toast({
-        title: "Channel created",
-        description: `#${channelName} has been created successfully.`
+        title: "Hub created",
+        description: `#${hubName} has been created successfully.`
       });
       
-      // The new channel will be added to state via websocket event,
+      // The new hub
+ will be added to state via websocket event,
       // so we can navigate after creation
-      navigate(`/w/${workspaceId}/c/${channelName}`);
+      navigate(`/w/${workspaceId}/c/${hubName}`);
     } catch (error) {
       toast({
-        title: "Error creating channel",
+        title: "Error creating hub
+",
         description: error instanceof Error ? error.message : "An error occurred",
         variant: "destructive"
       });
@@ -60,30 +62,32 @@ export function CreateChannelModal() {
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Create a channel</DialogTitle>
+          <DialogTitle>Create a hub
+</DialogTitle>
           <DialogDescription>
-            Channels are where your team communicates. They're best when organized
+            Hubs are where your team communicates. They're best when organized
             around a topic — #marketing, for example.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
             <Input
-              id="channel-name"
+              id="hub
+-name"
               placeholder="e.g. marketing"
-              value={channelName}
-              onChange={(e) => setChannelName((e.target as HTMLInputElement).value.toLowerCase())}
+              value={hubName}
+              onChange={(e) => setHubName((e.target as HTMLInputElement).value.toLowerCase())}
               className="col-span-3"
             />
           </div>
         </div>
         <DialogFooter>
           <Button
-            onClick={handleCreateChannel}
-            disabled={!channelName.trim() || isCreating}
+            onClick={handleCreateHub}
+            disabled={!hubName.trim() || isCreating}
             className="bg-slack-green hover:bg-slack-green/90"
           >
-            {isCreating ? "Creating..." : "Create Channel"}
+            {isCreating ? "Creating..." : "Create Hub"}
           </Button>
         </DialogFooter>
       </DialogContent>

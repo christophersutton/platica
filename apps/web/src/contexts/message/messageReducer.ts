@@ -4,20 +4,20 @@ import { TimestampError } from "@platica/shared/src/utils/time";
 
 interface MessageState {
   byId: Record<number, UiMessage>;
-  channelMessages: Record<number, number[]>;
+  hubMessages: Record<number, number[]>;
   loading: {
-    channels: Record<number, boolean>;
+    hubs: Record<number, boolean>;
     sending: boolean;
   };
   errors: {
-    channels: Record<number, Error | null>;
+    hubs: Record<number, Error | null>;
     sending: Error | null;
   };
   pagination: {
     hasMore: Record<number, boolean>;
     lastMessageId: Record<number, number | null>;
   };
-  activeChannelId: number | null;
+  activeHubId: number | null;
 }
 
 // Helper to validate message timestamps
@@ -93,13 +93,13 @@ function processMessage(message: ApiMessage | Message): UiMessage {
 
 export type MessageAction =
   | { type: "SET_ACTIVE_CHANNEL"; payload: number | null }
-  | { type: "SET_CHANNEL_LOADING"; payload: { channelId: number } }
+  | { type: "SET_CHANNEL_LOADING"; payload: { hubId: number } }
   | { type: "SET_SENDING_MESSAGE" }
-  | { type: "SET_CHANNEL_ERROR"; payload: { channelId: number; error: Error } }
+  | { type: "SET_CHANNEL_ERROR"; payload: { hubId: number; error: Error } }
   | { type: "SET_SENDING_ERROR"; payload: Error }
   | {
       type: "SET_CHANNEL_MESSAGES";
-      payload: { channelId: number; messages: ApiMessage[] };
+      payload: { hubId: number; messages: ApiMessage[] };
     }
   | { type: "ADD_MESSAGE"; payload: Message }
   | {
@@ -109,7 +109,7 @@ export type MessageAction =
   | {
       type: "SET_PAGINATION";
       payload: {
-        channelId: number;
+        hubId: number;
         hasMore: boolean;
         lastMessageId: number | null;
       };
@@ -118,20 +118,20 @@ export type MessageAction =
 export function createInitialState(): MessageState {
   return {
     byId: {},
-    channelMessages: {},
+    hubMessages: {},
     loading: {
-      channels: {},
+      hubs: {},
       sending: false,
     },
     errors: {
-      channels: {},
+      hubs: {},
       sending: null,
     },
     pagination: {
       hasMore: {},
       lastMessageId: {},
     },
-    activeChannelId: null,
+    activeHubId: null,
   };
 }
 
@@ -143,7 +143,7 @@ export function messageReducer(
     case "SET_ACTIVE_CHANNEL":
       return {
         ...state,
-        activeChannelId: action.payload,
+        activeHubId: action.payload,
       };
 
     case "SET_CHANNEL_LOADING":
@@ -151,16 +151,16 @@ export function messageReducer(
         ...state,
         loading: {
           ...state.loading,
-          channels: {
-            ...state.loading.channels,
-            [action.payload.channelId]: true,
+          hubs: {
+            ...state.loading.hubs,
+            [action.payload.hubId]: true,
           },
         },
         errors: {
           ...state.errors,
-          channels: {
-            ...state.errors.channels,
-            [action.payload.channelId]: null,
+          hubs: {
+            ...state.errors.hubs,
+            [action.payload.hubId]: null,
           },
         },
       };
@@ -183,16 +183,16 @@ export function messageReducer(
         ...state,
         loading: {
           ...state.loading,
-          channels: {
-            ...state.loading.channels,
-            [action.payload.channelId]: false,
+          hubs: {
+            ...state.loading.hubs,
+            [action.payload.hubId]: false,
           },
         },
         errors: {
           ...state.errors,
-          channels: {
-            ...state.errors.channels,
-            [action.payload.channelId]: action.payload.error,
+          hubs: {
+            ...state.errors.hubs,
+            [action.payload.hubId]: action.payload.error,
           },
         },
       };
@@ -211,7 +211,7 @@ export function messageReducer(
       };
 
     case "SET_CHANNEL_MESSAGES": {
-      const { channelId, messages } = action.payload;
+      const { hubId, messages } = action.payload;
 
       const newById = { ...state.byId };
       const messageIds: number[] = [];
@@ -231,15 +231,15 @@ export function messageReducer(
       const newState = {
         ...state,
         byId: newById,
-        channelMessages: {
-          ...state.channelMessages,
-          [channelId]: messageIds,
+        hubMessages: {
+          ...state.hubMessages,
+          [hubId]: messageIds,
         },
         loading: {
           ...state.loading,
-          channels: {
-            ...state.loading.channels,
-            [channelId]: false,
+          hubs: {
+            ...state.loading.hubs,
+            [hubId]: false,
           },
         },
       };
@@ -251,11 +251,11 @@ export function messageReducer(
 
     case "ADD_MESSAGE": {
       const message = action.payload;
-      const channelId = message.channelId;
-      const channelMessages = state.channelMessages[channelId] || [];
+      const hubId = message.hubId;
+      const hubMessages = state.hubMessages[hubId] || [];
 
       // Check for duplicates
-      if (channelMessages.includes(message.id)) {
+      if (hubMessages.includes(message.id)) {
         return state;
       }
 
@@ -271,9 +271,9 @@ export function messageReducer(
           ...state.byId,
           [message.id]: processMessage(message),
         },
-        channelMessages: {
-          ...state.channelMessages,
-          [channelId]: [...channelMessages, message.id],
+        hubMessages: {
+          ...state.hubMessages,
+          [hubId]: [...hubMessages, message.id],
         },
       };
     }
@@ -297,11 +297,11 @@ export function messageReducer(
           ...state.pagination,
           hasMore: {
             ...state.pagination.hasMore,
-            [action.payload.channelId]: action.payload.hasMore,
+            [action.payload.hubId]: action.payload.hasMore,
           },
           lastMessageId: {
             ...state.pagination.lastMessageId,
-            [action.payload.channelId]: action.payload.lastMessageId,
+            [action.payload.hubId]: action.payload.lastMessageId,
           },
         },
       };

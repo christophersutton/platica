@@ -1,6 +1,7 @@
 import type { Message, CreateMessageDTO } from '@models/message'
 import type { User } from '@models/user'
-import type { Channel } from '@models/channel'
+import type { Hub } from '@models/hub
+'
 import { validateTimestamp } from '@types'
 import { TimestampError } from '../utils/time'
 
@@ -16,10 +17,10 @@ export enum WSEventType {
   TYPING = 'typing',
   PRESENCE = 'presence',
   PRESENCE_SYNC = 'presence_sync',
-  CHANNEL_CREATED = 'channel_created',
-  CHANNEL_MEMBER_ADDED = 'channel_member_added',
-  CHANNEL_MEMBER_REMOVED = 'channel_member_removed',
-  CHANNEL_MEMBER_UPDATED = 'channel_member_updated'
+  CHANNEL_CREATED = 'hub_created',
+  CHANNEL_MEMBER_ADDED = 'hub_member_added',
+  CHANNEL_MEMBER_REMOVED = 'hub_member_removed',
+  CHANNEL_MEMBER_UPDATED = 'hub_member_updated'
 }
 
 export enum WSErrorCode {
@@ -44,7 +45,7 @@ export interface OutgoingChatEvent {
   type: WSEventType.CHAT
   payload: {
     workspaceId: number
-    channelId: number
+    hubId: number
     content: string
     senderId: number
   }
@@ -56,7 +57,7 @@ export interface OutgoingChatEvent {
 export interface TypingEvent {
   type: WSEventType.TYPING
   payload: {
-    channelId: Channel['id']
+    hubId: Hub['id']
     userId: User['id']
     isTyping: boolean
   }
@@ -82,12 +83,13 @@ export interface PresenceSyncEvent {
 }
 
 /**
- * Channel Events
+ * Hub Events
  */
-export interface ChannelCreatedEvent {
+export interface HubCreatedEvent {
   type: WSEventType.CHANNEL_CREATED
   payload: {
-    channel: Channel
+    hub
+: Hub
   }
 }
 
@@ -112,9 +114,9 @@ export interface AuthEvent {
   }
 }
 
-export interface ChannelMemberEvent {
+export interface HubMemberEvent {
   type: WSEventType.CHANNEL_MEMBER_ADDED | WSEventType.CHANNEL_MEMBER_REMOVED | WSEventType.CHANNEL_MEMBER_UPDATED;
-  channelId: number;
+  hubId: number;
   userId: number;
   role?: string;
 }
@@ -128,10 +130,10 @@ export type WebSocketEvent =
   | TypingEvent
   | PresenceEvent
   | PresenceSyncEvent
-  | ChannelCreatedEvent
+  | HubCreatedEvent
   | ErrorEvent
   | AuthEvent
-  | ChannelMemberEvent
+  | HubMemberEvent
 
 /**
  * Type guards for runtime type checking
@@ -154,7 +156,7 @@ export const isPresenceEvent = (event: WebSocketEvent): event is PresenceEvent =
 export const isPresenceSyncEvent = (event: WebSocketEvent): event is PresenceSyncEvent => 
   event.type === WSEventType.PRESENCE_SYNC
 
-export const isChannelCreatedEvent = (event: WebSocketEvent): event is ChannelCreatedEvent => 
+export const isHubCreatedEvent = (event: WebSocketEvent): event is HubCreatedEvent => 
   event.type === WSEventType.CHANNEL_CREATED 
 
 /**
@@ -172,7 +174,8 @@ export function validateMessage(data: unknown): data is WebSocketEvent {
   // Validate type is a known event type
   if (!validTypes.includes(event.type as WSEventType)) return false
   
-  // Handle channel member events differently as they don't have a payload property
+  // Handle hub
+ member events differently as they don't have a payload property
   if (event.type === WSEventType.CHANNEL_MEMBER_ADDED || 
       event.type === WSEventType.CHANNEL_MEMBER_REMOVED || 
       event.type === WSEventType.CHANNEL_MEMBER_UPDATED) {

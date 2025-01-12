@@ -23,12 +23,13 @@ describe("Database Setup Performance", () => {
     // Simulate a typical test setup
     const user = await ctx.factory.createUser();
     const workspace = await ctx.factory.createWorkspace({}, user);
-    const channel = await ctx.factory.createChannel({}, workspace, user);
+    const hub
+ = await ctx.factory.createHub({}, workspace, user);
     
     // Add some test messages in a transaction
     ctx.db.transaction(() => {
       const stmt = ctx.db.prepare(`
-        INSERT INTO messages (workspace_id, channel_id, sender_id, content, created_at, updated_at)
+        INSERT INTO messages (workspace_id, hub_id, sender_id, content, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?)
       `);
       
@@ -36,7 +37,8 @@ describe("Database Setup Performance", () => {
         const now = Date.now();
         stmt.run(
           workspace.id,
-          channel.id,
+          hub
+.id,
           user.id,
           `Test message ${i}`,
           now,

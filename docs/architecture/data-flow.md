@@ -2,7 +2,7 @@
 
 ## Message Flow
 
-### Channel Message Flow
+### Hub Message Flow
 ```
 User Types Message → Client Validation → WebSocket Send →
 Server Validation → Database Write → WebSocket Broadcast →
@@ -32,13 +32,13 @@ Auto-Archive Check
 - System settings
 
 ### Domain State
-- Channel/Room/Chat specific data
+- Hub/Room/Chat specific data
 - Participant information
 - Message history
 - Local UI state
 
 ### Persistence Rules
-- Channels: Persistent by default
+- Hubs: Persistent by default
 - Rooms: Time-boxed persistence
 - Chats: Ephemeral with auto-archive
 - Documents: Permanent storage

@@ -28,7 +28,7 @@ interface Client {
 interface DBMessage {
   id: number;
   workspace_id: number;
-  channel_id: number;
+  hub_id: number;
   sender_id: number;
   content: string;
   created_at: number;
@@ -240,14 +240,14 @@ export class WebSocketService {
     const savedMessage = dbService.db
       .prepare(
         `
-      INSERT INTO messages (workspace_id, channel_id, sender_id, content, created_at, updated_at)
+      INSERT INTO messages (workspace_id, hub_id, sender_id, content, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?)
       RETURNING *
     `
       )
       .get(
         client.workspaceId,
-        message.payload.channelId,
+        message.payload.hubId,
         client.userId,
         content,
         getCurrentUnixTimestamp(),
@@ -272,7 +272,7 @@ export class WebSocketService {
         message: {
           id: savedMessage.id,
           workspaceId: savedMessage.workspace_id,
-          channelId: savedMessage.channel_id,
+          hubId: savedMessage.hub_id,
           content: savedMessage.content,
           createdAt: validateTimestamp(savedMessage.created_at),
           updatedAt: validateTimestamp(savedMessage.updated_at),
@@ -323,7 +323,7 @@ export class WebSocketService {
         this.broadcastToWorkspace(client.workspaceId, {
           type: WSEventType.TYPING,
           payload: {
-            channelId: message.payload.channelId,
+            hubId: message.payload.hubId,
             userId: client.userId,
             isTyping: false,
           },
@@ -335,7 +335,7 @@ export class WebSocketService {
     this.broadcastToWorkspace(client.workspaceId, {
       type: WSEventType.TYPING,
       payload: {
-        channelId: message.payload.channelId,
+        hubId: message.payload.hubId,
         userId: client.userId,
         isTyping: true,
       },

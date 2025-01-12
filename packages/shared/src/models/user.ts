@@ -2,7 +2,8 @@ import type { UnixTimestamp } from '@types'
 import type { UserRole, UserStatus } from '@constants/enums'
 import type { BaseModel } from '@models/base'
 import type { Workspace } from '@models/workspace'
-import type { Channel } from '@models/channel'
+import type { Hub } from '@models/hub
+'
 
 /**
  * Core User domain type
@@ -38,7 +39,7 @@ export interface NotificationPreferences {
   emailNotifications: boolean
   mobilePush: boolean
   soundEnabled: boolean
-  mutedChannels?: Channel['id'][]
+  mutedHubs?: Hub['id'][]
 }
 
 /**

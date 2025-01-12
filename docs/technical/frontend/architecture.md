@@ -22,7 +22,7 @@ App
 ├── AuthProvider            # Authentication state
 ├── WebSocketProvider      # Real-time communication
 ├── WorkspaceProvider     # Current workspace context
-│   ├── ChannelProvider  # Channel state
+│   ├── HubProvider  # Hub state
 │   ├── RoomProvider    # Room state
 │   └── ChatProvider   # Chat state
 └── UIProvider        # Global UI state

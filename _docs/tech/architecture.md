@@ -10,7 +10,7 @@ Platica MVP is built on Bun for server-side operations including HTTP server, We
 
 SQLite Database (Main)
 - User accounts and authentication
-- Channel and room metadata
+- Hub and room metadata
 - Member relationships and permissions
 - Message metadata and settings
 - Session management
@@ -19,7 +19,7 @@ For detailed database documentation including schema, models, and patterns, see 
 
 Core Tables:
 - User accounts and profiles
-- Workspaces and channels
+- Workspaces and hubs
 - Messages and reactions
 - Files and attachments (used with S3 for document storage)
 
@@ -101,7 +101,7 @@ Core Services and Their Patterns:
 
 1. Controllers (HTTP Endpoints):
    - AuthController: Authentication and session management
-   - ChannelController: Channel and message operations
+   - HubController: Hub and message operations
    - WorkspaceController: Workspace and member management
    - MessageController: Message operations and reactions
 
@@ -184,7 +184,7 @@ export abstract class BaseRepository<T extends BaseModel> {
 ```typescript
 interface WebSocketMessage {
   type: WSEventType;
-  channelId?: number;
+  hubId?: number;
   workspaceId?: number;
   userId?: number;
   data?: unknown;
@@ -237,7 +237,8 @@ export function useDomainHook(config: Config) {
 4. Routing and Protection
 - React Router for navigation
 - Protected routes with auth checks
-- Workspace/channel-based routing
+- Workspace/hub
+-based routing
 
 5. UI Components
 - shadcn/ui base components
@@ -313,19 +314,19 @@ REST API Endpoints:
   - GET /users/:id
   - GET /users/presence
 
-- Channels
-  - POST /workspaces/:workspaceId/channels
-  - GET /workspaces/:workspaceId/channels
-  - GET /channels/:id
-  - PATCH /channels/:id
-  - DELETE /channels/:id
-  - GET /channels/:id/members
-  - POST /channels/:id/members
-  - DELETE /channels/:id/members/:userId
+- Hubs
+  - POST /workspaces/:workspaceId/hubs
+  - GET /workspaces/:workspaceId/hubs
+  - GET /hubs/:id
+  - PATCH /hubs/:id
+  - DELETE /hubs/:id
+  - GET /hubs/:id/members
+  - POST /hubs/:id/members
+  - DELETE /hubs/:id/members/:userId
 
 - Messages
-  - POST /channels/:channelId/messages
-  - GET /channels/:channelId/messages
+  - POST /hubs/:hubId/messages
+  - GET /hubs/:hubId/messages
   - PATCH /messages/:id
   - DELETE /messages/:id
   - POST /messages/:id/reactions
@@ -386,16 +387,22 @@ export class DomainController extends BaseController {
 WebSocket Topics:
 - org: Organization-wide events
 - user:{userId}: User-specific notifications
-- channel:{channelId}: Channel messages and events
+- hub
+:{hubId}: Hub messages and events
 - room:{roomId}: Room state and messages
 - presence: User online status updates
 
 WebSocket Events:
-- channel.created
-- channel.updated
-- channel.deleted
-- channel.message
-- channel.typing
+- hub
+.created
+- hub
+.updated
+- hub
+.deleted
+- hub
+.message
+- hub
+.typing
 - room.created
 - room.updated
 - room.deleted
@@ -489,8 +496,9 @@ Workspace Level:
 - `admin`: Manage users and settings
 - `member`: Basic workspace access
 
-Channel Level:
-- `owner`: Full channel control
+Hub Level:
+- `owner`: Full hub
+ control
 - `member`: Read/write messages
 
 2. **Permission Checks**
@@ -519,18 +527,18 @@ class PermissionService {
     return !!member;
   }
 
-  static async canAccessChannel(
+  static async canAccessHub(
     userId: number,
-    channelId: number
+    hubId: number
   ): Promise<boolean> {
     const member = await db.prepare(`
       SELECT cm.role
-      FROM channel_members cm
-      JOIN channels c ON c.id = cm.channel_id
+      FROM hub_members cm
+      JOIN hubs c ON c.id = cm.hub_id
       JOIN workspace_users wu ON wu.workspace_id = c.workspace_id
-      WHERE cm.channel_id = ?
+      WHERE cm.hub_id = ?
       AND cm.user_id = ?
-    `).get(channelId, userId);
+    `).get(hubId, userId);
     return !!member;
   }
 }
@@ -583,10 +591,10 @@ app.post('/workspaces/:id/invites',
   handleInvite
 );
 
-// Channel routes with access checks
-app.get('/channels/:id/messages',
+// Hub routes with access checks
+app.get('/hubs/:id/messages',
   requireAuth,
-  requireChannelAccess,
+  requireHubAccess,
   handleGetMessages
 );
 ```
@@ -609,7 +617,7 @@ app.get('/channels/:id/messages',
 - Login attempt limits
 - API rate limiting
 - Workspace-level quotas
-- Channel message rate limits
+- Hub message rate limits
 
 4. **Security Headers**
 - CORS configuration

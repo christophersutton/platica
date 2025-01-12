@@ -41,42 +41,47 @@ export class AuthMiddleware {
     }
   }
 
-  // Channel-specific authorization
-  channelAuth = async (c: Context<{ Variables: Variables }, '/channels/:channelId/*'>, next: Next) => {
-    const channelId = Number(c.req.param('channelId'));
+  // Hub-specific authorization
+  hubAuth = async (c: Context<{ Variables: Variables }, '/hubs/:hubId/*'>, next: Next) => {
+    const hubId = Number(c.req.param('hubId'));
     const userId = c.get('user').userId;
 
     // First check if user is already a member
     const isMember = this.db.prepare(`
-      SELECT 1 FROM channel_members 
-      WHERE channel_id = ? AND user_id = ?
-    `).get(channelId, userId);
+      SELECT 1 FROM hub_members 
+      WHERE hub_id = ? AND user_id = ?
+    `).get(hubId, userId);
 
     if (isMember) {
       await next();
       return;
     }
 
-    // If not a member, check if it's a public channel
-    const channel = this.db.prepare(`
-      SELECT workspace_id, is_private FROM channels
-      WHERE id = ?
-    `).get(channelId) as { workspace_id: number, is_private: boolean } | undefined;
+    // If not a member, check if it's a public hub
 
-    if (!channel) {
-      return c.json({ error: 'Channel not found' }, 404);
+    const hub
+ = this.db.prepare(`
+      SELECT workspace_id, is_private FROM hubs
+      WHERE id = ?
+    `).get(hubId) as { workspace_id: number, is_private: boolean } | undefined;
+
+    if (!hub
+) {
+      return c.json({ error: 'Hub not found' }, 404);
     }
 
-    if (!channel.is_private) {
-      // Auto-join public channel
+    if (!hub
+.is_private) {
+      // Auto-join public hub
+
       const now = Math.floor(Date.now() / 1000);
       this.db.prepare(`
-        INSERT INTO channel_members (channel_id, user_id, role, settings, created_at, updated_at)
+        INSERT INTO hub_members (hub_id, user_id, role, settings, created_at, updated_at)
         VALUES (?, ?, 'member', '{}', ?, ?)
-      `).run(channelId, userId, now, now);
+      `).run(hubId, userId, now, now);
 
       // Note: We can't broadcast the member_joined event here since we don't have access to the WebSocket service
-      // The controller's ensureChannelAccess will handle that when it's called
+      // The controller's ensureHubAccess will handle that when it's called
 
       await next();
       return;

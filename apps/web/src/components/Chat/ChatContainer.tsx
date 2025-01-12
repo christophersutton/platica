@@ -4,7 +4,7 @@ import { useCallback } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useWorkspace } from "@/contexts/workspace/WorkspaceContext";
 
-export function ChatContainer({ channelId }: { channelId: number }) {
+export function ChatContainer({ hubId }: { hubId: number }) {
   const { send, isConnected } = useWebSocketSender();
   const { user } = useAuth();
   const { state: { workspace } } = useWorkspace();
@@ -16,28 +16,28 @@ export function ChatContainer({ channelId }: { channelId: number }) {
       // Handle new chat message
       if ('message' in message.payload) {
         // Handle ChatEvent (incoming message)
-        if (message.payload.message.channelId === channelId) {
+        if (message.payload.message.hubId === hubId) {
           // Update your messages state
         }
       } else {
         // Handle OutgoingChatEvent (sent message confirmation)
-        if (message.payload.channelId === channelId) {
+        if (message.payload.hubId === hubId) {
           // Update your messages state
         }
       }
-    }, [channelId]),
-    [channelId]
+    }, [hubId]),
+    [hubId]
   );
 
   // Handle typing indicators
   useWebSocketSubscription(
     WSEventType.TYPING,
     useCallback((message) => {
-      if (message.payload.channelId === channelId) {
+      if (message.payload.hubId === hubId) {
         // Update typing indicators
       }
-    }, [channelId]),
-    [channelId]
+    }, [hubId]),
+    [hubId]
   );
 
   const sendMessage = useCallback((content: string) => {
@@ -47,12 +47,12 @@ export function ChatContainer({ channelId }: { channelId: number }) {
       type: WSEventType.CHAT,
       payload: {
         workspaceId: workspace.id,
-        channelId,
+        hubId,
         content,
         senderId: user.id
       }
     });
-  }, [channelId, send, isConnected, user, workspace]);
+  }, [hubId, send, isConnected, user, workspace]);
 
   return (
     <div className="flex flex-col h-full">

@@ -2,6 +2,7 @@
 export * from './base';
 export * from './user';
 export * from './workspace';
-export * from './channel';
+export * from './hub
+';
 export * from './message';
 export * from './room';

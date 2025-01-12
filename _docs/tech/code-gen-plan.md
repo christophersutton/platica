@@ -14,14 +14,14 @@ These steps establish our source of truth:
    - Output: TypeScript types via `z.infer`
    ```typescript
    // Input (manual)
-   export const ChannelSchema = z.object({
+   export const HubSchema = z.object({
      id: z.string().min(1),
      name: z.string().min(1).max(100),
      description: z.string().max(1000)
    });
    
    // Generated
-   export type Channel = z.infer<typeof ChannelSchema>;
+   export type Hub = z.infer<typeof HubSchema>;
    ```
 
 2. **Pattern Schema Definition**
@@ -35,7 +35,7 @@ These steps establish our source of truth:
    });
 
    // Usage
-   export const ListChannelsSchema = z.object({})
+   export const ListHubsSchema = z.object({})
      .merge(PaginationSchema)
      .merge(z.object({
        archived: z.boolean().optional()
@@ -48,11 +48,11 @@ These steps establish our source of truth:
    - Output: Route type definitions
    ```typescript
    // Generated
-   export interface ListChannelsRoute {
+   export interface ListHubsRoute {
      method: 'GET';
-     path: '/channels';
-     query: z.infer<typeof ListChannelsSchema>;
-     response: z.infer<typeof ListChannelsResponseSchema>;
+     path: '/hubs';
+     query: z.infer<typeof ListHubsSchema>;
+     response: z.infer<typeof ListHubsResponseSchema>;
      auth: true;
    }
    ```
@@ -64,8 +64,8 @@ These steps establish our source of truth:
    ```typescript
    // Generated
    export class ApiClient {
-     async listChannels(params: ListChannelsQuery): Promise<Channel[]> {
-       return this.get('/channels', { params });
+     async listHubs(params: ListHubsQuery): Promise<Hub[]> {
+       return this.get('/hubs', { params });
      }
    }
    ```

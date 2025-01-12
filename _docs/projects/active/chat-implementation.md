@@ -1,7 +1,7 @@
 # Ephemeral Chat Implementation
 
 ## Request
-Implement ephemeral 1-to-1 chat functionality with consideration for room presence. Users are only available for chat when online and not in a room. Repurpose existing DM section in left sidebar for chat initiation, preparing for eventual three-column layout (chats | channels | rooms).
+Implement ephemeral 1-to-1 chat functionality with consideration for room presence. Users are only available for chat when online and not in a room. Repurpose existing DM section in left sidebar for chat initiation, preparing for eventual three-column layout (chats | hubs | rooms).
 
 ## Status
 - [x] In Assessment

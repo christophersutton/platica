@@ -35,7 +35,7 @@
 - Resource management
 
 ### Communication
-- Channel operations
+- Hub operations
 - Room management
 - Chat functionality
 - Message handling

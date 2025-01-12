@@ -41,7 +41,7 @@ export class WorkspaceRepository extends BaseRepository<Workspace, CreateWorkspa
       SELECT 
         w.*,
         (SELECT COUNT(*) FROM workspace_users wu2 WHERE wu2.workspace_id = w.id) as member_count,
-        (SELECT COUNT(*) FROM channels c WHERE c.workspace_id = w.id) as channel_count
+        (SELECT COUNT(*) FROM hubs c WHERE c.workspace_id = w.id) as hub_count
         ${userId ? ', wu.role' : ''}
       FROM workspaces w
       ${userId ? 'LEFT JOIN workspace_users wu ON w.id = wu.workspace_id AND wu.user_id = ?' : ''}
@@ -59,7 +59,7 @@ export class WorkspaceRepository extends BaseRepository<Workspace, CreateWorkspa
         w.*,
         wu.role,
         (SELECT COUNT(*) FROM workspace_users wu2 WHERE wu2.workspace_id = w.id) as member_count,
-        (SELECT COUNT(*) FROM channels c WHERE c.workspace_id = w.id) as channel_count
+        (SELECT COUNT(*) FROM hubs c WHERE c.workspace_id = w.id) as hub_count
       FROM workspaces w
       JOIN workspace_users wu ON w.id = wu.workspace_id
       WHERE wu.user_id = ?
@@ -155,12 +155,12 @@ export class WorkspaceRepository extends BaseRepository<Workspace, CreateWorkspa
 
   async removeUser(workspaceId: number, userId: number): Promise<void> {
     await this.transaction(async () => {
-      // Remove from channels first
+      // Remove from hubs first
       this.db.prepare(`
-        DELETE FROM channel_members
+        DELETE FROM hub_members
         WHERE user_id = ?
-        AND channel_id IN (
-          SELECT id FROM channels WHERE workspace_id = ?
+        AND hub_id IN (
+          SELECT id FROM hubs WHERE workspace_id = ?
         )
       `).run(userId, workspaceId);
 

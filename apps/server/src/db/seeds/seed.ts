@@ -47,10 +47,12 @@ const CHANNELS = [
   { name: 'random', description: 'Random chatter and fun stuff', isPrivate: false },
   { name: 'engineering', description: 'Technical discussions', isPrivate: false },
   { name: 'design', description: 'Design discussions and feedback', isPrivate: false },
-  { name: 'team-leads', description: 'Private channel for team leads', isPrivate: true },
+  { name: 'team-leads', description: 'Private hub
+ for team leads', isPrivate: true },
 ];
 
-// Different message sets for each channel
+// Different message sets for each hub
+
 const CHANNEL_MESSAGES: Record<string, SeedMessage[]> = {
   general: [
     { content: "Hey everyone! Welcome to our new workspace 👋", sender: 0, type: MessageType.TEXT },
@@ -179,47 +181,52 @@ async function seed() {
         ]);
       });
 
-      // Create channels
-      console.log("Creating channels...");
-      const channelIds = CHANNELS.map(channel => {
+      // Create hubs
+      console.log("Creating hubs...");
+      const hubIds = CHANNELS.map(hub
+ => {
         db.run(`
-          INSERT INTO channels (
+          INSERT INTO hubs (
             workspace_id, name, description, 
             created_by, created_at, updated_at
           )
           VALUES (?, ?, ?, ?, unixepoch(), unixepoch())
-        `, [workspaceId, channel.name, channel.description, testUser.id]);
+        `, [workspaceId, hub
+.name, hub
+.description, testUser.id]);
         
-        const channelResult = db.query("SELECT last_insert_rowid() as id").get() as { id: number };
-        return channelResult.id;
+        const hubResult = db.query("SELECT last_insert_rowid() as id").get() as { id: number };
+        return hubResult.id;
       });
 
-      // Add all users to public channels and admins to private channels
-      console.log("Adding users to channels...");
-      channelIds.forEach((channelId, channelIndex) => {
-        const isPrivate = CHANNELS[channelIndex].isPrivate;
+      // Add all users to public hubs and admins to private hubs
+      console.log("Adding users to hubs...");
+      hubIds.forEach((hubId, hubIndex) => {
+        const isPrivate = CHANNELS[hubIndex].isPrivate;
         const eligibleUsers = isPrivate 
-          ? [testUser.id, ...userIds.slice(0, 2)] // Only admins for private channels
-          : [testUser.id, ...userIds]; // All users for public channels
+          ? [testUser.id, ...userIds.slice(0, 2)] // Only admins for private hubs
+          : [testUser.id, ...userIds]; // All users for public hubs
 
         eligibleUsers.forEach(userId => {
           db.run(`
-            INSERT INTO channel_members (
-              channel_id, user_id, role, unread_mentions,
+            INSERT INTO hub_members (
+              hub_id, user_id, role, unread_mentions,
               created_at, updated_at
             )
             VALUES (?, ?, ?, ?, unixepoch(), unixepoch())
-          `, [channelId, userId, userId === testUser.id ? 'owner' : 'member', 0]);
+          `, [hubId, userId, userId === testUser.id ? 'owner' : 'member', 0]);
         });
       });
 
-      // Add messages to each channel with message types
-      console.log("Adding messages to channels...");
-      channelIds.forEach((channelId, index) => {
-        const channelName = CHANNELS[index].name;
+      // Add messages to each hub
+ with message types
+      console.log("Adding messages to hubs...");
+      hubIds.forEach((hubId, index) => {
+        const hubName = CHANNELS[index].name;
         
-        // Special handling for engineering channel
-        if (channelName === 'engineering') {
+        // Special handling for engineering hub
+
+        if (hubName === 'engineering') {
           const baseTime = Math.floor(Date.now() / 1000) - (24 * 60 * 60); // Start from 24 hours ago
           const timestamps = generateTimestamps(ALL_ENGINEERING_MESSAGES.length, baseTime);
           
@@ -231,13 +238,13 @@ async function seed() {
             // Insert main message
             db.run(`
               INSERT INTO messages (
-                workspace_id, channel_id, sender_id,
+                workspace_id, hub_id, sender_id,
                 content, type, created_at, updated_at
               )
               VALUES (?, ?, ?, ?, ?, ?, ?)
             `, [
               workspaceId,
-              channelId,
+              hubId,
               sender,
               message.content,
               message.type,
@@ -304,14 +311,14 @@ async function seed() {
                 
                 db.run(`
                   INSERT INTO messages (
-                    workspace_id, channel_id, sender_id,
+                    workspace_id, hub_id, sender_id,
                     thread_id, content, type,
                     created_at, updated_at
                   )
                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 `, [
                   workspaceId,
-                  channelId,
+                  hubId,
                   replySender,
                   threadId,
                   reply.content,
@@ -371,21 +378,21 @@ async function seed() {
             }
           });
         } else {
-          // Original message seeding for other channels
-          const messages = CHANNEL_MESSAGES[channelName as keyof typeof CHANNEL_MESSAGES] || [];
+          // Original message seeding for other hubs
+          const messages = CHANNEL_MESSAGES[hubName as keyof typeof CHANNEL_MESSAGES] || [];
           const baseTime = Math.floor(Date.now() / 1000) - (messages.length * 300);
           
           messages.forEach((message: SeedMessage, messageIndex) => {
             const sender = message.sender === 0 ? testUser.id : userIds[message.sender - 1];
             db.run(`
               INSERT INTO messages (
-                workspace_id, channel_id, sender_id,
+                workspace_id, hub_id, sender_id,
                 content, type, created_at, updated_at
               )
               VALUES (?, ?, ?, ?, ?, ?, ?)
             `, [
               workspaceId,
-              channelId,
+              hubId,
               sender,
               message.content,
               message.type,
@@ -400,14 +407,14 @@ async function seed() {
     // Verify the data was inserted
     const counts = {
       users: db.query("SELECT COUNT(*) as count FROM users").get() as { count: number },
-      channels: db.query("SELECT COUNT(*) as count FROM channels").get() as { count: number },
+      hubs: db.query("SELECT COUNT(*) as count FROM hubs").get() as { count: number },
       messages: db.query("SELECT COUNT(*) as count FROM messages").get() as { count: number },
       threads: db.query("SELECT COUNT(DISTINCT thread_id) as count FROM messages WHERE thread_id IS NOT NULL").get() as { count: number }
     };
 
     console.log("✅ Seed complete! Created:");
     console.log(`- ${counts.users.count} users`);
-    console.log(`- ${counts.channels.count} channels`);
+    console.log(`- ${counts.hubs.count} hubs`);
     console.log(`- ${counts.messages.count} messages`);
     console.log(`- ${counts.threads.count} message threads`);
 

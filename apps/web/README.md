@@ -5,7 +5,8 @@ The frontend web application for Platica, built with React, TypeScript, and Tail
 ## Features
 
 - Real-time chat interface
-- Workspace and channel management
+- Workspace and hub
+ management
 - User authentication
 - Responsive design
 - Modern UI components using shadcn/ui

@@ -16,13 +16,14 @@ import {
   useUserPresence,
 } from "@/contexts/presence/PresenceContext";
 import { useWorkspace } from "@/contexts/workspace/WorkspaceContext";
-import { useChannels } from "@/contexts/channel/ChannelContext";
+import { useHubs } from "@/contexts/hub
+/HubContext";
 import { useRoom } from "@/contexts/room/RoomContext";
 import { useMessages } from "@/contexts/message/MessageContext";
 import type { UiMessage } from "@models/message";
 
 const Index = () => {
-  const { workspaceId = "1", channelId } = useParams();
+  const { workspaceId = "1", hubId } = useParams();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState("messages");
@@ -36,44 +37,44 @@ const Index = () => {
     loadWorkspace,
   } = useWorkspace();
   const {
-    channels,
-    channelsById,
-    isLoadingChannels,
+    hubs,
+    hubsById,
+    isLoadingHubs,
     typingUsers,
-    loadChannels,
-    setActiveChannel,
-    markChannelAsRead,
-  } = useChannels();
+    loadHubs,
+    setActiveHub,
+    markHubAsRead,
+  } = useHubs();
   const { state: roomState } = useRoom();
   const {
     isLoadingMessages,
     messageError,
     sendMessage,
     loadMessages,
-    getChannelMessages,
+    getHubMessages,
   } = useMessages();
 
-  const currentChannelId = channelId ? Number(channelId) : 0;
-  const currentChannel = channelsById[currentChannelId];
-  const currentMessages = getChannelMessages(currentChannelId);
-  const currentTypingUsers = typingUsers(currentChannelId);
+  const currentHubId = hubId ? Number(hubId) : 0;
+  const currentHub = hubsById[currentHubId];
+  const currentMessages = getHubMessages(currentHubId);
+  const currentTypingUsers = typingUsers(currentHubId);
 
-  // Once the workspace is ready, load channels
+  // Once the workspace is ready, load hubs
   useEffect(() => {
     const workspaceNum = Number(workspaceId);
     if (
       workspaceState.workspace &&
-      channels.length === 0 &&
-      !isLoadingChannels
+      hubs.length === 0 &&
+      !isLoadingHubs
     ) {
-      loadChannels(workspaceNum);
+      loadHubs(workspaceNum);
     }
   }, [
     workspaceId,
     workspaceState.workspace,
-    channels,
-    isLoadingChannels,
-    loadChannels,
+    hubs,
+    isLoadingHubs,
+    loadHubs,
   ]);
 
   // Only load the workspace (if not already loaded)
@@ -93,30 +94,32 @@ const Index = () => {
     loadWorkspace,
   ]);
 
-  // Once the channel is selected, load messages
+  // Once the hub
+ is selected, load messages
   useEffect(() => {
-    if (!currentChannelId) return;
+    if (!currentHubId) return;
     if (
-      !isLoadingMessages(currentChannelId) &&
-      getChannelMessages(currentChannelId).length === 0
+      !isLoadingMessages(currentHubId) &&
+      getHubMessages(currentHubId).length === 0
     ) {
-      loadMessages(currentChannelId);
-      setActiveChannel(currentChannelId);
+      loadMessages(currentHubId);
+      setActiveHub(currentHubId);
     }
   }, [
-    currentChannelId,
+    currentHubId,
     isLoadingMessages,
-    getChannelMessages,
+    getHubMessages,
     loadMessages,
-    setActiveChannel,
+    setActiveHub,
   ]);
 
-  // Navigate to first channel if none specified
+  // Navigate to first hub
+ if none specified
   useEffect(() => {
-    if (!channelId && !isLoadingChannels && channels.length > 0) {
-      navigate(`/w/${workspaceId}/c/${channels[0].id}`);
+    if (!hubId && !isLoadingHubs && hubs.length > 0) {
+      navigate(`/w/${workspaceId}/c/${hubs[0].id}`);
     }
-  }, [workspaceId, channels, channelId, isLoadingChannels, navigate]);
+  }, [workspaceId, hubs, hubId, isLoadingHubs, navigate]);
 
   // Scroll area logic
   const checkIfAtBottom = useCallback(() => {
@@ -144,7 +147,8 @@ const Index = () => {
         "[data-radix-scroll-area-viewport]"
       ) as HTMLElement;
       if (container) {
-        // If newly arriving at a channel, auto-scroll to bottom
+        // If newly arriving at a hub
+, auto-scroll to bottom
         if (isAtBottom) {
           container.scrollTop = container.scrollHeight;
         }
@@ -152,14 +156,15 @@ const Index = () => {
         return () => container.removeEventListener("scroll", handleScroll);
       }
     }
-  }, [currentMessages, currentChannelId, handleScroll, isAtBottom]);
+  }, [currentMessages, currentHubId, handleScroll, isAtBottom]);
 
-  // Mark channel as read when at bottom
+  // Mark hub
+ as read when at bottom
   useEffect(() => {
-    if (isAtBottom && currentChannelId) {
-      markChannelAsRead(currentChannelId);
+    if (isAtBottom && currentHubId) {
+      markHubAsRead(currentHubId);
     }
-  }, [isAtBottom, currentChannelId, markChannelAsRead]);
+  }, [isAtBottom, currentHubId, markHubAsRead]);
 
   // Show workspace loading
   if (workspaceState.isLoadingWorkspace) {
@@ -190,8 +195,8 @@ const Index = () => {
   }
 
   const handleSendMessage = (content: string) => {
-    if (currentChannel) {
-      sendMessage(currentChannelId, content);
+    if (currentHub) {
+      sendMessage(currentHubId, content);
     }
   };
 
@@ -202,7 +207,8 @@ const Index = () => {
         <div className="border-b border-gray-200">
           <div className="p-4 flex justify-between items-center">
             <h1 className="text-xl font-semibold">
-              {currentChannel ? `#${currentChannel.name}` : "Select a channel"}
+              {currentHub ? `#${currentHub.name}` : "Select a hub
+"}
             </h1>
             <Tabs
               value={activeTab}
@@ -267,7 +273,8 @@ const Index = () => {
                     })
                   ) : (
                     <div className="text-sm text-gray-500">
-                      No active members in this channel
+                      No active members in this hub
+
                     </div>
                   )}
                 </div>
@@ -279,11 +286,11 @@ const Index = () => {
             <div className="h-full flex flex-col">
               <ScrollArea ref={scrollAreaRef} className="flex-1">
                 <div className="p-4 space-y-4">
-                  {isLoadingMessages(currentChannelId) ? (
+                  {isLoadingMessages(currentHubId) ? (
                     <div>Loading messages...</div>
-                  ) : messageError(currentChannelId) ? (
+                  ) : messageError(currentHubId) ? (
                     <div className="text-red-600">
-                      {messageError(currentChannelId)?.message}
+                      {messageError(currentHubId)?.message}
                     </div>
                   ) : currentMessages && currentMessages.length > 0 ? (
                     currentMessages.map((msg: UiMessage) => {
@@ -298,16 +305,17 @@ const Index = () => {
                     })
                   ) : (
                     <div className="text-sm text-gray-500">
-                      No messages in this channel yet
+                      No messages in this hub
+ yet
                     </div>
                   )}
                 </div>
               </ScrollArea>
               <div className="p-4 border-t border-gray-200">
                 <ChatInput
-                  channelId={currentChannelId}
+                  hubId={currentHubId}
                   onSendMessage={handleSendMessage}
-                  disabled={!currentChannel}
+                  disabled={!currentHub}
                 />
               </div>
             </div>

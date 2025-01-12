@@ -1,6 +1,7 @@
 import type { UnixTimestamp, ValidatedUnixTimestamp } from '@types'
 import type { User } from '@models/user'
-import type { Channel } from '@models/channel'
+import type { Hub } from '@models/hub
+'
 import type { Workspace } from '@models/workspace'
 import type { BaseModel } from '@models/base'
 
@@ -9,7 +10,7 @@ import type { BaseModel } from '@models/base'
  */
 export interface Message extends BaseModel {
   workspaceId: Workspace['id']
-  channelId: Channel['id']
+  hubId: Hub['id']
   content: string
   threadId?: Message['id']  // Self-referential for thread parent
   isEdited: boolean
@@ -25,7 +26,8 @@ export interface Message extends BaseModel {
  * API-specific Message type with additional metadata
  */
 export interface ApiMessage extends Message {
-  channel?: Channel
+  hub
+?: Hub
   reactionCount: number
   replyCount: number
   hasThread: boolean
@@ -52,7 +54,7 @@ export interface UiMessage extends ApiMessage {
 export interface MessageRow {
   id: number
   workspace_id: Workspace['id']
-  channel_id: Channel['id']
+  hub_id: Hub['id']
   sender_id: User['id']
   thread_id?: Message['id']
   content: string
@@ -71,7 +73,7 @@ export interface MessageRow {
  */
 export type CreateMessageDTO = {
   workspaceId: Workspace['id']
-  channelId: Channel['id']
+  hubId: Hub['id']
   content: string
   senderId: User['id']
   threadId?: Message['id']

@@ -22,21 +22,21 @@ interface MessageContextValue {
   // State
   messages: UiMessage[];
   messagesById: Record<number, UiMessage>;
-  activeChannelId: number | null;
-  isLoadingMessages: (channelId: number) => boolean;
+  activeHubId: number | null;
+  isLoadingMessages: (hubId: number) => boolean;
   isSendingMessage: boolean;
-  messageError: (channelId: number) => Error | null;
+  messageError: (hubId: number) => Error | null;
   sendingError: Error | null;
-  hasMoreMessages: (channelId: number) => boolean;
+  hasMoreMessages: (hubId: number) => boolean;
 
   // Actions
   loadMessages: (
-    channelId: number,
+    hubId: number,
     options?: { before?: number }
   ) => Promise<void>;
-  sendMessage: (channelId: number, content: string) => void;
-  setActiveChannel: (channelId: number | null) => void;
-  getChannelMessages: (channelId: number) => UiMessage[];
+  sendMessage: (hubId: number, content: string) => void;
+  setActiveHub: (hubId: number | null) => void;
+  getHubMessages: (hubId: number) => UiMessage[];
   getMessageById: (messageId: number) => UiMessage | undefined;
 }
 
@@ -66,31 +66,31 @@ export function MessageProvider({ children }: { children: React.ReactNode }) {
   }, [subscribe]);
 
   const loadMessages = useCallback(
-    async (channelId: number, options?: { before?: number }) => {
+    async (hubId: number, options?: { before?: number }) => {
       if (!token || isAuthLoading) {
         return;
       }
 
       // Check if we're already loading messages
-      if (state.loading.channels[channelId]) {
+      if (state.loading.hubs[hubId]) {
         return;
       }
 
       // If we already have messages and no pagination param, skip
-      const existingMessages = state.channelMessages[channelId] || [];
+      const existingMessages = state.hubMessages[hubId] || [];
       if (existingMessages.length > 0 && !options?.before) {
         return;
       }
 
-      dispatch({ type: "SET_CHANNEL_LOADING", payload: { channelId } });
+      dispatch({ type: "SET_CHANNEL_LOADING", payload: { hubId } });
 
       try {
-        const response = await api.channels.getMessages(channelId);
+        const response = await api.hubs.getMessages(hubId);
         if (response.messages && response.messages.length > 0) {
           dispatch({
             type: "SET_CHANNEL_MESSAGES",
             payload: {
-              channelId,
+              hubId,
               messages: response.messages,
             },
           });
@@ -99,7 +99,7 @@ export function MessageProvider({ children }: { children: React.ReactNode }) {
           dispatch({
             type: "SET_PAGINATION",
             payload: {
-              channelId,
+              hubId,
               hasMore: response.messages.length === 50,
               lastMessageId:
                 response.messages[response.messages.length - 1]?.id || null,
@@ -110,7 +110,7 @@ export function MessageProvider({ children }: { children: React.ReactNode }) {
           dispatch({
             type: "SET_CHANNEL_MESSAGES",
             payload: {
-              channelId,
+              hubId,
               messages: [],
             },
           });
@@ -119,17 +119,17 @@ export function MessageProvider({ children }: { children: React.ReactNode }) {
         dispatch({
           type: "SET_CHANNEL_ERROR",
           payload: {
-            channelId,
+            hubId,
             error: error as Error,
           },
         });
       }
     },
-    [token, isAuthLoading, state.loading.channels, state.channelMessages]
+    [token, isAuthLoading, state.loading.hubs, state.hubMessages]
   );
 
   const sendMessage = useCallback(
-    (channelId: number, content: string) => {
+    (hubId: number, content: string) => {
       if (!token || isAuthLoading || !content.trim() || !user || !workspace)
         return;
 
@@ -140,7 +140,7 @@ export function MessageProvider({ children }: { children: React.ReactNode }) {
           type: WSEventType.CHAT,
           payload: {
             workspaceId: workspace.id,
-            channelId,
+            hubId,
             content: content.trim(),
             senderId: user.id,
           },
@@ -165,18 +165,18 @@ export function MessageProvider({ children }: { children: React.ReactNode }) {
     [token, isAuthLoading, user, workspace, send]
   );
 
-  const setActiveChannel = useCallback((channelId: number | null) => {
-    dispatch({ type: "SET_ACTIVE_CHANNEL", payload: channelId });
+  const setActiveHub = useCallback((hubId: number | null) => {
+    dispatch({ type: "SET_ACTIVE_CHANNEL", payload: hubId });
   }, []);
 
-  const getChannelMessages = useCallback(
-    (channelId: number): UiMessage[] => {
-      const messageIds = state.channelMessages[channelId] || [];
+  const getHubMessages = useCallback(
+    (hubId: number): UiMessage[] => {
+      const messageIds = state.hubMessages[hubId] || [];
       return messageIds
         .map((id) => state.byId[id])
         .filter((msg): msg is UiMessage => msg !== undefined);
     },
-    [state.channelMessages, state.byId]
+    [state.hubMessages, state.byId]
   );
 
   const getMessageById = useCallback(
@@ -187,22 +187,22 @@ export function MessageProvider({ children }: { children: React.ReactNode }) {
   );
 
   const isLoadingMessages = useCallback(
-    (channelId: number): boolean => {
-      return !!state.loading.channels[channelId];
+    (hubId: number): boolean => {
+      return !!state.loading.hubs[hubId];
     },
-    [state.loading.channels]
+    [state.loading.hubs]
   );
 
   const messageError = useCallback(
-    (channelId: number): Error | null => {
-      return state.errors.channels[channelId] || null;
+    (hubId: number): Error | null => {
+      return state.errors.hubs[hubId] || null;
     },
-    [state.errors.channels]
+    [state.errors.hubs]
   );
 
   const hasMoreMessages = useCallback(
-    (channelId: number): boolean => {
-      return !!state.pagination.hasMore[channelId];
+    (hubId: number): boolean => {
+      return !!state.pagination.hasMore[hubId];
     },
     [state.pagination.hasMore]
   );
@@ -210,7 +210,7 @@ export function MessageProvider({ children }: { children: React.ReactNode }) {
   const value: MessageContextValue = {
     messages: Object.values(state.byId),
     messagesById: state.byId,
-    activeChannelId: state.activeChannelId,
+    activeHubId: state.activeHubId,
     isLoadingMessages,
     isSendingMessage: state.loading.sending,
     messageError,
@@ -218,8 +218,8 @@ export function MessageProvider({ children }: { children: React.ReactNode }) {
     hasMoreMessages,
     loadMessages,
     sendMessage,
-    setActiveChannel,
-    getChannelMessages,
+    setActiveHub,
+    getHubMessages,
     getMessageById,
   };
 

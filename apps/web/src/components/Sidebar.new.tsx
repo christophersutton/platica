@@ -3,12 +3,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChevronDown, ChevronLeft, Hash, Plus, Clock, User, Settings, LogOut } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { CreateChannelModal } from "./CreateChannelModal";
+import { CreateHubModal } from "./CreateHubModal";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
 // import { useAppContext } from "@/contexts/AppContext";
-import { useChannels } from "@/contexts/channel/ChannelContext";
-import type { Channel } from '@models/channel';
+import { useHubs } from "@/contexts/hub
+/HubContext";
+import type { Hub } from '@models/hub
+';
 
 interface PresenceUser {
   id: number;
@@ -17,13 +19,14 @@ interface PresenceUser {
 
 export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const { workspaceId = "1", channelId } = useParams();
+  const { workspaceId = "1", hubId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   // const { state } = useAppContext();
   
-  // Use new channel context
-  const { channels, isLoadingChannels } = useChannels();
+  // Use new hub
+ context
+  const { hubs, isLoadingHubs } = useHubs();
 
   // // Filter out current user from presence list for DMs (still from AppContext for now)
   // const onlineUsers: PresenceUser[] = Object.entries(state.presenceMap)
@@ -64,38 +67,46 @@ export function Sidebar() {
         <div className="py-1">
           <div className="mb-2">
             <div className="flex items-center justify-between mb-0.5 px-1">
-              {!isCollapsed && <h2 className="text-white font-semibold text-xs">Channels</h2>}
-              <CreateChannelModal />
+              {!isCollapsed && <h2 className="text-white font-semibold text-xs">Hubs</h2>}
+              <CreateHubModal />
             </div>
-            {isLoadingChannels ? (
+            {isLoadingHubs ? (
               Array.from({ length: 3 }).map((_, i) => (
                 <div
                   key={i}
                   className="h-7 mb-0.5 px-1.5 animate-pulse bg-slack-purple-dark/50 rounded"
                 />
               ))
-            ) : channels?.map((channel) => (
+            ) : hubs?.map((hub
+) => (
                 <Button
-                  key={channel.id}
+                  key={hub
+.id}
                   variant="ghost"
                   className={cn(
                     "w-full justify-start text-gray-300 hover:text-white hover:font-semibold mb-0.5 py-1 px-1.5 h-7 text-base relative overflow-hidden",
                     "transition-colors duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
                     isCollapsed && "px-1.5",
-                    Number(channelId) === channel.id && "bg-slack-purple-dark text-white font-semibold",
+                    Number(hubId) === hub
+.id && "bg-slack-purple-dark text-white font-semibold",
                     "hover:bg-slack-purple-dark/50"
                   )}
-                  onClick={() => navigate(`/w/${workspaceId}/c/${channel.id}`)}
+                  onClick={() => navigate(`/w/${workspaceId}/c/${hub
+.id}`)}
                 >
                   <Hash className="h-3.5 w-3.5 mr-0" />
                   {!isCollapsed && (
                     <div className="flex items-center justify-between w-full">
                       <span className={cn(
                         "ml-0",
-                        // Boolean(channel.has_unread) && Number(channel.id) !== Number(channelId) && "font-bold text-white",
-                        Number(channelId) === channel.id && "font-normal"
+                        // Boolean(hub
+.has_unread) && Number(hub
+.id) !== Number(hubId) && "font-bold text-white",
+                        Number(hubId) === hub
+.id && "font-normal"
                       )}>
-                        {channel.name}
+                        {hub
+.name}
                       </span>
                     </div>
                   )}
@@ -110,7 +121,7 @@ export function Sidebar() {
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
-            {isLoadingChannels ? (
+            {isLoadingHubs ? (
               Array.from({ length: 3 }).map((_, i) => (
                 <div
                   key={i}

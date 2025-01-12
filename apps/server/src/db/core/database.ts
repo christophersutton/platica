@@ -117,7 +117,7 @@ export class DatabaseService {
       this.statements.set(
         'insertMessage',
         this.db.prepare(`
-          INSERT INTO messages (id, channel_id, workspace_id, sender_id, content, created_at)
+          INSERT INTO messages (id, hub_id, workspace_id, sender_id, content, created_at)
           VALUES (?, ?, ?, ?, ?, ?)
         `)
       );
@@ -134,12 +134,12 @@ export class DatabaseService {
 
     // Read statements (for all services)
     this.statements.set(
-      'getChannelMessages',
+      'getHubMessages',
       this.db.prepare(`
         SELECT m.*, u.name as user_name
         FROM messages m
         JOIN users u ON m.sender_id = u.id
-        WHERE m.channel_id = ?
+        WHERE m.hub_id = ?
         AND m.deleted_at IS NULL
         ORDER BY m.created_at DESC
         LIMIT ?

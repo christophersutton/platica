@@ -19,18 +19,19 @@ This directory contains the complete technical documentation for Platica, a next
 ## Key Concepts Quick Reference
 
 ### Communication Spaces
-- **Channels**: Public, persistent knowledge streams
+- **Hubs**: Public, persistent knowledge streams
 - **Rooms**: Time-boxed collaborative environments
 - **Chats**: Ephemeral direct communication
 
 ### Artifacts
-- **Minutes**: Automated summaries of channel activity or meetings
+- **Minutes**: Automated summaries of hub
+ activity or meetings
 - **Memos**: Permanent knowledge documents
 - **Bulletins**: Official announcements
 
 ### Roles
 - **Administrators**: Platform governance
-- **Moderators**: Channel management
+- **Moderators**: Hub management
 - **Members**: Regular users
 - **Secretaries**: AI assistants
 

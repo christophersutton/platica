@@ -7,7 +7,7 @@ Implement push notifications system to improve user engagement and real-time com
 - Set up push notification service
 - Implement notification management system
 - Create notification preferences UI
-- Add support for multiple notification channels
+- Add support for multiple notification hubs
 
 ## Tasks
 1. Infrastructure Setup

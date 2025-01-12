@@ -1,5 +1,6 @@
 import type { User } from '@models/user';
-import type { Channel, ChannelMember } from '@models/channel';
+import type { Hub, HubMember } from '@models/hub
+';
 import type { ApiMessage, Message } from '@models/message';
 import type { Workspace } from '@models/workspace';
 import type { ApiWorkspaceUser } from '@models/user';
@@ -71,46 +72,47 @@ export const api = {
     },
   },
   
-  channels: {
+  hubs: {
     list: (workspaceId: number) => 
-      fetchApi<{ channels: Channel[] }>(`/workspaces/${workspaceId}/channels`),
+      fetchApi<{ hubs: Hub[] }>(`/workspaces/${workspaceId}/hubs`),
     
     create: (workspaceId: number, data: { name: string; description?: string; is_private?: boolean }) =>
-      fetchApi<{ channel: Channel }>(`/workspaces/${workspaceId}/channels`, {
+      fetchApi<{ hub
+: Hub }>(`/workspaces/${workspaceId}/hubs`, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
 
-    getMessages: (channelId: number) =>
-      fetchApi<{ messages: ApiMessage[] }>(`/channels/${channelId}/messages`),
+    getMessages: (hubId: number) =>
+      fetchApi<{ messages: ApiMessage[] }>(`/hubs/${hubId}/messages`),
 
-    markRead: (channelId: number) =>
-      fetchApi<{ success: boolean }>(`/channels/${channelId}/messages/read`, {
+    markRead: (hubId: number) =>
+      fetchApi<{ success: boolean }>(`/hubs/${hubId}/messages/read`, {
         method: 'POST'
       }),
 
-    markAsRead: (channelId: number) =>
-      fetchApi<void>(`/channels/${channelId}/read`, {
+    markAsRead: (hubId: number) =>
+      fetchApi<void>(`/hubs/${hubId}/read`, {
         method: 'POST'
       }),
 
     members: {
-      list: (channelId: number) =>
-        fetchApi<{ members: ChannelMember[] }>(`/channels/${channelId}/members`),
+      list: (hubId: number) =>
+        fetchApi<{ members: HubMember[] }>(`/hubs/${hubId}/members`),
 
-      add: (channelId: number, data: { userId: number; role?: string }) =>
-        fetchApi<{ success: boolean }>(`/channels/${channelId}/members`, {
+      add: (hubId: number, data: { userId: number; role?: string }) =>
+        fetchApi<{ success: boolean }>(`/hubs/${hubId}/members`, {
           method: 'POST',
           body: JSON.stringify(data),
         }),
 
-      remove: (channelId: number, userId: number) =>
-        fetchApi<{ success: boolean }>(`/channels/${channelId}/members/${userId}`, {
+      remove: (hubId: number, userId: number) =>
+        fetchApi<{ success: boolean }>(`/hubs/${hubId}/members/${userId}`, {
           method: 'DELETE'
         }),
 
-      update: (channelId: number, userId: number, data: { role: string }) =>
-        fetchApi<{ success: boolean }>(`/channels/${channelId}/members/${userId}`, {
+      update: (hubId: number, userId: number, data: { role: string }) =>
+        fetchApi<{ success: boolean }>(`/hubs/${hubId}/members/${userId}`, {
           method: 'PATCH',
           body: JSON.stringify(data),
         })
@@ -130,4 +132,4 @@ export const api = {
 };
 
 // Export types that other components might need
-export type { Message, User, Workspace, Channel, ApiWorkspaceUser };
+export type { Message, User, Workspace, Hub, ApiWorkspaceUser };

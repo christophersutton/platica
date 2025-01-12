@@ -1,259 +1,232 @@
--- Database Schema
+BEGIN TRANSACTION;
 
--- Drop existing tables if they exist
-DROP TABLE IF EXISTS mentions;
-DROP TABLE IF EXISTS files;
-DROP TABLE IF EXISTS reactions;
-DROP TABLE IF EXISTS direct_messages;
-DROP TABLE IF EXISTS messages;
-DROP TABLE IF EXISTS channel_members;
-DROP TABLE IF EXISTS channels;
-DROP TABLE IF EXISTS workspace_users;
-DROP TABLE IF EXISTS auth_tokens;
-DROP TABLE IF EXISTS workspace_invites;
-DROP TABLE IF EXISTS channel_invites;
-DROP TABLE IF EXISTS users;
-DROP TABLE IF EXISTS workspaces;
-DROP TABLE IF EXISTS rooms;
-DROP TABLE IF EXISTS room_members;
+-- =====================================
+-- USERS
+-- =====================================
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  role TEXT NOT NULL, -- 'administrator', 'moderator', 'member', 'secretary'
 
--- Core Tables
+  -- Presence
+  presence_is_online BOOLEAN NOT NULL DEFAULT 0,
+  presence_door_status TEXT NOT NULL DEFAULT 'closed',
+  presence_location_type TEXT NOT NULL DEFAULT 'none',
+  presence_location_id TEXT DEFAULT NULL,
+  presence_last_active TEXT NOT NULL,
 
--- Users table (no dependencies)
-CREATE TABLE users (
-    id INTEGER PRIMARY KEY,
-    email TEXT UNIQUE NOT NULL,
-    name TEXT NOT NULL,
-    avatar_url TEXT,
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
+  -- Notification Preferences
+  notification_preferences_email BOOLEAN NOT NULL DEFAULT 1,
+  notification_preferences_push BOOLEAN NOT NULL DEFAULT 1,
+  notification_preferences_sms BOOLEAN NOT NULL DEFAULT 0,
+
+  -- Lifecycle + Auth
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  deactivated_at TEXT DEFAULT NULL,
+  sso_provider TEXT,
+  sso_id TEXT,
+
+  -- Assigned Secretary
+  assigned_secretary_id TEXT NOT NULL,  -- references a user with role=secretary
+
+  FOREIGN KEY (assigned_secretary_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
--- Auth tokens table (depends on users)
-CREATE TABLE auth_tokens (
-    id INTEGER PRIMARY KEY,
-    token TEXT UNIQUE NOT NULL,
-    user_id INTEGER NOT NULL,
-    expires_at INTEGER NOT NULL,
-    used BOOLEAN NOT NULL DEFAULT false,
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users (id)
+-- =====================================
+-- SECRETARIES
+-- =====================================
+CREATE TABLE IF NOT EXISTS secretaries (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,  -- references users(id), role='secretary'
+  name TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Workspaces table (no dependencies)
-CREATE TABLE workspaces (
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL,
-    slug TEXT NOT NULL UNIQUE,
-    owner_id INTEGER NOT NULL,
-    icon_url TEXT,
-    file_size_limit INTEGER,
-    default_message_retention_days INTEGER,
-    notification_defaults TEXT,
-    settings TEXT NOT NULL DEFAULT '{}',
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    FOREIGN KEY (owner_id) REFERENCES users (id)
+-- =====================================
+-- HUBS
+-- =====================================
+CREATE TABLE IF NOT EXISTS hubs (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  expiration_policy TEXT NOT NULL, -- e.g. '1d', '2d', '1w', '2w'
+  secretary_enabled BOOLEAN NOT NULL DEFAULT 1,
+  is_invite_only BOOLEAN NOT NULL DEFAULT 0,
+
+  -- The permanent assigned secretary for this hub
+  assigned_secretary_id TEXT NOT NULL, -- references users(id) with role=secretary
+
+  FOREIGN KEY (assigned_secretary_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
--- Workspace invites table
-CREATE TABLE workspace_invites (
-    id INTEGER PRIMARY KEY,
-    workspace_id INTEGER NOT NULL,
-    inviter_id INTEGER NOT NULL,
-    email TEXT NOT NULL,
-    role TEXT NOT NULL, -- 'owner', 'admin', 'member', 'guest'
-    status TEXT NOT NULL, -- 'pending', 'accepted', 'rejected'
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    FOREIGN KEY (workspace_id) REFERENCES workspaces (id),
-    FOREIGN KEY (inviter_id) REFERENCES users (id)
+-- =====================================
+-- HUB MODERATORS (Pivot)
+-- =====================================
+CREATE TABLE IF NOT EXISTS hub_moderators (
+  hub_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  PRIMARY KEY (hub_id, user_id),
+  FOREIGN KEY (hub_id) REFERENCES hubs(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Channel invites table
-CREATE TABLE channel_invites (
-    id INTEGER PRIMARY KEY,
-    channel_id INTEGER NOT NULL,
-    inviter_id INTEGER NOT NULL,
-    invitee_id INTEGER NOT NULL,
-    status TEXT NOT NULL, -- 'pending', 'accepted', 'rejected'
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    FOREIGN KEY (channel_id) REFERENCES channels (id),
-    FOREIGN KEY (inviter_id) REFERENCES users (id),
-    FOREIGN KEY (invitee_id) REFERENCES users (id)
+-- =====================================
+-- ROOMS
+-- =====================================
+CREATE TABLE IF NOT EXISTS rooms (
+  id TEXT PRIMARY KEY,
+  hub_id TEXT,
+  topic TEXT,
+  created_by TEXT NOT NULL,      -- userId
+  start_time TEXT,
+  end_time TEXT,
+  is_active BOOLEAN NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+
+  -- Potential assigned secretary if needed
+  secretary_id TEXT,
+
+  FOREIGN KEY (hub_id) REFERENCES hubs(id) ON DELETE SET NULL,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (secretary_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
--- Workspace users table
-CREATE TABLE workspace_users (
-    workspace_id INTEGER NOT NULL,
-    user_id INTEGER NOT NULL,
-    role TEXT NOT NULL, -- 'owner', 'admin', 'member', 'guest'
-    display_name TEXT,
-    status TEXT,
-    status_message TEXT,
-    notification_preferences TEXT,
-    settings TEXT NOT NULL DEFAULT '{}',
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    PRIMARY KEY (workspace_id, user_id),
-    FOREIGN KEY (workspace_id) REFERENCES workspaces (id),
-    FOREIGN KEY (user_id) REFERENCES users (id)
+-- =====================================
+-- ROOM PARTICIPANTS (Pivot)
+-- =====================================
+CREATE TABLE IF NOT EXISTS room_participants (
+  room_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  PRIMARY KEY(room_id, user_id),
+  FOREIGN KEY(room_id) REFERENCES rooms(id) ON DELETE CASCADE,
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Channels table
-CREATE TABLE channels (
-    id INTEGER PRIMARY KEY,
-    workspace_id INTEGER NOT NULL,
-    name TEXT NOT NULL,
-    description TEXT,
-    topic TEXT,
-    is_archived BOOLEAN NOT NULL DEFAULT false,
-    created_by INTEGER NOT NULL,
-    settings TEXT NOT NULL DEFAULT '{}',
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    FOREIGN KEY (workspace_id) REFERENCES workspaces (id),
-    FOREIGN KEY (created_by) REFERENCES users (id)
+-- =====================================
+-- MESSAGES (Hub or Room)
+-- =====================================
+CREATE TABLE IF NOT EXISTS messages (
+  id TEXT PRIMARY KEY,
+  hub_id TEXT,
+  room_id TEXT,
+  sender_id TEXT NOT NULL,
+  content TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT,
+  deleted_at TEXT,
+  FOREIGN KEY (hub_id) REFERENCES hubs(id) ON DELETE CASCADE,
+  FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
+  FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Channel members table
-CREATE TABLE channel_members (
-    channel_id INTEGER NOT NULL,
-    user_id INTEGER NOT NULL,
-    role TEXT NOT NULL DEFAULT 'member', -- 'owner', 'admin', 'member'
-    last_read_at INTEGER,
-    unread_mentions INTEGER NOT NULL DEFAULT 0,
-    settings TEXT NOT NULL DEFAULT '{}',
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    PRIMARY KEY (channel_id, user_id),
-    FOREIGN KEY (channel_id) REFERENCES channels (id),
-    FOREIGN KEY (user_id) REFERENCES users (id)
+-- =====================================
+-- ATTACHMENTS
+-- =====================================
+CREATE TABLE IF NOT EXISTS attachments (
+  id TEXT PRIMARY KEY,
+  filename TEXT NOT NULL,
+  url TEXT NOT NULL,
+  mimeType TEXT NOT NULL,
+  uploaded_by TEXT NOT NULL,
+  uploaded_at TEXT NOT NULL,
+  FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Messages table
-CREATE TABLE messages (
-    id INTEGER PRIMARY KEY,
-    workspace_id INTEGER NOT NULL,
-    channel_id INTEGER,           -- NULL for DMs
-    sender_id INTEGER NOT NULL,
-    thread_id INTEGER,            -- NULL for top-level messages
-    content TEXT NOT NULL,
-    type TEXT,                    -- Message type enum
-    is_edited BOOLEAN NOT NULL DEFAULT false,
-    attachments TEXT,
-    edited_at INTEGER,
-    deleted_at INTEGER,           -- Soft delete
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    FOREIGN KEY (workspace_id) REFERENCES workspaces (id),
-    FOREIGN KEY (channel_id) REFERENCES channels (id),
-    FOREIGN KEY (sender_id) REFERENCES users (id),
-    FOREIGN KEY (thread_id) REFERENCES messages (id)
+-- =====================================
+-- MESSAGE -> ATTACHMENTS (Pivot)
+-- =====================================
+CREATE TABLE IF NOT EXISTS message_attachments (
+  message_id TEXT NOT NULL,
+  attachment_id TEXT NOT NULL,
+  PRIMARY KEY (message_id, attachment_id),
+  FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+  FOREIGN KEY (attachment_id) REFERENCES attachments(id) ON DELETE CASCADE
 );
 
--- Direct messages table
-CREATE TABLE direct_messages (
-    workspace_id INTEGER NOT NULL,
-    user1_id INTEGER NOT NULL,
-    user2_id INTEGER NOT NULL,
-    created_at INTEGER NOT NULL,
-    PRIMARY KEY (workspace_id, user1_id, user2_id),
-    FOREIGN KEY (workspace_id) REFERENCES workspaces (id),
-    FOREIGN KEY (user1_id) REFERENCES users (id),
-    FOREIGN KEY (user2_id) REFERENCES users (id)
+-- =====================================
+-- BULLETINS
+-- =====================================
+CREATE TABLE IF NOT EXISTS bulletins (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  content TEXT,
+  mediaUrl TEXT,
+  posted_by TEXT NOT NULL,
+  hub_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT,
+  FOREIGN KEY (posted_by) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (hub_id) REFERENCES hubs(id) ON DELETE CASCADE
 );
 
--- Reactions table
-CREATE TABLE reactions (
-    message_id INTEGER NOT NULL,
-    user_id INTEGER NOT NULL,
-    emoji TEXT NOT NULL,
-    created_at INTEGER NOT NULL,
-    PRIMARY KEY (message_id, user_id, emoji),
-    FOREIGN KEY (message_id) REFERENCES messages (id),
-    FOREIGN KEY (user_id) REFERENCES users (id)
+-- =====================================
+-- BULLETIN -> ATTACHMENTS (Pivot)
+-- =====================================
+CREATE TABLE IF NOT EXISTS bulletin_attachments (
+  bulletin_id TEXT NOT NULL,
+  attachment_id TEXT NOT NULL,
+  PRIMARY KEY (bulletin_id, attachment_id),
+  FOREIGN KEY (bulletin_id) REFERENCES bulletins(id) ON DELETE CASCADE,
+  FOREIGN KEY (attachment_id) REFERENCES attachments(id) ON DELETE CASCADE
 );
 
--- Files table
-CREATE TABLE files (
-    id INTEGER PRIMARY KEY,
-    workspace_id INTEGER NOT NULL,
-    uploader_id INTEGER NOT NULL,
-    message_id INTEGER NOT NULL,
-    name TEXT NOT NULL,
-    size INTEGER NOT NULL,
-    mime_type TEXT NOT NULL,
-    s3_key TEXT NOT NULL,
-    deleted_at INTEGER,           -- Soft delete
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    FOREIGN KEY (workspace_id) REFERENCES workspaces (id),
-    FOREIGN KEY (uploader_id) REFERENCES users (id),
-    FOREIGN KEY (message_id) REFERENCES messages (id)
+-- =====================================
+-- MEMOS
+-- =====================================
+CREATE TABLE IF NOT EXISTS memos (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  author_id TEXT NOT NULL,   -- can be a secretary or regular user
+  signed_by TEXT NOT NULL,   -- must be a non-secretary user (app logic)
+  created_at TEXT NOT NULL,
+  updated_at TEXT,
+  FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (signed_by) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Rooms table
-CREATE TABLE rooms (
-    id INTEGER PRIMARY KEY,
-    workspace_id INTEGER NOT NULL,
-    name TEXT NOT NULL,
-    description TEXT,
-    scheduled_start INTEGER NOT NULL,
-    scheduled_end INTEGER NOT NULL,
-    started_at INTEGER,
-    ended_at INTEGER,
-    status TEXT NOT NULL,
-    created_by INTEGER NOT NULL,
-    settings TEXT NOT NULL DEFAULT '{}',
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    deleted_at INTEGER,
-    FOREIGN KEY (workspace_id) REFERENCES workspaces (id),
-    FOREIGN KEY (created_by) REFERENCES users (id)
+-- =====================================
+-- MEMO TAGS (Pivot)
+-- =====================================
+CREATE TABLE IF NOT EXISTS memo_tags (
+  memo_id TEXT NOT NULL,
+  tag TEXT NOT NULL,
+  PRIMARY KEY (memo_id, tag),
+  FOREIGN KEY (memo_id) REFERENCES memos(id) ON DELETE CASCADE
 );
 
--- Room members table
-CREATE TABLE room_members (
-    id INTEGER PRIMARY KEY,
-    room_id INTEGER NOT NULL,
-    user_id INTEGER NOT NULL,
-    role TEXT NOT NULL,
-    joined_at INTEGER NOT NULL,
-    left_at INTEGER,
-    state TEXT NOT NULL DEFAULT '{}',
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    FOREIGN KEY (room_id) REFERENCES rooms (id),
-    FOREIGN KEY (user_id) REFERENCES users (id)
+-- =====================================
+-- MINUTES
+-- =====================================
+CREATE TABLE IF NOT EXISTS minutes (
+  id TEXT PRIMARY KEY,
+  hub_id TEXT,
+  room_id TEXT,
+  generated_by TEXT NOT NULL,  -- must be user w/ role=secretary
+  content TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (hub_id) REFERENCES hubs(id) ON DELETE CASCADE,
+  FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
+  FOREIGN KEY (generated_by) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Mentions table
-CREATE TABLE mentions (
-    message_id INTEGER NOT NULL,
-    user_id INTEGER NOT NULL,
-    created_at INTEGER NOT NULL,
-    PRIMARY KEY (message_id, user_id),
-    FOREIGN KEY (message_id) REFERENCES messages (id),
-    FOREIGN KEY (user_id) REFERENCES users (id)
+-- =====================================
+-- EVENTS
+-- =====================================
+CREATE TABLE IF NOT EXISTS events (
+  event_id TEXT PRIMARY KEY,
+  event_type TEXT NOT NULL,
+  payload TEXT,
+  timestamp TEXT NOT NULL,
+  triggered_by TEXT,
+  FOREIGN KEY (triggered_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
--- Performance indexes
-CREATE INDEX idx_messages_channel_created ON messages(channel_id, created_at);
-CREATE INDEX idx_messages_workspace_created ON messages(workspace_id, created_at);
-CREATE INDEX idx_messages_thread_created ON messages(thread_id, created_at);
-CREATE INDEX idx_channel_members_user ON channel_members(user_id);
-CREATE INDEX idx_files_workspace ON files(workspace_id);
-CREATE INDEX idx_mentions_user ON mentions(user_id);
-CREATE INDEX idx_workspace_users_user ON workspace_users(user_id);
-CREATE INDEX idx_messages_type ON messages(type);
-CREATE INDEX idx_files_message ON files(message_id);
-
--- Room indexes
-CREATE INDEX idx_rooms_workspace ON rooms(workspace_id);
-CREATE INDEX idx_rooms_status ON rooms(status);
-CREATE INDEX idx_rooms_scheduled ON rooms(scheduled_start);
-CREATE INDEX idx_room_members_user ON room_members(user_id);
-CREATE INDEX idx_room_members_active ON room_members(room_id, left_at);
+COMMIT;

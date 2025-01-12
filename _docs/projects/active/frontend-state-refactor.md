@@ -17,18 +17,21 @@
 
 3. Messages Context
    - Implemented normalized state structure
-   - Added per-channel loading states
+   - Added per-hub
+ loading states
    - Added pagination support
    - Integrated with WebSocket context
 
-4. Channel Context
+4. Hub Context
    - Created base context and reducer
    - Implemented normalized state structure
-   - Added core channel operations
+   - Added core hub
+ operations
    - Created utility hooks
    - Added typing state management
    - Added WebSocket integration for typing
-   - Added channel-specific presence tracking
+   - Added hub
+-specific presence tracking
    - Added proper cleanup and error handling
 
 5. Global Presence Context
@@ -108,15 +111,16 @@ Tasks:
    - [x] Add connection recovery
    - [x] Add proper cleanup
 
-### Phase 2: Channel Context
+### Phase 2: Hub Context
 Tasks:
 1. Move Typing State
-   - [x] Add typing to channel state
+   - [x] Add typing to hub
+ state
    - [x] Update typing handlers
    - [x] Add proper cleanup
    - [x] Test performance
 
-2. Add Channel Presence
+2. Add Hub Presence
    - [ ] Track active users
    - [ ] Track viewing users
    - [ ] Handle presence updates
@@ -190,7 +194,7 @@ Tasks:
 
 ## Timeline
 1. Global Presence Context: ✅ Done
-2. Channel Context Updates: ✅ Done
+2. Hub Context Updates: ✅ Done
 3. Room Context Setup: 1 day
 4. Chat Context Setup: 1 day
 5. Provider Integration: 1 day

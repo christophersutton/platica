@@ -70,9 +70,9 @@ Purpose: Handles authentication and session management.
 
 ## Communication Spaces
 
-### Channels
+### Hubs
 ```sql
-CREATE TABLE channels (
+CREATE TABLE hubs (
     id INTEGER PRIMARY KEY,
     workspace_id INTEGER NOT NULL,
     name TEXT NOT NULL,
@@ -115,7 +115,7 @@ Purpose: Time-boxed collaboration spaces.
 CREATE TABLE messages (
     id INTEGER PRIMARY KEY,
     workspace_id INTEGER NOT NULL,
-    channel_id INTEGER,           -- NULL for DMs
+    hub_id INTEGER,           -- NULL for DMs
     sender_id INTEGER NOT NULL,
     thread_id INTEGER,            -- NULL for top-level messages
     content TEXT NOT NULL,
@@ -188,7 +188,7 @@ Purpose: Tracks user mentions in messages.
 
 ### Message Indexes
 ```sql
-CREATE INDEX idx_messages_channel_created ON messages(channel_id, created_at);
+CREATE INDEX idx_messages_hub_created ON messages(hub_id, created_at);
 CREATE INDEX idx_messages_workspace_created ON messages(workspace_id, created_at);
 CREATE INDEX idx_messages_thread_created ON messages(thread_id, created_at);
 CREATE INDEX idx_messages_type ON messages(type);
@@ -196,7 +196,7 @@ CREATE INDEX idx_messages_type ON messages(type);
 
 ### Membership Indexes
 ```sql
-CREATE INDEX idx_channel_members_user ON channel_members(user_id);
+CREATE INDEX idx_hub_members_user ON hub_members(user_id);
 CREATE INDEX idx_workspace_users_user ON workspace_users(user_id);
 CREATE INDEX idx_room_members_user ON room_members(user_id);
 CREATE INDEX idx_room_members_active ON room_members(room_id, left_at);
@@ -223,8 +223,8 @@ Several tables use JSON fields stored as TEXT:
 - workspaces.settings
 - workspace_users.notification_preferences
 - workspace_users.settings
-- channels.settings
-- channel_members.settings
+- hubs.settings
+- hub_members.settings
 - rooms.settings
 - room_members.state
 

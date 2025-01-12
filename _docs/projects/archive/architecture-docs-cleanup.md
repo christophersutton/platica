@@ -101,7 +101,7 @@ Clean up and clarify architecture documentation, specifically:
   3. Stateful Services (singletons) for managing runtime state
 - Decision 2: [Complete] Service cleanup needed:
   - Keep and document: DatabaseService, WebSocketService, WriteService, EmailService
-  - Remove: ManagementService (functionality duplicated in ChannelController), ReadService, CacheService
+  - Remove: ManagementService (functionality duplicated in HubController), ReadService, CacheService
   - Plan to implement: FileService (see implement-file-service.md)
 - Decision 3: [Complete] Controller vs Service separation:
   - Controllers handle HTTP endpoints and business logic

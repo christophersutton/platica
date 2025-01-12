@@ -3,7 +3,7 @@ import { cors } from 'hono/cors';
 import { DatabaseService } from '../db/core/database.ts';
 import { AuthMiddleware } from '../middleware/auth.ts';
 import { setupAuthRoutes } from '../api/auth/routes.ts';
-import { setupChannelRoutes } from '../api/channels/routes.ts';
+import { setupHubRoutes } from '../api/hubs/routes.ts';
 import { setupMessageRoutes } from '../api/messages/routes.ts';
 import { setupWorkspaceRoutes } from '../api/workspaces/routes.ts';
 
@@ -24,7 +24,7 @@ const api = new Hono();
 // Mount API routes
 setupAuthRoutes(api, db, auth);
 setupWorkspaceRoutes(api, db, auth);
-setupChannelRoutes(api, db, auth);
+setupHubRoutes(api, db, auth);
 setupMessageRoutes(api, db, auth);
 
 // Health check endpoint

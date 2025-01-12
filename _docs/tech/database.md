@@ -61,9 +61,9 @@ CREATE TABLE workspace_users (
 CREATE INDEX workspace_users_user ON workspace_users(user_id);
 ```
 
-#### channels
+#### hubs
 ```sql
-CREATE TABLE channels (
+CREATE TABLE hubs (
   id INTEGER PRIMARY KEY,
   workspace_id INTEGER NOT NULL,
   name TEXT NOT NULL,
@@ -76,24 +76,24 @@ CREATE TABLE channels (
   UNIQUE(workspace_id, name)
 );
 
-CREATE INDEX channels_workspace ON channels(workspace_id);
+CREATE INDEX hubs_workspace ON hubs(workspace_id);
 ```
 
-#### channel_members
+#### hub_members
 ```sql
-CREATE TABLE channel_members (
-  channel_id INTEGER NOT NULL,
+CREATE TABLE hub_members (
+  hub_id INTEGER NOT NULL,
   user_id INTEGER NOT NULL,
   role TEXT NOT NULL CHECK(role IN ('owner', 'member')),
   unread_mentions INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
-  PRIMARY KEY (channel_id, user_id),
-  FOREIGN KEY (channel_id) REFERENCES channels(id),
+  PRIMARY KEY (hub_id, user_id),
+  FOREIGN KEY (hub_id) REFERENCES hubs(id),
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
-CREATE INDEX channel_members_user ON channel_members(user_id);
+CREATE INDEX hub_members_user ON hub_members(user_id);
 ```
 
 #### messages
@@ -101,7 +101,7 @@ CREATE INDEX channel_members_user ON channel_members(user_id);
 CREATE TABLE messages (
   id INTEGER PRIMARY KEY,
   workspace_id INTEGER NOT NULL,
-  channel_id INTEGER NOT NULL,
+  hub_id INTEGER NOT NULL,
   sender_id INTEGER NOT NULL,
   thread_id INTEGER,
   content TEXT NOT NULL,
@@ -109,12 +109,12 @@ CREATE TABLE messages (
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id),
-  FOREIGN KEY (channel_id) REFERENCES channels(id),
+  FOREIGN KEY (hub_id) REFERENCES hubs(id),
   FOREIGN KEY (sender_id) REFERENCES users(id),
   FOREIGN KEY (thread_id) REFERENCES messages(id)
 );
 
-CREATE INDEX messages_channel ON messages(channel_id);
+CREATE INDEX messages_hub ON messages(hub_id);
 CREATE INDEX messages_sender ON messages(sender_id);
 CREATE INDEX messages_thread ON messages(thread_id);
 CREATE INDEX messages_type ON messages(type);
@@ -219,8 +219,8 @@ interface WorkspaceUser {
   updated_at: UnixTimestamp;
 }
 
-// Channel model maps to channels table
-interface Channel extends BaseModel {
+// Hub model maps to hubs table
+interface Hub extends BaseModel {
   workspace_id: number;
   name: string;
   description?: string;
@@ -230,7 +230,7 @@ interface Channel extends BaseModel {
 // Message model maps to messages table
 interface Message extends BaseModel {
   workspace_id: number;
-  channel_id: number;
+  hub_id: number;
   sender_id: number;
   thread_id?: number;
   content: string;
@@ -336,27 +336,27 @@ class UserRepository extends BaseRepository<User> {
 
 2. **Relationship Queries**
 ```typescript
-class ChannelRepository extends BaseRepository<Channel> {
-  async getMembers(channelId: number): Promise<ChannelMember[]> {
+class HubRepository extends BaseRepository<Hub> {
+  async getMembers(hubId: number): Promise<HubMember[]> {
     return this.db.prepare(`
       SELECT cm.*, u.name, u.avatar_url
-      FROM channel_members cm
+      FROM hub_members cm
       JOIN users u ON u.id = cm.user_id
-      WHERE cm.channel_id = ?
+      WHERE cm.hub_id = ?
       ORDER BY cm.created_at ASC
-    `).all(channelId) as ChannelMember[];
+    `).all(hubId) as HubMember[];
   }
 
   async getMessages(
-    channelId: number,
+    hubId: number,
     options: {
       limit?: number;
       before?: number;
       after?: number;
     } = {}
   ): Promise<Message[]> {
-    const conditions: string[] = ['channel_id = ?'];
-    const values: unknown[] = [channelId];
+    const conditions: string[] = ['hub_id = ?'];
+    const values: unknown[] = [hubId];
 
     if (options.before) {
       conditions.push('id < ?');
@@ -390,7 +390,7 @@ class MessageRepository extends BaseRepository<Message> {
     this.db.transaction(() => {
       const stmt = this.db.prepare(`
         INSERT INTO messages (
-          workspace_id, channel_id, sender_id,
+          workspace_id, hub_id, sender_id,
           thread_id, content, type,
           created_at, updated_at
         )
@@ -400,7 +400,7 @@ class MessageRepository extends BaseRepository<Message> {
       for (const msg of messages) {
         stmt.run(
           msg.workspace_id,
-          msg.channel_id,
+          msg.hub_id,
           msg.sender_id,
           msg.thread_id,
           msg.content,

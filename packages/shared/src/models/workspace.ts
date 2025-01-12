@@ -1,7 +1,8 @@
 import type { UnixTimestamp } from '@types';
 import type { BaseModel } from '@models/base';
 import type { NotificationPreferences, User } from '@models/user';
-import type { Channel } from '@models/channel';
+import type { Hub } from '@models/hub
+';
 
 /**
  * Core Workspace domain type
@@ -36,11 +37,11 @@ export interface WorkspaceMember extends BaseModel {
  */
 export interface ApiWorkspace extends Workspace {
     memberCount: number;
-    channelCount: number;
+    hubCount: number;
     role: WorkspaceMemberRole;
     iconUrl: string | null;
     members?: ApiWorkspaceMember[];
-    channels?: Channel[];
+    hubs?: Hub[];
 }
 
 /**
@@ -71,7 +72,7 @@ export interface WorkspaceRow {
     notification_defaults?: NotificationPreferences;
     settings: Record<string, unknown>;
     member_count: number;
-    channel_count: number;
+    hub_count: number;
     icon_url: string | null;
     created_at: number;
     updated_at: number;

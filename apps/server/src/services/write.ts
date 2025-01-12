@@ -12,7 +12,7 @@ import { WebSocketService } from './websockets';
 interface MessageData {
   type: 'message';
   workspaceId: number;
-  channelId: number;
+  hubId: number;
   senderId: number;
   content: string;
   threadId?: number;
@@ -36,7 +36,7 @@ export default class WriteService {
     // Delegate creation to the repository
     const messageData: MessageCreateDTO = {
       workspaceId: data.workspaceId,
-      channelId: data.channelId,
+      hubId: data.hubId,
       senderId: data.senderId,
       content: data.content,
       threadId: data.threadId,

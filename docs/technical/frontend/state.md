@@ -10,11 +10,11 @@ Platica uses a hybrid state management approach:
 
 ## Domain-Specific State
 
-### Channel State
+### Hub State
 ```typescript
-interface ChannelState {
-  channels: NormalizedChannels
-  activeChannel: number | null
+interface HubState {
+  hubs: NormalizedHubs
+  activeHub: number | null
   typing: Record<number, {
     userIds: number[]
     lastUpdate: number
@@ -83,9 +83,9 @@ function useSendMessage() {
     mutationFn: sendMessage,
     onMutate: async (newMessage) => {
       // Optimistically update UI
-      await queryClient.cancelQueries(['messages', channelId]);
-      const previousMessages = queryClient.getQueryData(['messages', channelId]);
-      queryClient.setQueryData(['messages', channelId], old => ({
+      await queryClient.cancelQueries(['messages', hubId]);
+      const previousMessages = queryClient.getQueryData(['messages', hubId]);
+      queryClient.setQueryData(['messages', hubId], old => ({
         ...old,
         messages: [...old.messages, newMessage]
       }));
@@ -94,7 +94,7 @@ function useSendMessage() {
     onError: (err, newMessage, context) => {
       // Roll back on error
       queryClient.setQueryData(
-        ['messages', channelId], 
+        ['messages', hubId], 
         context.previousMessages
       );
     }

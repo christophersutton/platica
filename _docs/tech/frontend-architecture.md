@@ -4,15 +4,15 @@
 
 ### Domain Organization
 
-The frontend state is organized around core domains (Channels, Rooms, Chats) with a clear separation between global and domain-specific state management.
+The frontend state is organized around core domains (Hubs, Rooms, Chats) with a clear separation between global and domain-specific state management.
 
 ```
-Global State        | Channel State     | Room State        | Chat State
+Global State        | Hub State     | Room State        | Chat State
 -------------------------------------------------------------------------------
-User Auth          | Channel Messages  | Room Messages     | Chat Messages
-Base Presence      | Channel Members   | Room Members      | Chat Partners
-Workspace Data     | Channel Typing    | Room Typing       | Chat Typing
-                   | Channel Presence  | Room Presence     | Chat Presence
+User Auth          | Hub Messages  | Room Messages     | Chat Messages
+Base Presence      | Hub Members   | Room Members      | Chat Partners
+Workspace Data     | Hub Typing    | Room Typing       | Chat Typing
+                   | Hub Presence  | Room Presence     | Chat Presence
 ```
 
 ### Presence System
@@ -27,7 +27,8 @@ Presence is managed at multiple levels:
    - Connection state
 
 2. **Domain-Specific Presence**
-   - Channel: viewing/active in channel
+   - Hub: viewing/active in hub
+
    - Room: participating/speaking/roles
    - Chat: active in conversation
 
@@ -38,13 +39,13 @@ Presence is managed at multiple levels:
   <PresenceProvider>  {/* Global presence */}
     <WebSocketProvider>
       <WorkspaceProvider>
-        <ChannelProvider>  {/* Channel-specific state */}
+        <HubProvider>  {/* Hub-specific state */}
           <RoomProvider>   {/* Room-specific state */}
             <ChatProvider> {/* Chat-specific state */}
               <App />
             </ChatProvider>
           </RoomProvider>
-        </ChannelProvider>
+        </HubProvider>
       </WorkspaceProvider>
     </WebSocketProvider>
   </PresenceProvider>
@@ -53,11 +54,11 @@ Presence is managed at multiple levels:
 
 ## Domain-Specific Patterns
 
-### Channel Context
+### Hub Context
 ```typescript
-interface ChannelState {
-  channels: NormalizedChannels
-  activeChannel: number | null
+interface HubState {
+  hubs: NormalizedHubs
+  activeHub: number | null
   typing: Record<number, {
     userIds: number[]
     lastUpdate: number
@@ -105,7 +106,7 @@ interface ChatState {
 Each domain context subscribes to relevant WebSocket events:
 
 ```typescript
-// Example: Channel Context
+// Example: Hub Context
 useWebSocketSubscription(WSEventType.CHANNEL_MESSAGE, handleMessage)
 useWebSocketSubscription(WSEventType.CHANNEL_TYPING, handleTyping)
 useWebSocketSubscription(WSEventType.CHANNEL_PRESENCE, handlePresence)

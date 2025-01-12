@@ -7,7 +7,9 @@ Platica is a communication platform designed for modern online teams. Transparen
 ### Conversations
 Conversations happen in several core formats.
 
-**Channels** represent ambient knowledge streams, organized around teams or projects. These spaces are public and provide organizational awareness, showing ongoing team and project activities. Messages expire after a set amount of time, while AI automatically transforms the ephemeral into concrete and persistant knowledge. Anyone can enter any channel to read and post messages, but only members of a channel have access to minutes, bulletins, and secretaries.
+**Hubs** represent ambient knowledge streams, organized around teams or projects. These spaces are public and provide organizational awareness, showing ongoing team and project activities. Messages expire after a set amount of time, while AI automatically transforms the ephemeral into concrete and persistant knowledge. Anyone can enter any hub
+ to read and post messages, but only members of a hub
+ have access to minutes, bulletins, and secretaries.
 
 **Rooms** are focused, time-boxed collaborative environments for multiple people. They are transparent in existence - visible to the entire organization - but private in content. They seamlessly integrate text, voice, and video communication, and provide secretaries for creating deliverables and performing adminstitrative tasks.
 
@@ -16,22 +18,26 @@ Conversations happen in several core formats.
 ### Artifacts
 While messages are ephemeral, artifacts are persistant and help drive shared knowledge and understanding.
 
-**Minutes** are how we record channel activity. These are automatic summaries with structured outputs, indexed for search and ready for distillation.
+**Minutes** are how we record hub
+ activity. These are automatic summaries with structured outputs, indexed for search and ready for distillation.
 
 **Memos** are how we communicate insight. Prose based, short, and self contained. They are permanent and available across the entire organization.
 
-**Bulletins** are for announcements. They are one-way broadcasts to channels, stored permanently on a board.
+**Bulletins** are for announcements. They are one-way broadcasts to hubs, stored permanently on a board.
 
 ### Roles
 There are a few different roles with clear boundaries of responsibilities. 
 
-**Administrators** are responsible for the communication culture of the entire organization. They are the only ones able to create and manage channels, control organization-wide settings, and hire secretaries. 
+**Administrators** are responsible for the communication culture of the entire organization. They are the only ones able to create and manage hubs, control organization-wide settings, and hire secretaries. 
 
-**Moderators**  are responsible for individual channels. They need to be assigned to a channel by an admin, but then can manage channel invites, post bulletins, and adjust channel settings like message expiration or available plugins.
+**Moderators**  are responsible for individual hubs. They need to be assigned to a hub
+ by an admin, but then can manage hub
+ invites, post bulletins, and adjust hub
+ settings like message expiration or available plugins.
 
-**Members** are able enter rooms and channels, join channels they were invited to, and chat with anyone.
+**Members** are able enter rooms and hubs, join hubs they were invited to, and chat with anyone.
 
-**Secretaries** are AI avatars attached to channels and rooms that can create minutes, memos, search for relevant knowledge, and take administrative actions on outside systems.
+**Secretaries** are AI avatars attached to hubs and rooms that can create minutes, memos, search for relevant knowledge, and take administrative actions on outside systems.
 
 ## Philosophy
 

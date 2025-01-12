@@ -20,7 +20,7 @@ We're not building another chat app. We're designing a communication ecosystem t
 
 ### The Problem We Solve
 
-Most workplace communication tools optimize for quantity over quality. More channels. More messages. More noise. Platica optimizes for clarity, context, and collective knowledge.
+Most workplace communication tools optimize for quantity over quality. More hubs. More messages. More noise. Platica optimizes for clarity, context, and collective knowledge.
 Our platform doesn't just connect people. It connects ideas. It transforms communication from a taxing overhead to a strategic advantage.
 
 ## Our Commitment

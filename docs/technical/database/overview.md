@@ -42,7 +42,7 @@ Platica uses SQLite with Litestream for a simple yet powerful database solution 
    - Permissions
 
 3. **Communication**
-   - Channels
+   - Hubs
    - Messages
    - Threads
    - Reactions

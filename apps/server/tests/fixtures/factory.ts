@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import type { User, Workspace, Channel } from "@platica/shared/types";
+import type { User, Workspace, Hub } from "@platica/shared/types";
 import { UserRole } from "@platica/shared/types";
 
 export class TestFactory {
@@ -77,13 +77,14 @@ export class TestFactory {
     return workspace;
   }
 
-  async createChannel(overrides: Partial<Channel> = {}, workspace?: Workspace, creator?: User): Promise<Channel> {
+  async createHub(overrides: Partial<Hub> = {}, workspace?: Workspace, creator?: User): Promise<Hub> {
     const now = Math.floor(Date.now() / 1000);
-    const channelWorkspace = workspace || await this.createWorkspace();
-    const channelCreator = creator || await this.createUser();
+    const hubWorkspace = workspace || await this.createWorkspace();
+    const hubCreator = creator || await this.createUser();
     
     const defaults = {
-      name: `test-channel-${now}`,
+      name: `test-hub
+-${now}`,
       description: null,
       is_private: false,
       is_archived: false,
@@ -93,44 +94,51 @@ export class TestFactory {
       ...overrides
     };
 
-    const channel = this.db.prepare(`
-      INSERT INTO channels (
+    const hub
+ = this.db.prepare(`
+      INSERT INTO hubs (
         workspace_id, name, description, is_private, is_archived,
         created_by, settings, created_at, updated_at
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `).get(
-      channelWorkspace.id,
+      hubWorkspace.id,
       defaults.name,
       defaults.description,
       defaults.is_private ? 1 : 0,  // SQLite boolean
       defaults.is_archived ? 1 : 0,  // SQLite boolean
-      channelCreator.id,
+      hubCreator.id,
       JSON.stringify(defaults.settings),
       defaults.created_at,
       defaults.updated_at
-    ) as Channel;
+    ) as Hub;
 
-    // Add creator as channel member
-    await this.addUserToChannel(channelCreator, channel);
+    // Add creator as hub
+ member
+    await this.addUserToHub(hubCreator, hub
+);
 
-    return channel;
+    return hub
+;
   }
 
-  async addUserToChannel(user: User, channel: Channel): Promise<void> {
+  async addUserToHub(user: User, hub
+: Hub): Promise<void> {
     // Check if user is already a member
     const exists = this.db.prepare(`
-      SELECT 1 FROM channel_members 
-      WHERE channel_id = ? AND user_id = ?
-    `).get(channel.id, user.id);
+      SELECT 1 FROM hub_members 
+      WHERE hub_id = ? AND user_id = ?
+    `).get(hub
+.id, user.id);
 
     if (exists) return;
 
     const now = Math.floor(Date.now() / 1000);
     this.db.prepare(`
-      INSERT INTO channel_members (channel_id, user_id, role, settings, created_at, updated_at)
+      INSERT INTO hub_members (hub_id, user_id, role, settings, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?)
-    `).run(channel.id, user.id, 'member', '{}', now, now);
+    `).run(hub
+.id, user.id, 'member', '{}', now, now);
   }
 } 

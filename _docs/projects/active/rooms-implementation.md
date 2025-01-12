@@ -130,4 +130,4 @@ Implement Room functionality - focused, time-boxed collaborative environments fo
 - Persistence: [2025-01-10] Unlike chats, room messages will be stored until room closure
 - Visibility: [2025-01-10] Room existence and metadata public, contents private
 - Membership: [2025-01-10] Users can only be in one room at a time
-- State Management: [2025-01-10] Will use similar patterns to channels for consistency
+- State Management: [2025-01-10] Will use similar patterns to hubs for consistency

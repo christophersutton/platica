@@ -130,7 +130,7 @@ export const ENGINEERING_HISTORY: SeedMessage[] = [
     type: MessageType.TEXT,
     thread: [
       {
-        content: "Key components:\n1. Debounced typing events\n2. Presence heartbeat\n3. Channel-specific typing state\n4. Workspace-wide presence",
+        content: "Key components:\n1. Debounced typing events\n2. Presence heartbeat\n3. Hub-specific typing state\n4. Workspace-wide presence",
         sender: 3,
         type: MessageType.TEXT
       },
@@ -164,12 +164,13 @@ export const ENGINEERING_HISTORY: SeedMessage[] = [
 
   // Performance Optimization Thread
   {
-    content: "🐌 Message loading is getting slow in channels with 1000+ messages",
+    content: "🐌 Message loading is getting slow in hubs with 1000+ messages",
     sender: 4, // David
     type: MessageType.TEXT,
     thread: [
       {
-        content: "Current load time is ~2s for initial channel load. Found a few issues:\n1. No pagination\n2. Loading full message history\n3. No caching",
+        content: "Current load time is ~2s for initial hub
+ load. Found a few issues:\n1. No pagination\n2. Loading full message history\n3. No caching",
         sender: 4,
         type: MessageType.TEXT
       },
@@ -284,7 +285,7 @@ export const ADDITIONAL_MESSAGES: SeedMessage[] = [
     type: MessageType.TEXT,
     thread: [
       { content: "Steps to reproduce:\n1. Open two tabs\n2. Go offline in one\n3. Other tab still shows as online", sender: 4, type: MessageType.TEXT },
-      { content: "Good catch. We need to sync presence across tabs using BroadcastChannel", sender: 1, type: MessageType.TEXT },
+      { content: "Good catch. We need to sync presence across tabs using BroadcastHub", sender: 1, type: MessageType.TEXT },
       { content: "PR with fix: https://github.com/platica/platica/pull/92", sender: 4, type: MessageType.SYSTEM }
     ],
     attachments: [DEMO_ATTACHMENTS.bug_screenshot],

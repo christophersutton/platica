@@ -5,9 +5,9 @@ import type { BaseModel } from "@models/base";
 import type { Message } from "@models/message";
 
 /**
- * Core Channel domain type
+ * Core Hub domain type
  */
-export interface Channel extends BaseModel {
+export interface Hub extends BaseModel {
   workspaceId: Workspace["id"];
   name: string;
   description?: string;
@@ -20,45 +20,45 @@ export interface Channel extends BaseModel {
 }
 
 /**
- * Channel member role type
+ * Hub member role type
  */
-export type ChannelMemberRole = "owner" | "admin" | "member";
+export type HubMemberRole = "owner" | "admin" | "member";
 
 /**
- * Channel member relationship
+ * Hub member relationship
  */
-export interface ChannelMember extends BaseModel {
-  channelId: Channel["id"];
+export interface HubMember extends BaseModel {
+  hubId: Hub["id"];
   userId: User["id"];
-  role: ChannelMemberRole;
+  role: HubMemberRole;
   lastReadAt: UnixTimestamp;
   settings: Record<string, unknown>;
 }
 
 /**
- * API-specific Channel type with additional metadata
+ * API-specific Hub type with additional metadata
  */
-export interface ApiChannel extends Channel {
+export interface ApiHub extends Hub {
   workspace?: Workspace;
   memberCount: number;
   messageCount: number;
   lastMessageAt: UnixTimestamp | null;
-  members?: ApiChannelMember[];
+  members?: ApiHubMember[];
   messages?: Message[];
 }
 
 /**
- * API-specific Channel Member type with user data
+ * API-specific Hub Member type with user data
  */
-export interface ApiChannelMember extends ChannelMember {
+export interface ApiHubMember extends HubMember {
   user: User;
   workspaceRole: string;
 }
 
 /**
- * UI-specific Channel type with client state
+ * UI-specific Hub type with client state
  */
-export interface UiChannel extends ApiChannel {
+export interface UiHub extends ApiHub {
   unreadCount?: number;
   unreadMentions?: number;
   memberStatus?: "member" | "invited" | null;
@@ -67,7 +67,7 @@ export interface UiChannel extends ApiChannel {
 /**
  * Database row type
  */
-export interface ChannelRow {
+export interface HubRow {
   id: number;
   workspace_id: Workspace["id"];
   name: string;
@@ -85,13 +85,14 @@ export interface ChannelRow {
 }
 
 /**
- * Database row for channel member
+ * Database row for hub
+ member
  */
-export interface ChannelMemberRow {
+export interface HubMemberRow {
   id: number;
-  channel_id: Channel["id"];
+  hub_id: Hub["id"];
   user_id: User["id"];
-  role: ChannelMemberRole;
+  role: HubMemberRole;
   last_read_at: UnixTimestamp;
   settings: Record<string, unknown>;
   created_at: UnixTimestamp;
@@ -100,26 +101,28 @@ export interface ChannelMemberRow {
 }
 
 /**
- * Required fields when creating a channel
+ * Required fields when creating a hub
+
  */
-type ChannelRequiredFields = "workspaceId" | "name";
+type HubRequiredFields = "workspaceId" | "name";
 
 /**
- * Optional fields when creating a channel
+ * Optional fields when creating a hub
+
  */
-type ChannelOptionalFields = "description" | "topic" | "settings";
+type HubOptionalFields = "description" | "topic" | "settings";
 
 /**
- * Channel creation DTO - only includes fields that can be set on creation
+ * Hub creation DTO - only includes fields that can be set on creation
  */
-export type CreateChannelDTO = Pick<
-  Channel,
-  ChannelRequiredFields | ChannelOptionalFields
+export type CreateHubDTO = Pick<
+  Hub,
+  HubRequiredFields | HubOptionalFields
 >;
 
 /**
- * Channel update DTO - only includes fields that can be modified
+ * Hub update DTO - only includes fields that can be modified
  */
-export type UpdateChannelDTO = Partial<
-  Pick<Channel, "name" | "description" | "topic" | "isArchived" | "settings">
+export type UpdateHubDTO = Partial<
+  Pick<Hub, "name" | "description" | "topic" | "isArchived" | "settings">
 >;

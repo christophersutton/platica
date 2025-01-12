@@ -138,7 +138,7 @@ export function startWebSocketServer(port: number) {
               wsService.handleTypingIndicator(ws, {
                 type: WSEventType.TYPING,
                 payload: {
-                  channelId: data.channelId,
+                  hubId: data.hubId,
                   userId: ws.data.userId,
                   isTyping: true,
                 },
@@ -150,7 +150,7 @@ export function startWebSocketServer(port: number) {
               await writeService.handleMessage({
                 type: "message",
                 workspaceId: ws.data.workspaceId,
-                channelId: data.payload.channelId,
+                hubId: data.payload.hubId,
                 senderId: ws.data.userId,
                 content: data.payload.content,
               });

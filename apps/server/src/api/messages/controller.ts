@@ -31,14 +31,14 @@ export class MessageController extends BaseController {
 
   createMessage = async (c: Context): Promise<Response> => {
     return this.handle(c, async () => {
-      const channelId = this.requireNumberParam(c, "channelId");
+      const hubId = this.requireNumberParam(c, "hubId");
       const workspaceId = this.requireNumberParam(c, "workspaceId");
       const { userId } = this.requireUser(c);
       const body = await this.requireBody<CreateMessageBody>(c);
 
       const messageId = await this.messageRepo.create({
         workspaceId: workspaceId,
-        channelId: channelId,
+        hubId: hubId,
         senderId: userId,
         content: body.content,
         threadId: body.thread_id ?? undefined,
@@ -47,8 +47,8 @@ export class MessageController extends BaseController {
       } satisfies MessageCreateDTO);
 
       // Return the created message with metadata
-      const [message] = await this.messageRepo.findByChannel(
-        channelId,
+      const [message] = await this.messageRepo.findByHub(
+        hubId,
         undefined,
         1
       );
@@ -58,13 +58,13 @@ export class MessageController extends BaseController {
 
   // getThreadMessages = async (c: Context): Promise<Response> => {
   //   return this.handle(c, async () => {
-  //     const channelId = this.requireNumberParam(c, "channelId");
+  //     const hubId = this.requireNumberParam(c, "hubId");
   //     const threadId = this.requireNumberParam(c, "threadId");
   //     const { userId } = this.requireUser(c);
 
      
 
-  //     return this.messageRepo.getThreadMessages(channelId, threadId);
+  //     return this.messageRepo.getThreadMessages(hubId, threadId);
   //   });
   // };
 
@@ -105,11 +105,11 @@ export class MessageController extends BaseController {
 
   markAsRead = async (c: Context): Promise<Response> => {
     return this.handle(c, async () => {
-      const channelId = this.requireNumberParam(c, "channelId");
+      const hubId = this.requireNumberParam(c, "hubId");
       const { userId } = this.requireUser(c);
 
       
-      // await this.messageRepo.markChannelAsRead(channelId, userId);
+      // await this.messageRepo.markHubAsRead(hubId, userId);
       return { success: true };
     });
   };

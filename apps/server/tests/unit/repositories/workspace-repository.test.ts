@@ -92,7 +92,8 @@ describe("WorkspaceRepository", () => {
   });
 
   describe("workspace metadata", () => {
-    test("gets workspace with member and channel counts", async () => {
+    test("gets workspace with member and hub
+ counts", async () => {
       const user = await ctx.factory.createUser();
       const now = Math.floor(Date.now() / 1000);
       const workspace = await ctx.factory.createWorkspace(
@@ -101,7 +102,8 @@ describe("WorkspaceRepository", () => {
         },
         user
       );
-      const channel = await ctx.factory.createChannel({}, workspace, user);
+      const hub
+ = await ctx.factory.createHub({}, workspace, user);
 
       // Add another user to workspace
       const otherUser = await ctx.factory.createUser({
@@ -109,14 +111,15 @@ describe("WorkspaceRepository", () => {
         name: "Other User",
       });
       await workspaceRepo.addUser(workspace.id, otherUser.id);
-      await ctx.factory.addUserToChannel(otherUser, channel);
+      await ctx.factory.addUserToHub(otherUser, hub
+);
 
       const workspaceWithMeta = await workspaceRepo.getWorkspaceWithMeta(
         workspace.id
       );
       expect(workspaceWithMeta).toBeDefined();
       expect(workspaceWithMeta?.member_count).toBe(2);
-      expect(workspaceWithMeta?.channel_count).toBe(1);
+      expect(workspaceWithMeta?.hub_count).toBe(1);
     });
 
     test("includes user role when userId is provided", async () => {
@@ -191,7 +194,7 @@ describe("WorkspaceRepository", () => {
       expect(settings.status_message).toBe("Working hard!");
     });
 
-    test("removes user from workspace and channels", async () => {
+    test("removes user from workspace and hubs", async () => {
       const admin = await ctx.factory.createUser();
       const now = Math.floor(Date.now() / 1000);
       const workspace = await ctx.factory.createWorkspace(
@@ -205,10 +208,13 @@ describe("WorkspaceRepository", () => {
         name: "New Member",
       });
 
-      // Add user to workspace and channel
+      // Add user to workspace and hub
+
       await workspaceRepo.addUser(workspace.id, user.id);
-      const channel = await ctx.factory.createChannel({}, workspace, admin);
-      await ctx.factory.addUserToChannel(user, channel);
+      const hub
+ = await ctx.factory.createHub({}, workspace, admin);
+      await ctx.factory.addUserToHub(user, hub
+);
 
       // Remove user
       await workspaceRepo.removeUser(workspace.id, user.id);
@@ -217,12 +223,13 @@ describe("WorkspaceRepository", () => {
       const role = await workspaceRepo.getMemberRole(workspace.id, user.id);
       expect(role).toBeUndefined();
 
-      // Verify user is removed from channels
+      // Verify user is removed from hubs
       const hasAccess = await ctx.db
         .prepare(
-          "SELECT 1 FROM channel_members WHERE channel_id = ? AND user_id = ?"
+          "SELECT 1 FROM hub_members WHERE hub_id = ? AND user_id = ?"
         )
-        .get(channel.id, user.id);
+        .get(hub
+.id, user.id);
       expect(hasAccess).toBeNull();
     });
   });
@@ -248,23 +255,23 @@ describe("WorkspaceRepository", () => {
         user
       );
 
-      // Add some channels
-      await ctx.factory.createChannel({}, workspace1, user);
-      await ctx.factory.createChannel({}, workspace1, user);
-      await ctx.factory.createChannel({}, workspace2, user);
+      // Add some hubs
+      await ctx.factory.createHub({}, workspace1, user);
+      await ctx.factory.createHub({}, workspace1, user);
+      await ctx.factory.createHub({}, workspace2, user);
 
       const workspaces = await workspaceRepo.getUserWorkspaces(user.id);
       expect(workspaces).toHaveLength(2);
 
       // Check first workspace
       expect(workspaces[0].name).toBe("First Workspace");
-      expect(workspaces[0].channel_count).toBe(2);
+      expect(workspaces[0].hub_count).toBe(2);
       expect(workspaces[0].member_count).toBe(1);
       expect(workspaces[0].role).toBe(UserRole.ADMIN);
 
       // Check second workspace
       expect(workspaces[1].name).toBe("Second Workspace");
-      expect(workspaces[1].channel_count).toBe(1);
+      expect(workspaces[1].hub_count).toBe(1);
       expect(workspaces[1].member_count).toBe(1);
       expect(workspaces[1].role).toBe(UserRole.ADMIN);
     });

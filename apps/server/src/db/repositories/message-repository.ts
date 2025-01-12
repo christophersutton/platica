@@ -86,7 +86,7 @@ export class MessageRepository extends BaseRepository<Message, MessageCreateDTO,
     } as MessageWithMeta;
   }
 
-  async findByChannel(channelId: number, limit?: number, before?: number): Promise<MessageWithMeta[]> {
+  async findByHub(hubId: number, limit?: number, before?: number): Promise<MessageWithMeta[]> {
     let query = `
       SELECT 
         m.*,
@@ -97,10 +97,10 @@ export class MessageRepository extends BaseRepository<Message, MessageCreateDTO,
       FROM messages m
       LEFT JOIN users u ON m.sender_id = u.id
       LEFT JOIN reactions r ON r.message_id = m.id
-      WHERE m.channel_id = ?
+      WHERE m.hub_id = ?
     `;
 
-    const params: (string | number)[] = [channelId];
+    const params: (string | number)[] = [hubId];
 
     if (before) {
       query += ` AND m.id < ?`;

@@ -29,7 +29,7 @@ Review, analyze and consolidate type definitions across the codebase. Current is
 ### Key Issues
 
 1. Duplicate Core Types:
-   - Core domain types (User, Workspace, Channel, Message) duplicated between shared/types.ts and web/lib/api.ts
+   - Core domain types (User, Workspace, Hub, Message) duplicated between shared/types.ts and web/lib/api.ts
    - WebSocket types duplicated between shared/websocket.ts and web/contexts/AppContext.tsx
    - API response types duplicated across three locations
 
@@ -57,7 +57,8 @@ Review, analyze and consolidate type definitions across the codebase. Current is
 ### Decisions Made
 - Decision 1: Type Organization Strategy
   - Core types live in models/ directory
-  - Separate files for user.ts, workspace.ts, channel.ts, message.ts
+  - Separate files for user.ts, workspace.ts, hub
+.ts, message.ts
   - Three-layer type hierarchy: Base types -> API types -> UI types
   - WebSocket types consolidated in websocket.ts
   - Base types in types.ts
@@ -74,7 +75,7 @@ Review, analyze and consolidate type definitions across the codebase. Current is
 #### Implementation Checklist
 - [x] Consolidate core domain types
   - [x] User and Workspace types
-  - [x] Channel and Message types
+  - [x] Hub and Message types
   - [x] API response types
 - [ ] Update all imports to use shared types
   - [ ] Update web/lib/api.ts

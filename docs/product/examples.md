@@ -18,7 +18,7 @@ Chats are designed for true ephemerality:
 
 ### Bulletin System
 Bulletins serve as official communications:
-- Appear first when opening channels
+- Appear first when opening hubs
 - Dismissable to bulletin board
 - Support text and A/V content
 - Automatic format conversion
@@ -69,7 +69,7 @@ Strict message expiration rules:
 
 ### Privacy Controls
 Clear boundaries for different spaces:
-- Public channels for transparency
+- Public hubs for transparency
 - Private rooms for focused work
 - Ephemeral chats for quick discussion
 - No persistent group messages
@@ -80,21 +80,21 @@ Clear boundaries for different spaces:
 - Workspace creation and management
 - User invitation and removal
 - Role assignment
-- Channel management
+- Hub management
 - Policy setting
 - Integration management
 
 ### Member Functions
 - Profile management
 - Status controls
-- Channel interactions
+- Hub interactions
 - Messaging capabilities
 - File handling
 - Search functionality
 - Notification preferences
 
 ### Moderator Tools
-- Channel management
+- Hub management
 - Bulletin posting
 - Settings adjustment
 - Member management
