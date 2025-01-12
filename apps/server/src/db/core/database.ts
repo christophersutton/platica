@@ -126,7 +126,7 @@ export class DatabaseService {
         'updateMessage',
         this.db.prepare(`
           UPDATE messages 
-          SET content = ?, is_edited = true, edited_at = ?
+          SET content = ?, updated_at = ?
           WHERE id = ? AND sender_id = ?
         `)
       );
@@ -146,17 +146,7 @@ export class DatabaseService {
       `)
     );
 
-    this.statements.set(
-      'getThreadMessages',
-      this.db.prepare(`
-        SELECT m.*, u.name as user_name
-        FROM messages m
-        JOIN users u ON m.sender_id = u.id
-        WHERE m.thread_id = ?
-        AND m.deleted_at IS NULL
-        ORDER BY m.created_at ASC
-      `)
-    );
+    
   }
 
   /**

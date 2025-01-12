@@ -1,8 +1,7 @@
 import type { UnixTimestamp } from '@types';
 import type { BaseModel } from '@models/base';
 import type { NotificationPreferences, User } from '@models/user';
-import type { Hub } from '@models/hub
-';
+import type { Hub } from '@models/hub';
 
 /**
  * Core Workspace domain type

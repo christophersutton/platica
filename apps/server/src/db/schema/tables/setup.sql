@@ -114,6 +114,7 @@ CREATE TABLE IF NOT EXISTS room_participants (
 -- =====================================
 CREATE TABLE IF NOT EXISTS messages (
   id TEXT PRIMARY KEY,
+  workspace_id TEXT,
   hub_id TEXT,
   room_id TEXT,
   sender_id TEXT NOT NULL,
@@ -121,6 +122,7 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at TEXT NOT NULL,
   updated_at TEXT,
   deleted_at TEXT,
+  FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
   FOREIGN KEY (hub_id) REFERENCES hubs(id) ON DELETE CASCADE,
   FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
   FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE

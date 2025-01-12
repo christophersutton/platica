@@ -2,8 +2,7 @@ import type { UnixTimestamp } from '@types'
 import type { UserRole, UserStatus } from '@constants/enums'
 import type { BaseModel } from '@models/base'
 import type { Workspace } from '@models/workspace'
-import type { Hub } from '@models/hub
-'
+import type { Hub } from '@models/hub'
 
 /**
  * Core User domain type

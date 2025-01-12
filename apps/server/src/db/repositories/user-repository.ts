@@ -59,7 +59,7 @@ export class UserRepository extends BaseRepository<User, UserCreateDTO, UserUpda
       console.log("Workspace created:", workspace.id);
 
       // Add user as admin
-      await this.workspaceRepo.addUser(workspace.id, user.id, UserRole.ADMIN);
+      await this.workspaceRepo.addUser(workspace.id, user.id, UserRole.ADMINISTRATOR);
       console.log("User added as admin to workspace");
 
       return user;

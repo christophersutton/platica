@@ -1,12 +1,10 @@
 import type { Context } from 'hono';
 import { BaseController, ApiError } from '../base-controller';
-import { HubRepository } from '../../db/repositories/hub
--repository';
+import { HubRepository } from '../../db/repositories/hub-repository';
 import { MessageRepository } from '../../db/repositories/message-repository';
 import { WorkspaceRepository } from '../../db/repositories/workspace-repository';
 import type { DatabaseProvider } from '../../db/repositories/base';
-import type { Hub, CreateHubDTO } from '@models/hub
-';
+import type { Hub, CreateHubDTO } from '@models/hub';
 import type { Variables } from '../../middleware/auth';
 import { WebSocketService } from '../../services/websockets';
 import { WSEventType } from '@websockets';
@@ -70,8 +68,7 @@ export class HubController extends BaseController {
   };
 
   private async ensureHubAccess(hubId: number, userId: number): Promise<string> {
-    // First get the hub
- to check if it's public
+    
     const hub
  = await this.hubRepo.findById(hubId);
     if (!hub
@@ -85,8 +82,7 @@ export class HubController extends BaseController {
       return memberRole;
     }
 
-    throw new ApiError('Not a member of this hub
-', 403);
+    throw new ApiError('Not a member of this hub', 403);
   }
 
   getHubMessages = async (c: Context): Promise<Response> => {
@@ -100,8 +96,7 @@ export class HubController extends BaseController {
         // Check if user is a member
         const memberRole = await this.hubRepo.getMemberRole(hubId, userId);
         if (!memberRole) {
-          throw new ApiError('Not a member of this hub
-', 403);
+          throw new ApiError('Not a member of this hub', 403);
         }
 
         // Get messages
@@ -122,8 +117,7 @@ export class HubController extends BaseController {
         if (error instanceof ApiError) {
           throw error;
         }
-        throw new ApiError('Failed to fetch hub
- messages', 500);
+        throw new ApiError('Failed to fetch hubmessages', 500);
       }
     });
   };
@@ -133,23 +127,19 @@ export class HubController extends BaseController {
       const workspaceId = this.requireNumberParam(c, 'workspaceId');
       const { userId } = this.requireUser(c);
       const body = await c.req.json<CreateHubBody>();
-
-      const hub
- = await this.hubRepo.create({
+      const hub = await this.hubRepo.create({
         workspaceId,
         name: body.name,
         description: body.description || undefined,
         isArchived: false,
         createdBy: userId,
         settings: {}
-      } as CreateHubDTO);
+      });
 
       // Add creator as admin
-      await this.hubRepo.addMember(hub
-.id, userId, 'admin');
+      await this.hubRepo.addMember(hub.id, userId, 'admin');
 
-      // Broadcast new hub
- to all workspace members
+      // Broadcast new hub to all workspace members
       this.wsService.broadcastToWorkspace(hub
 .workspaceId, {
         type: WSEventType.CHANNEL_CREATED,
@@ -173,8 +163,7 @@ export class HubController extends BaseController {
       // Check if current user has access
       const memberRole = await this.hubRepo.getMemberRole(hubId, currentUserId);
       if (!memberRole) {
-        throw new ApiError('Not a member of this hub
-', 403);
+        throw new ApiError('Not a member of this hub', 403);
       }
 
       await this.hubRepo.addMember(hubId, body.user_id);
@@ -191,8 +180,7 @@ export class HubController extends BaseController {
       // Check if current user has access
       const memberRole = await this.hubRepo.getMemberRole(hubId, currentUserId);
       if (!memberRole) {
-        throw new ApiError('Not a member of this hub
-', 403);
+        throw new ApiError('Not a member of this hub', 403);
       }
 
       await this.hubRepo.removeMember(hubId, userId);
@@ -208,8 +196,7 @@ export class HubController extends BaseController {
       // Check access
       const memberRole = await this.hubRepo.getMemberRole(hubId, userId);
       if (!memberRole) {
-        throw new ApiError('Not a member of this hub
-', 403);
+        throw new ApiError('Not a member of this hub', 403);
       }
 
       return this.hubRepo.findMembers(hubId);
@@ -224,17 +211,14 @@ export class HubController extends BaseController {
 
     try {
       const messages = await this.messageRepo.findByHub(hubId/*, limit, before ? Number(before) : undefined*/);
-      // Mark hub
- as read
+      // Mark hub as read
       await this.hubRepo.updateMember(hubId, userId, {
         lastReadAt: Math.floor(Date.now() / 1000)
       });
       return c.json({ messages });
     } catch (error) {
-      console.error('Error getting hub
- messages:', error);
-      return c.json({ error: 'Failed to get hub
- messages' }, 500);
+      console.error('Error getting hub messages:', error);
+      return c.json({ error: 'Failed to get hub messages' }, 500);
     }
   }
 

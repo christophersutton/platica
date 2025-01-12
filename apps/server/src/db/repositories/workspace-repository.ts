@@ -40,8 +40,7 @@ export class WorkspaceRepository extends BaseRepository<Workspace, CreateWorkspa
     const query = `
       SELECT 
         w.*,
-        (SELECT COUNT(*) FROM workspace_users wu2 WHERE wu2.workspace_id = w.id) as member_count,
-        (SELECT COUNT(*) FROM hubs c WHERE c.workspace_id = w.id) as hub_count
+        
         ${userId ? ', wu.role' : ''}
       FROM workspaces w
       ${userId ? 'LEFT JOIN workspace_users wu ON w.id = wu.workspace_id AND wu.user_id = ?' : ''}

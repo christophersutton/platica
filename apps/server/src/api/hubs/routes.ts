@@ -12,11 +12,11 @@ export function setupHubRoutes(app: Hono, db: DatabaseProvider, auth: AuthMiddle
   hubs.use('/:hubId/*', auth.hubAuth);
 
   // Get hub
- messages
+ 
   hubs.get('/:hubId/messages', controller.getHubMessages);
   
   // Get hub
- members
+ 
   hubs.get('/:hubId/members', controller.getMembers);
   
   // Add member to hub
@@ -28,15 +28,15 @@ export function setupHubRoutes(app: Hono, db: DatabaseProvider, auth: AuthMiddle
   hubs.delete('/:hubId/members/:userId', controller.removeMember);
 
   // Mark hub
- as read
+ 
   hubs.post('/:hubId/read', controller.markAsRead);
 
   // Mount hub
- routes
+ 
   app.route('/hubs', hubs);
 
   // Workspace-specific hub
- routes
+ 
   const workspaceHubs = new Hono();
   workspaceHubs.use('/*', auth.jwtAuth);
   workspaceHubs.use('/*', auth.workspaceAuth);
@@ -44,11 +44,9 @@ export function setupHubRoutes(app: Hono, db: DatabaseProvider, auth: AuthMiddle
   // List workspace hubs
   workspaceHubs.get('/', controller.getWorkspaceHubs);
   
-  // Create hub
- in workspace
+  // Create hub in workspace
   workspaceHubs.post('/', controller.createHub);
 
-  // Mount workspace hub
- routes
+  // Mount workspace hub routes
   app.route('/workspaces/:workspaceId/hubs', workspaceHubs);
 } 

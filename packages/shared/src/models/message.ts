@@ -1,7 +1,6 @@
 import type { UnixTimestamp, ValidatedUnixTimestamp } from '@types'
 import type { User } from '@models/user'
-import type { Hub } from '@models/hub
-'
+import type { Hub } from '@models/hub'
 import type { Workspace } from '@models/workspace'
 import type { BaseModel } from '@models/base'
 

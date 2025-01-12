@@ -41,8 +41,6 @@ export interface HubMemberWithUser extends HubMember {
 export interface WorkspaceWithMeta extends Workspace {
   hubs?: Hub[];
   members?: WorkspaceMemberWithUser[];
-  member_count: number;
-  hub_count: number;
   role?: UserRole;
 }
 

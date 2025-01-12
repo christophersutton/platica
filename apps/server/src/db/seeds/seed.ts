@@ -47,8 +47,7 @@ const CHANNELS = [
   { name: 'random', description: 'Random chatter and fun stuff', isPrivate: false },
   { name: 'engineering', description: 'Technical discussions', isPrivate: false },
   { name: 'design', description: 'Design discussions and feedback', isPrivate: false },
-  { name: 'team-leads', description: 'Private hub
- for team leads', isPrivate: true },
+  { name: 'team-leads', description: 'Private hub for team leads', isPrivate: true },
 ];
 
 // Different message sets for each hub
@@ -183,8 +182,7 @@ async function seed() {
 
       // Create hubs
       console.log("Creating hubs...");
-      const hubIds = CHANNELS.map(hub
- => {
+      const hubIds = CHANNELS.map(hub => {
         db.run(`
           INSERT INTO hubs (
             workspace_id, name, description, 
@@ -218,8 +216,7 @@ async function seed() {
         });
       });
 
-      // Add messages to each hub
- with message types
+      // Add messages to each hub with message types
       console.log("Adding messages to hubs...");
       hubIds.forEach((hubId, index) => {
         const hubName = CHANNELS[index].name;

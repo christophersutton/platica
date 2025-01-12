@@ -1,7 +1,6 @@
 import type { Message, CreateMessageDTO } from '@models/message'
 import type { User } from '@models/user'
-import type { Hub } from '@models/hub
-'
+import type { Hub } from '@models/hub'
 import { validateTimestamp } from '@types'
 import { TimestampError } from '../utils/time'
 
@@ -174,8 +173,7 @@ export function validateMessage(data: unknown): data is WebSocketEvent {
   // Validate type is a known event type
   if (!validTypes.includes(event.type as WSEventType)) return false
   
-  // Handle hub
- member events differently as they don't have a payload property
+  // Handle hub member events differently as they don't have a payload property
   if (event.type === WSEventType.CHANNEL_MEMBER_ADDED || 
       event.type === WSEventType.CHANNEL_MEMBER_REMOVED || 
       event.type === WSEventType.CHANNEL_MEMBER_UPDATED) {

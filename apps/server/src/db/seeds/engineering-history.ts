@@ -169,8 +169,7 @@ export const ENGINEERING_HISTORY: SeedMessage[] = [
     type: MessageType.TEXT,
     thread: [
       {
-        content: "Current load time is ~2s for initial hub
- load. Found a few issues:\n1. No pagination\n2. Loading full message history\n3. No caching",
+        content: "Current load time is ~2s for initial hub load. Found a few issues:\n1. No pagination\n2. Loading full message history\n3. No caching",
         sender: 4,
         type: MessageType.TEXT
       },

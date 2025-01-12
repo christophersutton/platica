@@ -15,15 +15,13 @@ export function setupMessageRoutes(app: Hono, db: DatabaseProvider, auth: AuthMi
 
   hubMessages.post('/', controller.createMessage);
 
-  // Get thread messages
-  hubMessages.get('/threads/:threadId', controller.getThreadMessages);
+  // // Get thread messages
+  // hubMessages.get('/threads/:threadId', controller.getThreadMessages);
 
-  // Mark hub
- as read
+  // Mark hub as read
   hubMessages.post('/read', controller.markAsRead);
 
-  // Mount hub
- message routes
+  // Mount hub message routes
   app.route('/hubs/:hubId/messages', hubMessages);
 
   // Message-specific routes
