@@ -27,7 +27,7 @@ const server = Bun.serve({
     // Proxy API requests to the API server
     if (url.pathname.startsWith('/api')) {
       const apiUrl = new URL(url.pathname + url.search, API_SERVER);
-      return fetch(apiUrl, {
+      return fetch(apiUrl.toString(), {
         method: req.method,
         headers: req.headers,
         body: req.body
