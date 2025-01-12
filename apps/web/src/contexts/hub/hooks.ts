@@ -13,6 +13,7 @@ import type {
 } from '@platica/shared/src/websockets'
 import { getCurrentUnixTimestamp } from '@platica/shared/src/utils/time'
 import type { ValidatedUnixTimestamp } from '@platica/shared/types'
+import { HubEventType } from '@platica/shared/src/websockets'
 
 /**
  * Hook to manage subscription to a hub
@@ -143,14 +144,14 @@ export function useHubMembers(hubId: number | null) {
     if (!hubId) return;
 
     const handlers = {
-      [WSEventType.CHANNEL_MEMBER_ADDED]: (message: WebSocketEvent) => {
-        if (message.type !== WSEventType.CHANNEL_MEMBER_ADDED) return;
+      [HubEventType.HUB_MEMBER_ADDED]: (message: WebSocketEvent) => {
+        if (message.type !== WSEventType.HUB) return;
         const event = message as HubMemberEvent;
-        if (event.hubId !== hubId) return;
+        if (event.payload.hubId !== hubId || event.payload.hubEventType !== HubEventType.HUB_MEMBER_ADDED) return;
         const now = getCurrentUnixTimestamp();
         setMembers(prev => [...prev, { 
-          id: event.userId, 
-          role: (event.role || 'member') as HubMemberRole, 
+          id: event.payload.userId, 
+          role: (event.payload.role || 'member') as HubMemberRole, 
           hubId,
           createdAt: now,
           updatedAt: now,
@@ -159,28 +160,28 @@ export function useHubMembers(hubId: number | null) {
         } as HubMember]);
       },
       
-      [WSEventType.CHANNEL_MEMBER_REMOVED]: (message: WebSocketEvent) => {
-        if (message.type !== WSEventType.CHANNEL_MEMBER_REMOVED) return;
+      [HubEventType.HUB_MEMBER_REMOVED]: (message: WebSocketEvent) => {
+        if (message.type !== WSEventType.HUB) return;
         const event = message as HubMemberEvent;
-        if (event.hubId !== hubId) return;
-        setMembers(prev => prev.filter(m => m.id !== event.userId));
+        if (event.payload.hubId !== hubId || event.payload.hubEventType !== HubEventType.HUB_MEMBER_REMOVED) return;
+        setMembers(prev => prev.filter(m => m.id !== event.payload.userId));
       },
       
-      [WSEventType.CHANNEL_MEMBER_UPDATED]: (message: WebSocketEvent) => {
-        if (message.type !== WSEventType.CHANNEL_MEMBER_UPDATED) return;
+      [HubEventType.HUB_MEMBER_UPDATED]: (message: WebSocketEvent) => {
+        if (message.type !== WSEventType.HUB) return;
         const event = message as HubMemberEvent;
-        if (event.hubId !== hubId) return;
+        if (event.payload.hubId !== hubId || event.payload.hubEventType !== HubEventType.HUB_MEMBER_UPDATED) return;
         const now = getCurrentUnixTimestamp() as ValidatedUnixTimestamp;
         setMembers(prev => prev.map(m => 
-          m.id === event.userId 
-            ? { ...m, role: event.role as HubMemberRole || m.role, updatedAt: now }
+          m.id === event.payload.userId 
+            ? { ...m, role: event.payload.role as HubMemberRole || m.role, updatedAt: now }
             : m
         ));
       }
     };
 
     const unsubscribes = Object.entries(handlers).map(([eventType, handler]) => 
-      subscribe(eventType as WSEventType, handler)
+      subscribe(WSEventType.HUB, handler)
     );
 
     return () => unsubscribes.forEach(unsubscribe => unsubscribe());

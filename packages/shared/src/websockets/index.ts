@@ -18,7 +18,7 @@ export enum WSEventType {
   PRESENCE = 'presence',
   PRESENCE_SYNC = 'presence_sync',
   ROOM = 'room',
-  HUB = 'hub',
+  HUB = 'hub'
 }
 
 export enum WSErrorCode {
@@ -101,6 +101,7 @@ export interface HubCreatedEvent {
   type: WSEventType.HUB
   payload: {
     hub: Hub
+    hubEventType: HubEventType.HUB_CREATED
   }
 }
 

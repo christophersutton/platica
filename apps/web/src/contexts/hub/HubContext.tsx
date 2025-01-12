@@ -6,18 +6,19 @@ import React, {
   useReducer,
 } from "react";
 import { api } from "@/lib/api";
-import { type UiHub } from "@models/hub";
+import type { Hub, UiHub } from "@models/hub";
 import { useAuth } from "../AuthContext";
 import { useWebSocket } from "../websocket/WebSocketContext";
 import {
   hubReducer,
   createInitialState,
 } from "./hubReducer";
-import { WSEventType } from "@platica/shared/src/websockets";
-import type {
-  HubCreatedEvent,
-  TypingEvent,
-} from "@platica/shared/src/websockets";
+import { WSEventType, HubEventType } from '@platica/shared/src/websockets'
+import type { 
+  HubCreatedEvent, 
+  WebSocketEvent,
+  TypingEvent 
+} from '@platica/shared/src/websockets'
 
 interface HubContextValue {
   // State
@@ -52,6 +53,16 @@ interface HubContextValue {
 
 const HubContext = createContext<HubContextValue | null>(null);
 
+function toUiHub(hub: Hub): UiHub {
+  return {
+    ...hub,
+    memberCount: 0, // These will be updated by the server
+    messageCount: 0,
+    lastMessageAt: null,
+    unreadCount: 0
+  };
+}
+
 export function HubProvider({ children }: { children: React.ReactNode }) {
   const { token, isLoading: isAuthLoading, user } = useAuth();
   const { subscribe, send } = useWebSocket();
@@ -60,10 +71,12 @@ export function HubProvider({ children }: { children: React.ReactNode }) {
   // Subscribe to relevant WebSocket events
   useEffect(() => {
     const unsubscribeHub = subscribe(
-      WSEventType.CHANNEL_CREATED,
-      (message: HubCreatedEvent) => {
-        dispatch({ type: "ADD_CHANNEL", payload: message.payload.hub
- });
+      WSEventType.HUB,
+      (message: WebSocketEvent) => {
+        if (message.type !== WSEventType.HUB) return;
+        const event = message as HubCreatedEvent;
+        if (event.payload.hubEventType !== HubEventType.HUB_CREATED) return;
+        dispatch({ type: "ADD_HUB", payload: toUiHub(event.payload.hub) });
       }
     );
 
@@ -119,18 +132,18 @@ export function HubProvider({ children }: { children: React.ReactNode }) {
   const loadHubs = useCallback(
     async (workspaceId: number) => {
       if (!token || isAuthLoading) return;
-      dispatch({ type: "SET_CHANNELS_LOADING" });
+      dispatch({ type: "SET_HUBS_LOADING" });
       try {
         const res = await api.hubs.list(workspaceId);
         dispatch({
-          type: "SET_CHANNELS",
+          type: "SET_HUBS",
           payload: {
-            hubs: res.hubs,
+            hubs: res.hubs.map(toUiHub),
             workspaceId,
           },
         });
       } catch (error) {
-        dispatch({ type: "SET_CHANNELS_ERROR", payload: error as Error });
+        dispatch({ type: "SET_HUBS_ERROR", payload: error as Error });
       }
     },
     [token, isAuthLoading]
@@ -142,13 +155,12 @@ export function HubProvider({ children }: { children: React.ReactNode }) {
       data: { name: string; description?: string; is_private?: boolean }
     ) => {
       if (!token || isAuthLoading) return;
-      dispatch({ type: "SET_CREATING_CHANNEL" });
+      dispatch({ type: "SET_CREATING_HUB" });
       try {
         const response = await api.hubs.create(workspaceId, data);
-        dispatch({ type: "ADD_CHANNEL", payload: response.hub
- });
+        dispatch({ type: "ADD_HUB", payload: toUiHub(response.hub) });
       } catch (error) {
-        dispatch({ type: "SET_CREATING_CHANNEL_ERROR", payload: error as Error });
+        dispatch({ type: "SET_CREATING_HUB_ERROR", payload: error as Error });
       }
     },
     [token, isAuthLoading]
@@ -159,16 +171,16 @@ export function HubProvider({ children }: { children: React.ReactNode }) {
       if (!token || isAuthLoading) return;
       try {
         await api.hubs.markAsRead(hubId);
-        dispatch({ type: "MARK_CHANNEL_READ", payload: hubId });
+        dispatch({ type: "MARK_HUB_READ", payload: hubId });
       } catch (error) {
-        console.error("Failed to mark hubas read:", error);
+        console.error("Failed to mark hub as read:", error);
       }
     },
     [token, isAuthLoading]
   );
 
   const setActiveHub = useCallback((hubId: number | null) => {
-    dispatch({ type: "SET_ACTIVE_CHANNEL", payload: hubId });
+    dispatch({ type: "SET_ACTIVE_HUB", payload: hubId });
   }, []);
 
   const getHubById = useCallback(

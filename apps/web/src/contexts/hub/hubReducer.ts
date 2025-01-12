@@ -45,30 +45,14 @@ export interface HubState {
 
 // Action types
 export type HubAction =
-  | { type: "SET_CHANNELS_LOADING" }
-  | {
-      type: "SET_CHANNELS";
-      payload: { hubs: Hub[]; workspaceId: number };
-    }
-  | { type: "SET_CHANNELS_ERROR"; payload: Error }
-  | { type: "UPDATE_CHANNEL"; payload: Partial<Hub> & { id: number } }
-  | {
-      type: "SET_CHANNEL_UPDATING";
-      payload: { hubId: number; updating: boolean };
-    }
-  | {
-      type: "SET_CHANNEL_UPDATE_ERROR";
-      payload: { hubId: number; error: Error | null };
-    }
-  | { type: "ADD_CHANNEL"; payload: Hub }
-  | { type: "SET_CREATING_CHANNEL" }
-  | { type: "SET_CREATING_CHANNEL_ERROR"; payload: Error }
-  | { type: "SET_ACTIVE_CHANNEL"; payload: number | null }
-  | { type: "MARK_CHANNEL_READ"; payload: number }
-  | {
-      type: "UPDATE_UNREAD_COUNT";
-      payload: { hubId: number; count: number };
-    }
+  | { type: "SET_HUBS_LOADING" }
+  | { type: "SET_HUBS"; payload: { hubs: UiHub[]; workspaceId: number } }
+  | { type: "SET_HUBS_ERROR"; payload: Error }
+  | { type: "SET_CREATING_HUB" }
+  | { type: "ADD_HUB"; payload: UiHub }
+  | { type: "SET_CREATING_HUB_ERROR"; payload: Error }
+  | { type: "MARK_HUB_READ"; payload: number }
+  | { type: "SET_ACTIVE_HUB"; payload: number | null }
   | {
       type: "SET_USER_TYPING";
       payload: { hubId: number; userId: number; isTyping: boolean };
@@ -101,105 +85,55 @@ export function hubReducer(
   action: HubAction
 ): HubState {
   switch (action.type) {
-    case "SET_CHANNELS_LOADING":
+    case "SET_HUBS_LOADING":
       return {
         ...state,
         loading: { ...state.loading, hubs: true },
         errors: { ...state.errors, hubs: null },
       };
 
-    case "SET_CHANNELS": {
-      const { hubs, workspaceId } = action.payload;
-
-      const byId = { ...state.byId };
-      const hubIds = new Set<number>();
-
-      hubs.forEach((hub
-) => {
-        byId[hub
-.id] = {
-          ...toUiHub(hub
-),
-          ...byId[hub
-.id], // Preserve existing UI state if any
-        };
-        hubIds.add(hub
-.id);
-      });
-
-      const newState = {
+    case "SET_HUBS":
+      return {
         ...state,
-        byId,
-        allIds: [...new Set([...state.allIds, ...hubIds])],
-        workspaceHubs: {
-          ...state.workspaceHubs,
-          [workspaceId]: Array.from(hubIds),
-        },
         loading: { ...state.loading, hubs: false },
         errors: { ...state.errors, hubs: null },
+        byId: {
+          ...state.byId,
+          ...action.payload.hubs.reduce(
+            (acc, hub) => ({ ...acc, [hub.id]: hub }),
+            {}
+          ),
+        },
+        allIds: Array.from(
+          new Set([...state.allIds, ...action.payload.hubs.map((h) => h.id)])
+        ),
+        workspaceHubs: {
+          ...state.workspaceHubs,
+          [action.payload.workspaceId]: action.payload.hubs.map((h) => h.id),
+        },
       };
 
-      return newState;
-    }
-
-    case "SET_CHANNELS_ERROR":
+    case "SET_HUBS_ERROR":
       return {
         ...state,
         loading: { ...state.loading, hubs: false },
         errors: { ...state.errors, hubs: action.payload },
       };
 
-    case "UPDATE_CHANNEL": {
-      const hub
- = state.byId[action.payload.id];
-      if (!hub
-) return state;
-
+    case "SET_CREATING_HUB":
       return {
         ...state,
-        byId: {
-          ...state.byId,
-          [action.payload.id]: {
-            ...hub
-,
-            ...action.payload,
-          },
-        },
-      };
-    }
-
-    case "SET_CHANNEL_UPDATING":
-      return {
-        ...state,
-        loading: {
-          ...state.loading,
-          updating: {
-            ...state.loading.updating,
-            [action.payload.hubId]: action.payload.updating,
-          },
-        },
+        loading: { ...state.loading, creating: true },
+        errors: { ...state.errors, creating: null },
       };
 
-    case "SET_CHANNEL_UPDATE_ERROR":
+    case "ADD_HUB":
       return {
         ...state,
-        errors: {
-          ...state.errors,
-          updating: {
-            ...state.errors.updating,
-            [action.payload.hubId]: action.payload.error,
-          },
-        },
-      };
-
-    case "ADD_CHANNEL":
-      return {
-        ...state,
-        byId: {
-          ...state.byId,
-          [action.payload.id]: toUiHub(action.payload),
-        },
-        allIds: [...state.allIds, action.payload.id],
+        loading: { ...state.loading, creating: false },
+        errors: { ...state.errors, creating: null },
+        byId: { ...state.byId, [action.payload.id]: action.payload },
+        allIds: Array.from(new Set([...state.allIds, action.payload.id])),
         workspaceHubs: {
           ...state.workspaceHubs,
           [action.payload.workspaceId]: [
@@ -207,78 +141,39 @@ export function hubReducer(
             action.payload.id,
           ],
         },
-        loading: { ...state.loading, creating: false },
-        errors: { ...state.errors, creating: null },
       };
 
-    case "SET_CREATING_CHANNEL":
-      return {
-        ...state,
-        loading: { ...state.loading, creating: true },
-        errors: { ...state.errors, creating: null },
-      };
-
-    case "SET_CREATING_CHANNEL_ERROR":
+    case "SET_CREATING_HUB_ERROR":
       return {
         ...state,
         loading: { ...state.loading, creating: false },
         errors: { ...state.errors, creating: action.payload },
       };
 
-    case "SET_ACTIVE_CHANNEL":
+    case "MARK_HUB_READ":
+      return {
+        ...state,
+        byId: {
+          ...state.byId,
+          [action.payload]: {
+            ...state.byId[action.payload],
+            unreadCount: 0,
+          },
+        },
+      };
+
+    case "SET_ACTIVE_HUB":
       return {
         ...state,
         activeHubId: action.payload,
       };
 
-    case "MARK_CHANNEL_READ": {
-      const hub
- = state.byId[action.payload];
-      if (!hub
-) return state;
-
-      return {
-        ...state,
-        byId: {
-          ...state.byId,
-          [action.payload]: { ...hub
-, unreadCount: 0 },
-        },
-      };
-    }
-
-    case "UPDATE_UNREAD_COUNT": {
-      const hub
- = state.byId[action.payload.hubId];
-      if (!hub
-) return state;
-
-      return {
-        ...state,
-        byId: {
-          ...state.byId,
-          [action.payload.hubId]: {
-            ...hub
-,
-            unreadCount: action.payload.count,
-          },
-        },
-      };
-    }
-
     case "SET_USER_TYPING": {
       const { hubId, userId, isTyping } = action.payload;
-      const now = Date.now();
       const hubTyping = state.typing.byHub[hubId] || {
         userIds: [],
         lastUpdated: {},
       };
-
-      // If user is typing, add them to the list if not already there
-      // If user stopped typing, remove them from the list
-      const userIds = isTyping
-        ? [...new Set([...hubTyping.userIds, userId])]
-        : hubTyping.userIds.filter((id) => id !== userId);
 
       return {
         ...state,
@@ -287,10 +182,12 @@ export function hubReducer(
           byHub: {
             ...state.typing.byHub,
             [hubId]: {
-              userIds,
+              userIds: isTyping
+                ? Array.from(new Set([...hubTyping.userIds, userId]))
+                : hubTyping.userIds.filter((id) => id !== userId),
               lastUpdated: {
                 ...hubTyping.lastUpdated,
-                [userId]: now,
+                [userId]: Date.now(),
               },
             },
           },

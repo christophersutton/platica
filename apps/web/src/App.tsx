@@ -24,55 +24,57 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <WorkspaceProvider>
-        <WebSocketProvider>
-          <PresenceProvider>
-            <HubProvider>
-              <MessageProvider>
-                <RoomProvider>
-                  <ChatProvider>
-                    <Toaster />
-                    <Sonner />
-                    <BrowserRouter>
-                      <Routes>
-                        <Route path="/login" element={<LoginPage />} />
-                        <Route path="/signup" element={<SignupPage />} />
-                        <Route path="/auth/verify" element={<VerifyAuthContent />} />
-                        <Route
-                          path="/"
-                          element={
-                            <ProtectedRoute>
-                              <WorkspaceRedirect />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route
-                          path="/w/:workspaceId"
-                          element={
-                            <ProtectedRoute>
-                              <Index />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route
-                          path="/w/:workspaceId/c/:hubId"
-                          element={
-                            <ProtectedRoute>
-                              <Index />
-                            </ProtectedRoute>
-                          }
-                        />
-                      </Routes>
-                    </BrowserRouter>
-                  </ChatProvider>
-                </RoomProvider>
-              </MessageProvider>
-            </HubProvider>
-          </PresenceProvider>
-        </WebSocketProvider>
-      </WorkspaceProvider>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <WorkspaceProvider>
+          <WebSocketProvider>
+            <PresenceProvider>
+              <HubProvider>
+                <MessageProvider>
+                  <RoomProvider>
+                    <ChatProvider>
+                      <Toaster />
+                      <Sonner />
+                      <BrowserRouter>
+                        <Routes>
+                          <Route path="/login" element={<LoginPage />} />
+                          <Route path="/signup" element={<SignupPage />} />
+                          <Route path="/auth/verify" element={<VerifyAuthContent />} />
+                          <Route
+                            path="/"
+                            element={
+                              <ProtectedRoute>
+                                <WorkspaceRedirect />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="/w/:workspaceId"
+                            element={
+                              <ProtectedRoute>
+                                <Index />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="/w/:workspaceId/c/:hubId"
+                            element={
+                              <ProtectedRoute>
+                                <Index />
+                              </ProtectedRoute>
+                            }
+                          />
+                        </Routes>
+                      </BrowserRouter>
+                    </ChatProvider>
+                  </RoomProvider>
+                </MessageProvider>
+              </HubProvider>
+            </PresenceProvider>
+          </WebSocketProvider>
+        </WorkspaceProvider>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
@@ -85,10 +87,13 @@ const WorkspaceRedirect = () => {
   });
 
   useEffect(() => {
+    console.log('Workspace redirect effect:', { isLoading, workspaces, user });
     if (!isLoading && workspaces?.workspaces && workspaces.workspaces.length > 0) {
-      navigate(`/w/${workspaces.workspaces[0].id}`, { replace: true });
+      const targetWorkspace = workspaces.workspaces[0];
+      console.log('Redirecting to workspace:', targetWorkspace);
+      navigate(`/w/${targetWorkspace.id}`, { replace: true });
     }
-  }, [workspaces, isLoading, navigate]);
+  }, [workspaces, isLoading, navigate, user]);
 
   if (isLoading) {
     return (

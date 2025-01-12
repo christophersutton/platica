@@ -34,10 +34,7 @@ export class WebSocketManager {
     [WSEventType.PRESENCE_SYNC]: new Set(),
     [WSEventType.TYPING]: new Set(),
     [WSEventType.CHAT]: new Set(),
-    [WSEventType.CHANNEL_CREATED]: new Set(),
-    [WSEventType.CHANNEL_MEMBER_ADDED]: new Set(),
-    [WSEventType.CHANNEL_MEMBER_REMOVED]: new Set(),
-    [WSEventType.CHANNEL_MEMBER_UPDATED]: new Set(),
+    [WSEventType.HUB]: new Set(),
   };
 
   private statusHandlers = new Set<(status: ConnectionStatus) => void>();
