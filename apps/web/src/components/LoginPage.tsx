@@ -57,10 +57,10 @@ export function LoginPage() {
 
           {status === 'sent' && (
             <div className="text-green-600 text-sm">
-              Check your email! We've sent you a magic link to sign in.
+              Check your email! We&apos;ve sent you a magic link to sign in.
               <br />
               <span className="text-gray-500">
-                The link will expire in 15 minutes. If you don't see it, check your spam folder.
+                The link will expire in 15 minutes. If you don&apos;t see it, check your spam folder.
               </span>
             </div>
           )}

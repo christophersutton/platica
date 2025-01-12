@@ -140,7 +140,7 @@ export type RoomMember = z.infer<typeof RoomMemberSchema>;
    6. Messages
 ------------------------------------------------------------------ */
 export const MessageTypeEnum = z.enum(['text', 'file', 'system']);
-export type MessageType = z.infer<typeof MessageTypeEnum>;
+export type MessageTypeEnum = z.infer<typeof MessageTypeEnum>;
 
 /**
  * Message: belongs to a Hub or optionally a Room. 

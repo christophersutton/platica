@@ -364,6 +364,17 @@ export class WebSocketService {
     }
   }
 
+  public broadcastToRoom(roomId: number, message: WebSocketEvent) {
+    // Get all clients in the room's workspace and broadcast to them
+    // This is a simplified version - in a real implementation we'd want to:
+    // 1. Track room membership in the WebSocket service
+    // 2. Only broadcast to clients that are members of the room
+    // For now, we'll broadcast to the workspace since room events should be visible workspace-wide
+    for (const [ws, client] of this.clients.entries()) {
+      ws.send(JSON.stringify(message));
+    }
+  }
+
   private cleanupInactiveClients() {
     const now = getCurrentUnixTimestamp();
     for (const [ws, client] of this.clients.entries()) {

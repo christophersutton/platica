@@ -2,33 +2,29 @@ import type { Context } from 'hono';
 import { BaseController, ApiError } from '../base-controller';
 import { RoomRepository } from '../../db/repositories/room-repository';
 import type { DatabaseProvider } from '../../db/repositories/base';
-import type { CreateRoomDTO, UpdateRoomDTO } from '@models/room';
 import { WebSocketService } from '../../services/websockets';
-import { WSEventType } from '@websockets';
+import { RoomEventType, WSEventType } from '@websockets';
 import type { RoomEvent } from '@websockets';
+import { z } from 'zod';
 
-interface CreateRoomBody {
-  name: string;
-  description?: string;
-  scheduled_start: number;
-  scheduled_end: number;
-  settings?: {
-    autoRecord?: boolean;
-    retention?: {
-      chatDays?: number;
-      recordingDays?: number;
-    };
-    secretary?: {
-      enabled: boolean;
-      capabilities?: string[];
-    };
-  };
-}
-
-interface AddMemberBody {
-  user_id: number;
-  role?: 'host' | 'presenter' | 'participant';
-}
+// new Zod schemas for creation and update
+const createRoomSchema = z.object({
+  name: z.string().min(2),
+  description: z.string().optional(),
+  scheduled_start: z.number(),
+  scheduled_end: z.number(),
+  settings: z.object({
+    autoRecord: z.boolean().optional(),
+    retention: z.object({
+      chatDays: z.number().optional(),
+      recordingDays: z.number().optional()
+    }).optional(),
+    secretary: z.object({
+      enabled: z.boolean(),
+      capabilities: z.array(z.string())
+    }).optional()
+  }).partial().optional()
+});
 
 interface UpdateMemberStateBody {
   audio?: boolean;
@@ -56,7 +52,6 @@ export class RoomController extends BaseController {
     return this.handle(c, async () => {
       const workspaceId = this.requireNumberParam(c, 'workspaceId');
       const { userId } = this.requireUser(c);
-
       const rooms = await this.roomRepo.findActiveByWorkspace(workspaceId);
       return { rooms };
     });
@@ -66,29 +61,32 @@ export class RoomController extends BaseController {
     return this.handle(c, async () => {
       const workspaceId = this.requireNumberParam(c, 'workspaceId');
       const { userId } = this.requireUser(c);
-      const body = await this.requireBody<CreateRoomBody>(c);
+      const body = await c.req.json();
 
-      const room = await this.roomRepo.create({
+      const parsed = createRoomSchema.parse(body);
+
+      const newRoom = await this.roomRepo.create({
         workspaceId,
-        name: body.name,
-        description: body.description,
-        scheduledStart: body.scheduled_start,
-        scheduledEnd: body.scheduled_end,
+        name: parsed.name,
+        description: parsed.description,
+        scheduledStart: parsed.scheduled_start,
+        scheduledEnd: parsed.scheduled_end,
         status: 'scheduled',
         createdBy: userId,
-        settings: body.settings || {}
-      } as CreateRoomDTO);
+        settings: parsed.settings || {}
+      });
 
-      // Add creator as host
-      await this.roomRepo.addMember(room.id, userId, 'host');
+      await this.roomRepo.addMember(newRoom.id, userId, 'host');
 
-      // Broadcast new room to workspace
       this.wsService.broadcastToWorkspace(workspaceId, {
-        type: WSEventType.ROOM_CREATED,
-        payload: { room }
+        type: WSEventType.ROOM,
+        payload: { 
+          room: newRoom,
+          roomEventType: RoomEventType.ROOM_CREATED
+         }
       } as RoomEvent);
 
-      return { room };
+      return { room: newRoom };
     });
   };
 
@@ -96,12 +94,10 @@ export class RoomController extends BaseController {
     return this.handle(c, async () => {
       const roomId = this.requireNumberParam(c, 'roomId');
       const { userId } = this.requireUser(c);
-
       const room = await this.roomRepo.getRoomWithMeta(roomId, userId);
       if (!room) {
         throw new ApiError('Room not found', 404);
       }
-
       const members = await this.roomRepo.getRoomMembers(roomId);
       return { room: { ...room, members } };
     });
@@ -111,33 +107,31 @@ export class RoomController extends BaseController {
     return this.handle(c, async () => {
       const roomId = this.requireNumberParam(c, 'roomId');
       const { userId } = this.requireUser(c);
-      const body = await this.requireBody<Partial<CreateRoomBody>>(c);
+      const body = await c.req.json();
 
-      // Check if user is host
+      // Possibly parse with an updateRoomSchema if you have it
+      // check if user is host
       const role = await this.roomRepo.getMemberRole(roomId, userId);
       if (role !== 'host') {
         throw new ApiError('Only room host can update settings', 403);
       }
 
-      const updateDto: UpdateRoomDTO = {
+      const updated = await this.roomRepo.update(roomId, {
         name: body.name,
         description: body.description,
         scheduledEnd: body.scheduled_end,
         settings: body.settings
-      };
-
-      const room = await this.roomRepo.update(roomId, updateDto);
-      if (!room) {
+      });
+      if (!updated) {
         throw new ApiError('Failed to update room', 500);
       }
 
-      // Broadcast update
       this.wsService.broadcastToRoom(roomId, {
         type: WSEventType.ROOM_UPDATED,
-        payload: { room }
+        payload: { room: updated }
       } as RoomEvent);
 
-      return { room };
+      return { room: updated };
     });
   };
 
@@ -145,14 +139,10 @@ export class RoomController extends BaseController {
     return this.handle(c, async () => {
       const roomId = this.requireNumberParam(c, 'roomId');
       const { userId } = this.requireUser(c);
-
-      // Add as participant by default
       await this.roomRepo.addMember(roomId, userId, 'participant');
-
       const room = await this.roomRepo.getRoomWithMeta(roomId, userId);
       const members = await this.roomRepo.getRoomMembers(roomId);
 
-      // Broadcast join event
       this.wsService.broadcastToRoom(roomId, {
         type: WSEventType.ROOM_MEMBER_JOINED,
         payload: { roomId, userId }
@@ -166,15 +156,11 @@ export class RoomController extends BaseController {
     return this.handle(c, async () => {
       const roomId = this.requireNumberParam(c, 'roomId');
       const { userId } = this.requireUser(c);
-
       await this.roomRepo.removeMember(roomId, userId);
-
-      // Broadcast leave event
       this.wsService.broadcastToRoom(roomId, {
-        type: WSEventType.ROOM_MEMBER_LEFT,
-        payload: { roomId, userId }
+        type: WSEventType.ROOM,
+        payload: { roomId, userId, roomEventType: RoomEventType.ROOM_MEMBER_REMOVED }
       } as RoomEvent);
-
       return { success: true };
     });
   };
@@ -183,19 +169,15 @@ export class RoomController extends BaseController {
     return this.handle(c, async () => {
       const roomId = this.requireNumberParam(c, 'roomId');
       const { userId } = this.requireUser(c);
-      const body = await this.requireBody<UpdateMemberStateBody>(c);
-
+      const body = await c.req.json<UpdateMemberStateBody>();
       const updated = await this.roomRepo.updateMemberState(roomId, userId, body);
       if (!updated) {
         throw new ApiError('Member not found', 404);
       }
-
-      // Broadcast state update
       this.wsService.broadcastToRoom(roomId, {
-        type: WSEventType.ROOM_MEMBER_UPDATED,
-        payload: { roomId, userId, state: updated.state }
+        type: WSEventType.ROOM,
+        payload: { roomId, userId, roomEventType: RoomEventType.ROOM_MEMBER_UPDATED, state: updated.state }
       } as RoomEvent);
-
       return { state: updated.state };
     });
   };

@@ -63,7 +63,7 @@ export function CreateHubModal() {
           <DialogTitle>Create a hub
 </DialogTitle>
           <DialogDescription>
-            Hubs are where your team communicates. They're best when organized
+            Hubs are where your team communicates. They&apos;re best when organized
             around a topic — #marketing, for example.
           </DialogDescription>
         </DialogHeader>

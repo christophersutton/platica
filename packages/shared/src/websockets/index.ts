@@ -1,6 +1,7 @@
-import type { Message, CreateMessageDTO } from '@models/message'
+import type { Message } from '@models/message'
 import type { User } from '@models/user'
 import type { Hub } from '@models/hub'
+import type { Room } from '@models/room'
 import { validateTimestamp } from '@types'
 import { TimestampError } from '../utils/time'
 
@@ -16,10 +17,8 @@ export enum WSEventType {
   TYPING = 'typing',
   PRESENCE = 'presence',
   PRESENCE_SYNC = 'presence_sync',
-  CHANNEL_CREATED = 'hub_created',
-  CHANNEL_MEMBER_ADDED = 'hub_member_added',
-  CHANNEL_MEMBER_REMOVED = 'hub_member_removed',
-  CHANNEL_MEMBER_UPDATED = 'hub_member_updated'
+  ROOM = 'room',
+  HUB = 'hub',
 }
 
 export enum WSErrorCode {
@@ -30,6 +29,20 @@ export enum WSErrorCode {
   INTERNAL_ERROR = 'internal_error',
 }
 
+export enum RoomEventType {
+ROOM_CREATED = 'room_created',
+  ROOM_DETAILS = 'room_details',
+  ROOM_MEMBER_ADDED = 'room_member_added',
+  ROOM_MEMBER_REMOVED = 'room_member_removed',
+  ROOM_MEMBER_UPDATED = 'room_member_updated'
+}
+
+export enum HubEventType {
+  HUB_CREATED = 'hub_created',
+  HUB_MEMBER_ADDED = 'hub_member_added',
+  HUB_MEMBER_REMOVED = 'hub_member_removed',
+  HUB_MEMBER_UPDATED = 'hub_member_updated'
+}
 /**
  * Message Events
  */
@@ -85,10 +98,9 @@ export interface PresenceSyncEvent {
  * Hub Events
  */
 export interface HubCreatedEvent {
-  type: WSEventType.CHANNEL_CREATED
+  type: WSEventType.HUB
   payload: {
-    hub
-: Hub
+    hub: Hub
   }
 }
 
@@ -114,10 +126,13 @@ export interface AuthEvent {
 }
 
 export interface HubMemberEvent {
-  type: WSEventType.CHANNEL_MEMBER_ADDED | WSEventType.CHANNEL_MEMBER_REMOVED | WSEventType.CHANNEL_MEMBER_UPDATED;
-  hubId: number;
-  userId: number;
-  role?: string;
+  type: WSEventType.HUB
+  payload: {
+    hubId: number;
+    userId: number;
+    role?: string;
+    hubEventType: HubEventType;
+  }
 }
 
 /**
@@ -156,7 +171,10 @@ export const isPresenceSyncEvent = (event: WebSocketEvent): event is PresenceSyn
   event.type === WSEventType.PRESENCE_SYNC
 
 export const isHubCreatedEvent = (event: WebSocketEvent): event is HubCreatedEvent => 
-  event.type === WSEventType.CHANNEL_CREATED 
+  event.type === WSEventType.HUB && 'hub' in event.payload
+
+export const isHubMemberEvent = (event: WebSocketEvent): event is HubMemberEvent =>
+  event.type === WSEventType.HUB && 'hubEventType' in event.payload
 
 /**
  * Validates a WebSocket message has the correct structure
@@ -173,14 +191,7 @@ export function validateMessage(data: unknown): data is WebSocketEvent {
   // Validate type is a known event type
   if (!validTypes.includes(event.type as WSEventType)) return false
   
-  // Handle hub member events differently as they don't have a payload property
-  if (event.type === WSEventType.CHANNEL_MEMBER_ADDED || 
-      event.type === WSEventType.CHANNEL_MEMBER_REMOVED || 
-      event.type === WSEventType.CHANNEL_MEMBER_UPDATED) {
-    return true
-  }
-
-  // For all other events, validate payload exists and is an object
+  // For all events, validate payload exists and is an object
   if (!('payload' in event) || !event.payload || typeof event.payload !== 'object') return false
 
   // Additional validation for chat events containing messages

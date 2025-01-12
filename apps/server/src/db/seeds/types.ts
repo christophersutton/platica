@@ -1,4 +1,4 @@
-import { MessageType } from "@platica/shared/constants/enums";
+import { MessageTypeEnum } from "@platica/shared/models/schemas";
 
 export interface SeedAttachment {
   name: string;
@@ -16,7 +16,7 @@ export interface SeedReaction {
 export interface SeedMessage {
   content: string;
   sender: number; // Index in DEMO_USERS array (0 = test user)
-  type: MessageType;
+  type: string
   thread?: SeedMessage[]; // For threaded replies
   attachments?: SeedAttachment[];
   reactions?: SeedReaction[];

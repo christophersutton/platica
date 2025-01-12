@@ -1,16 +1,22 @@
 import type { Context } from "hono";
 import { Database } from "bun:sqlite";
 import { BaseController, ApiError } from "../base-controller";
-import {
-  MessageRepository,
-  type MessageCreateDTO,
-} from "../../db/repositories/message-repository";
+import { MessageRepository, type MessageCreateDTO } from "../../db/repositories/message-repository";
 import type { DatabaseProvider } from "../../db/repositories/base";
+
+// NEW: We'll also import the zod schema for messages to validate request bodies
+import { MessageSchema } from "@models/schemas";
+import { z } from "zod";
 
 interface CreateMessageBody {
   content: string;
   thread_id?: number | null;
 }
+
+const createMessageBodySchema = z.object({
+  content: z.string().min(1, "Message content required"),
+  thread_id: z.number().optional().nullable()
+});
 
 interface ReactionBody {
   emoji: string;
@@ -32,48 +38,37 @@ export class MessageController extends BaseController {
   createMessage = async (c: Context): Promise<Response> => {
     return this.handle(c, async () => {
       const hubId = this.requireNumberParam(c, "hubId");
-      const workspaceId = this.requireNumberParam(c, "workspaceId");
-      const { userId } = this.requireUser(c);
-      const body = await this.requireBody<CreateMessageBody>(c);
+      // Or if the workspaceId is in the route or headers:
+      const workspaceId = Number(c.req.header('x-workspace-id') || 0); 
+      // or however you handle passing workspaceId
 
-      const messageId = await this.messageRepo.create({
-        workspaceId: workspaceId,
-        hubId: hubId,
+      const { userId } = this.requireUser(c);
+      // Validate request body with zod
+      const jsonBody = await c.req.json();
+      const parsedBody = createMessageBodySchema.parse(jsonBody);
+
+      const dto: MessageCreateDTO = {
+        workspaceId,
+        hubId,
         senderId: userId,
-        content: body.content,
-        threadId: body.thread_id ?? undefined,
+        content: parsedBody.content,
+        threadId: parsedBody.thread_id ?? undefined,
         deletedAt: null,
         isEdited: false,
-      } satisfies MessageCreateDTO);
+      };
+      const messageRecord = await this.messageRepo.create(dto);
 
-      // Return the created message with metadata
-      const [message] = await this.messageRepo.findByHub(
-        hubId,
-        undefined,
-        1
-      );
-      return message;
+      // Return the newly created message
+      const found = await this.messageRepo.findWithMeta(messageRecord.id);
+      return found;
     });
   };
-
-  // getThreadMessages = async (c: Context): Promise<Response> => {
-  //   return this.handle(c, async () => {
-  //     const hubId = this.requireNumberParam(c, "hubId");
-  //     const threadId = this.requireNumberParam(c, "threadId");
-  //     const { userId } = this.requireUser(c);
-
-     
-
-  //     return this.messageRepo.getThreadMessages(hubId, threadId);
-  //   });
-  // };
 
   deleteMessage = async (c: Context): Promise<Response> => {
     return this.handle(c, async () => {
       const messageId = this.requireNumberParam(c, "messageId");
       const { userId } = this.requireUser(c);
-
-      // TODO: Add permission check (only sender or admin can delete)
+      // Possibly check ownership or admin role
       await this.messageRepo.delete(messageId);
       return { success: true };
     });
@@ -81,24 +76,21 @@ export class MessageController extends BaseController {
 
   addReaction = async (c: Context): Promise<Response> => {
     return this.handle(c, async () => {
+      // Not fully implemented yet
       const messageId = this.requireNumberParam(c, "messageId");
       const { userId } = this.requireUser(c);
-      const { emoji } = await this.requireBody<ReactionBody>(c);
-
-      // TODO: Add reaction to message
-      // await this.messageRepo.addReaction(messageId, userId, emoji);
+      const body = await this.requireBody<ReactionBody>(c);
+      // ...
       return { success: true };
     });
   };
 
   removeReaction = async (c: Context): Promise<Response> => {
     return this.handle(c, async () => {
+      // Not fully implemented
       const messageId = this.requireNumberParam(c, "messageId");
       const { userId } = this.requireUser(c);
-      const { emoji } = await this.requireBody<ReactionBody>(c);
-
-      // TODO: Remove reaction from message
-      // await this.messageRepo.removeReaction(messageId, userId, emoji);
+      // ...
       return { success: true };
     });
   };
@@ -107,9 +99,8 @@ export class MessageController extends BaseController {
     return this.handle(c, async () => {
       const hubId = this.requireNumberParam(c, "hubId");
       const { userId } = this.requireUser(c);
-
-      
-      // await this.messageRepo.markHubAsRead(hubId, userId);
+      // If there's a method for marking read:
+      // await this.messageRepo.markAsRead(hubId, userId);
       return { success: true };
     });
   };

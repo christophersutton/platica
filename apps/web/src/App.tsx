@@ -103,7 +103,7 @@ const WorkspaceRedirect = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-xl font-semibold mb-2">No Workspaces Found</h2>
-          <p className="text-gray-600">You don't have access to any workspaces.</p>
+          <p className="text-gray-600">You don&apos;t have access to any workspaces.</p>
         </div>
       </div>
     );

@@ -13,7 +13,7 @@
 
 import { Database } from "bun:sqlite";
 import { join } from "path";
-import { MessageType, UserStatus } from "@platica/shared/constants/enums";
+import { UserStatus } from "@platica/shared/constants/enums";
 import { ALL_ENGINEERING_MESSAGES, generateTimestamps } from "./engineering_history";
 import type { SeedMessage, SeedAttachment, SeedReaction } from "./types";
 
@@ -65,40 +65,40 @@ const HUBS = [
 
 const HUB_MESSAGES: Record<string, SeedMessage[]> = {
   general: [
-    { content: "Hey everyone! Welcome to our new workspace 👋", sender: 0, type: MessageType.TEXT },
-    { content: "Thanks for having us! Excited to collaborate here.", sender: 1, type: MessageType.TEXT },
-    { content: "Just a reminder: All-hands meeting tomorrow at 10am!", sender: 2, type: MessageType.SYSTEM },
-    { content: "Will the meeting be recorded for those who can't make it?", sender: 3, type: MessageType.TEXT },
-    { content: "Yes, we'll share the recording afterward.", sender: 0, type: MessageType.TEXT },
-    { content: "Perfect, thanks!", sender: 3, type: MessageType.TEXT },
-    { content: "Don't forget to update your profiles with your team info!", sender: 1, type: MessageType.SYSTEM },
-    { content: "And timezone! It helps with scheduling.", sender: 4, type: MessageType.TEXT },
+    { content: "Hey everyone! Welcome to our new workspace 👋", sender: 0, type: "text" },
+    { content: "Thanks for having us! Excited to collaborate here.", sender: 1, type: "text"},
+    { content: "Just a reminder: All-hands meeting tomorrow at 10am!", sender: 2, type: "system"},
+    { content: "Will the meeting be recorded for those who can't make it?", sender: 3, type: "text"},
+    { content: "Yes, we'll share the recording afterward.", sender: 0, type: "text"},
+    { content: "Perfect, thanks!", sender: 3, type: "text"},
+    { content: "Don't forget to update your profiles with your team info!", sender: 1, type: "system"},
+    { content: "And timezone! It helps with scheduling.", sender: 4, type: "text"},
   ],
   random: [
-    { content: "Anyone up for virtual coffee today? ☕", sender: 2, type: MessageType.TEXT },
-    { content: "I'm in! 🙋‍♀️", sender: 3, type: MessageType.TEXT },
-    { content: "Check out this cool article on AI: https://example.com/ai-trends", sender: 1, type: MessageType.TEXT },
-    { content: "Did you all see the new Star Wars trailer? 🎬", sender: 4, type: MessageType.TEXT },
-    { content: "No spoilers please! Saving it for the weekend 🙈", sender: 2, type: MessageType.TEXT },
+    { content: "Anyone up for virtual coffee today? ☕", sender: 2, type: "text"},
+    { content: "I'm in! 🙋‍♀️", sender: 3, type: "text"},
+    { content: "Check out this cool article on AI: https://example.com/ai-trends", sender: 1, type: "text"},
+    { content: "Did you all see the new Star Wars trailer? 🎬", sender: 4, type: "text"},
+    { content: "No spoilers please! Saving it for the weekend 🙈", sender: 2, type: "text"},
   ],
   engineering: [
-    { content: "Just pushed the new API changes to staging", sender: 1, type: MessageType.SYSTEM },
-    { content: "Nice! I'll review it this afternoon", sender: 4, type: MessageType.TEXT },
-    { content: "Heads up: We're upgrading Redis next week", sender: 0, type: MessageType.SYSTEM },
-    { content: "Any breaking changes we should be aware of?", sender: 2, type: MessageType.TEXT },
-    { content: "Nothing major, but I'll share the migration guide", sender: 0, type: MessageType.TEXT },
-    { content: "Thanks for the heads up!", sender: 2, type: MessageType.TEXT },
-    { content: "The e2e tests are passing now ✅", sender: 4, type: MessageType.SYSTEM },
-    { content: "Great work everyone! 🚀", sender: 1, type: MessageType.TEXT },
+    { content: "Just pushed the new API changes to staging", sender: 1, type: "system"},
+    { content: "Nice! I'll review it this afternoon", sender: 4, type: "text"},
+    { content: "Heads up: We're upgrading Redis next week", sender: 0, type: "system"},
+    { content: "Any breaking changes we should be aware of?", sender: 2, type: "text"},
+    { content: "Nothing major, but I'll share the migration guide", sender: 0, type: "text"},
+    { content: "Thanks for the heads up!", sender: 2, type: "text"},
+    { content: "The e2e tests are passing now ✅", sender: 4, type: "system"},
+    { content: "Great work everyone! 🚀", sender: 1, type: "text"},
   ],
   design: [
-    { content: "New component library is ready for review", sender: 3, type: MessageType.SYSTEM },
-    { content: "Love the new color palette! 🎨", sender: 0, type: MessageType.TEXT },
+    { content: "New component library is ready for review", sender: 3, type: "system"},
+    { content: "Love the new color palette! 🎨", sender: 0, type: "text"},
   ],
   'team-leads': [
-    { content: "Q4 planning meeting tomorrow at 2pm", sender: 0, type: MessageType.SYSTEM },
-    { content: "I'll prepare the OKR review", sender: 1, type: MessageType.TEXT },
-    { content: "Don't forget to submit your team's quarterly reports", sender: 0, type: MessageType.SYSTEM },
+    { content: "Q4 planning meeting tomorrow at 2pm", sender: 0, type: "system"},
+    { content: "I'll prepare the OKR review", sender: 1, type: "text"},
+    { content: "Don't forget to submit your team's quarterly reports", sender: 0, type: "system"},
   ]
 };
 
@@ -227,7 +227,7 @@ async function seed() {
           const baseTime = Math.floor(Date.now() / 1000) - (24 * 60 * 60);
           const timestamps = generateTimestamps(ALL_ENGINEERING_MESSAGES.length, baseTime);
           
-          ALL_ENGINEERING_MESSAGES.forEach((message: SeedMessage, messageIndex) => {
+          ALL_ENGINEERING_MESSAGES.forEach((message, messageIndex) => {
             const sender = message.sender === 0 ? testUser.id : userIds[message.sender - 1];
             const timestamp = timestamps[messageIndex];
             
