@@ -68,11 +68,11 @@ export function startWebSocketServer(port: number) {
 
           // Handle authentication message
           if (data.type === "auth") {
-            const authMessage = data ;
+            const authMessage = data.payload as AuthMessage;
             console.log("Auth message:", authMessage);
             console.log("Token:", authMessage.token);
-            console.log("Token starts with Bearer:", authMessage.payload);
-            if (!authMessage.payload.token?.startsWith("Bearer ")) {
+            
+            if (!authMessage.token?.startsWith("Bearer ")) {
               ws.send(
                 JSON.stringify({
                   type: "error",
@@ -83,7 +83,7 @@ export function startWebSocketServer(port: number) {
               return;
             }
 
-            const token = authMessage.payload.token.split(" ")[1];
+            const token = authMessage.token.split(" ")[1];
             try {
               const payload = await verify(token, JWT_SECRET);
               if (
@@ -246,12 +246,7 @@ export function startWebSocketServer(port: number) {
               
               const formattedMessage: OutgoingChatEvent = {
                 type: WSEventType.CHAT,
-                payload: {
-                  workspaceId: ws.data.workspaceId,
-                  channelId: data.channelId,
-                  senderId: ws.data.userId,
-                  content: data.content,
-                },
+                payload: data.payload
               };
 
               await wsService.handleMessage(
@@ -263,9 +258,9 @@ export function startWebSocketServer(port: number) {
               await writeService.handleMessage({
                 type: "message",
                 workspaceId: ws.data.workspaceId,
-                channelId: data.channelId,
+                channelId: data.payload.channelId,
                 senderId: ws.data.userId,
-                content: data.content,
+                content: data.payload.content,
               });
 
               console.log("[WebSocket Server] Processed chat message");

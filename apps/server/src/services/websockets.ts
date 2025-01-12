@@ -68,7 +68,7 @@ export class WebSocketService {
 
   private initializeMessageHandlers() {
     this.messageHandlers.set(WSEventType.CHAT, (ws, message) =>
-      this.handleChat(ws, message as ChatEvent)
+      this.handleChat(ws, message as OutgoingChatEvent)
     );
     this.messageHandlers.set(WSEventType.TYPING, (ws, message) =>
       this.handleTypingIndicator(ws, message as TypingEvent)
@@ -218,7 +218,7 @@ export class WebSocketService {
 
   private async handleChat(
     ws: ServerWebSocket<WebSocketData>,
-    message: OutgoingChatEvent | any
+    message: OutgoingChatEvent 
   ) {
     const client = this.clients.get(ws);
     if (!client) {
@@ -226,7 +226,8 @@ export class WebSocketService {
     }
 
     // Handle both legacy format and new format
-    const content = message.payload?.content || message.content;
+    console.log("Message:", message);
+    const content = message.payload.content 
 
     if (!content?.trim()) {
       throw new Error("Message content cannot be empty");
@@ -246,7 +247,7 @@ export class WebSocketService {
       )
       .get(
         client.workspaceId,
-        message.channelId || message.payload?.channelId,
+        message.payload.channelId,
         client.userId,
         content,
         getCurrentUnixTimestamp(),
@@ -257,7 +258,7 @@ export class WebSocketService {
     const sender = dbService.db
       .prepare(
         `
-      SELECT id, name, email, avatar_url, created_at, updated_at, deleted_at
+      SELECT id, name, email, avatar_url, created_at, updated_at
       FROM users
       WHERE id = ?
     `
