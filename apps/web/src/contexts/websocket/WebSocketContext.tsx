@@ -14,9 +14,7 @@ import { useWorkspace } from "../workspace/WorkspaceContext";
 
 interface WebSocketContextValue {
   status: ConnectionStatus;
-  // Type-safe message sending
   send: (message: WebSocketEvent) => boolean;
-  // Type-safe message subscription
   subscribe: <T extends WSEventType>(
     type: T,
     handler: (message: Extract<WebSocketEvent, { type: T }>) => void
@@ -28,64 +26,62 @@ const WebSocketContext = createContext<WebSocketContextValue | null>(null);
 export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   const { user, token } = useAuth();
   const { state } = useWorkspace();
-  
-  
-  console.log("WebSocketProvider", user?.id, token, state);
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
+  const [wsManager] = useState(() => WebSocketManager.getInstance());
 
+  // Enable debug mode in development
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      wsManager.setDebug(true);
+    }
+  }, [wsManager]);
+
+  // Handle WebSocket connection
   useEffect(() => {
     const workspaceId = state.workspace?.id;
     
     if (!user?.id || !token || !workspaceId) {
+      wsManager.disconnect();
       return;
     }
-    console.log("inside useEffeect", user?.id, token, workspaceId);
-    const ws = WebSocketManager.getInstance();
 
     // Subscribe to connection status
-    const unsubStatus = ws.subscribeStatus(setStatus);
+    const unsubStatus = wsManager.subscribeStatus(setStatus);
 
     // Connect
-    console.log("Connecting to WebSocket");
-    ws.connect({
+    wsManager.connect({
       token,
       workspaceId,
       userId: user.id,
     });
-    console.log("Connected to WebSocket");
+
     return () => {
       unsubStatus();
-      ws.disconnect();
+      wsManager.disconnect();
     };
-  }, [user, token, state]);
+  }, [user?.id, token, state.workspace?.id, wsManager]);
 
   const send = useCallback((message: WebSocketEvent) => {
-    return WebSocketManager.getInstance().send(message);
-  }, []);
+    return wsManager.send(message);
+  }, [wsManager]);
 
-  const subscribe = useCallback(
-    <T extends WSEventType>(
-      type: T,
-      handler: (message: Extract<WebSocketEvent, { type: T }>) => void
-    ) => {
-      return WebSocketManager.getInstance().subscribe(type, handler);
-    },
-    []
-  );
-
-  const value: WebSocketContextValue = {
-    status,
-    send,
-    subscribe,
-  };
+  const subscribe = useCallback(<T extends WSEventType>(
+    type: T,
+    handler: (message: Extract<WebSocketEvent, { type: T }>) => void
+  ) => {
+    return wsManager.subscribe(type, handler);
+  }, [wsManager]);
 
   return (
-    <WebSocketContext.Provider value={value}>
+    <WebSocketContext.Provider 
+      value={{ status, send, subscribe }}
+    >
       {children}
     </WebSocketContext.Provider>
   );
 }
 
+// Hook for accessing WebSocket context
 export function useWebSocket() {
   const context = useContext(WebSocketContext);
   if (!context) {
@@ -94,13 +90,25 @@ export function useWebSocket() {
   return context;
 }
 
-// Utility hooks for specific WS events:
+// Hook for subscribing to specific message types
 export function useWebSocketSubscription<T extends WSEventType>(
   type: T,
-  handler: (message: Extract<WebSocketEvent, { type: T }>) => void
+  handler: (message: Extract<WebSocketEvent, { type: T }>) => void,
+  deps: React.DependencyList = []
 ) {
   const { subscribe } = useWebSocket();
+
   useEffect(() => {
-    return subscribe(type, handler);
-  }, [type, handler, subscribe]);
+    const unsubscribe = subscribe(type, handler);
+    return () => unsubscribe();
+  }, [type, subscribe, ...deps]); // Include handler in deps if it changes frequently
+}
+
+// Utility hook for sending messages
+export function useWebSocketSender() {
+  const { send, status } = useWebSocket();
+  return {
+    send,
+    isConnected: status === 'connected'
+  };
 }
