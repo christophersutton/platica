@@ -1,9 +1,10 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from './store';
-import { PrivateUserResponse } from '../../../shared/types/user'; // adjust import if needed
+import { User } from '@platica/shared/models';
+// import { PrivateUserResponse } from '../../../shared/types'; // adjust import if needed
 
 interface AuthState {
-  currentUser: PrivateUserResponse | null;
+  currentUser: User | null;
   token: string | null;
   status: 'idle' | 'loading' | 'failed';
   error: string | null;
@@ -26,7 +27,7 @@ export const authSlice = createSlice({
     },
     loginSuccess(
       state,
-      action: PayloadAction<{ user: PrivateUserResponse; token: string }>
+      action: PayloadAction<{ user: User; token: string }>
     ) {
       state.status = 'idle';
       state.currentUser = action.payload.user;

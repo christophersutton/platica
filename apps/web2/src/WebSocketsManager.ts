@@ -1,4 +1,4 @@
-type WSHandler = (data: any) => void;
+type WSHandler = (data) => void;
 
 export class WebSocketsManager {
   private static instance: WebSocketsManager;

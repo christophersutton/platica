@@ -1,17 +1,24 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { WebSocketsManager } from "./WebSocketsManager";
 import { presenceUpdated } from "./store/presenceSlice";
+// Import the correct domain types from shared
+import type { User } from "@platica/shared/src/models/user";
+import type { ApiHub, ApiHubMember } from "@platica/shared/src/models/hub";
+import type { ApiRoom } from "@platica/shared/src/models/room";
+import type { ApiMessage } from "@platica/shared/src/models/message";
+import { WSEventType, type UserPresence } from "@platica/shared/src/websockets";
 
-// Shared types (adjust import paths as necessary)
-import { User, Hub, Room, Message } from '../../../packages/shared/src/models';
-import { UserPresence } from '../../../packages/shared/src/';
+// For demonstration, these are example domain types you might adjust
+// if your server returns slightly different shapes. 
+// If you have existing definitions for Hub, Room, Message, etc. that differ,
+// reconcile them accordingly.
 
 const baseQuery = fetchBaseQuery({ baseUrl: "/api" });
 
 export const api = createApi({
   reducerPath: "api",
   baseQuery,
-  tagTypes: ["User", "Hub", "Room", "Message", "Presence"],
+  tagTypes: ["User", "Hub", "Room", "Message", "Presence", "HubMember"],
   endpoints: (builder) => ({
     // ---------------------------
     // AUTH EXAMPLE (login/logout)
@@ -56,7 +63,7 @@ export const api = createApi({
     // ---------------------------
     // Hubs
     // ---------------------------
-    getHubs: builder.query<Hub[], void>({
+    getHubs: builder.query<ApiHub[], void>({
       query: () => "hubs",
       providesTags: (result) =>
         result
@@ -66,11 +73,11 @@ export const api = createApi({
             ]
           : [{ type: "Hub", id: "LIST" }],
     }),
-    getHub: builder.query<Hub, string>({
+    getHub: builder.query<ApiHub, string>({
       query: (hubId) => `hubs/${hubId}`,
       providesTags: (result, error, hubId) => [{ type: "Hub", id: hubId }],
     }),
-    createHub: builder.mutation<Hub, Partial<Hub>>({
+    createHub: builder.mutation<ApiHub, Partial<ApiHub>>({
       query: (newHub) => ({
         url: "hubs",
         method: "POST",
@@ -78,11 +85,26 @@ export const api = createApi({
       }),
       invalidatesTags: [{ type: "Hub", id: "LIST" }],
     }),
+    // NEW: getHubMembers query
+    getHubMembers: builder.query<ApiHubMember[], string>({
+      query: (hubId) => `hubs/${hubId}/members`,
+      providesTags: (result, error, hubId) =>
+        result
+          ? [
+              ...result.map(({ user }) => ({
+                type: "HubMember" as const,
+                id: `${hubId}-${user.id}`,
+              })),
+              { type: "HubMember", id: `LIST-${hubId}` },
+            ]
+          : [{ type: "HubMember", id: `LIST-${hubId}` }],
+    }),
 
     // ---------------------------
     // Rooms
     // ---------------------------
-    getRooms: builder.query<Room[], string>({
+    // Example: If your actual backend routes differ, adjust accordingly
+    getRooms: builder.query<ApiRoom[], string>({
       query: (hubId) => `hubs/${hubId}/rooms`,
       providesTags: (result, error, hubId) =>
         result
@@ -92,11 +114,11 @@ export const api = createApi({
             ]
           : [{ type: "Room", id: `LIST-${hubId}` }],
     }),
-    getRoom: builder.query<Room, string>({
+    getRoom: builder.query<ApiRoom, string>({
       query: (roomId) => `rooms/${roomId}`,
       providesTags: (result, error, roomId) => [{ type: "Room", id: roomId }],
     }),
-    createRoom: builder.mutation<Room, { hubId: string; data: Partial<Room> }>({
+    createRoom: builder.mutation<ApiRoom, { hubId: string; data: Partial<ApiRoom> }>({
       query: ({ hubId, data }) => ({
         url: `hubs/${hubId}/rooms`,
         method: "POST",
@@ -108,11 +130,10 @@ export const api = createApi({
     }),
 
     // ---------------------------
-    // Messages (Per Hub)
-    // Example: we fetch messages for a given hub, then subscribe to real-time
-    // updates.
+    // Messages (Per Hub or Room)
     // ---------------------------
-    getHubMessages: builder.query<Message[], string>({
+    // If your actual routes differ, adapt as needed
+    getHubMessages: builder.query<ApiMessage[], string>({
       query: (hubId) => `hubs/${hubId}/messages`,
       providesTags: (result, error, hubId) =>
         result
@@ -128,13 +149,13 @@ export const api = createApi({
         // Wait for the initial fetch to complete
         await cacheDataLoaded;
 
-        // Subscribe to WebSocket for new messages
+        // Example subscription usage:
         const ws = WebSocketsManager.getInstance("ws://localhost:3000/ws");
-        const unsubscribeMsg = ws.subscribe("hub_message", (payload) => {
-          // If the message is for this hub, add it to the cache
-          if (payload.hubId === hubId) {
+        const unsubscribeMsg = ws.subscribe("chat", (payload) => {
+          // If the message is for this hub, add or handle it
+          if (payload?.message?.hubId === Number(hubId)) {
             updateCachedData((draft) => {
-              draft.push(payload.newMessage);
+              draft.push(payload.message);
             });
           }
         });
@@ -145,7 +166,7 @@ export const api = createApi({
       },
     }),
     sendHubMessage: builder.mutation<
-      Message,
+      ApiMessage,
       { hubId: string; content: string }
     >({
       query: ({ hubId, content }) => ({
@@ -158,9 +179,33 @@ export const api = createApi({
       ],
     }),
 
+    // Example: If you have a similar approach for room messages:
+    getRoomMessages: builder.query<ApiMessage[], string>({
+      query: (roomId) => `rooms/${roomId}/messages`,
+      providesTags: (result, error, roomId) =>
+        result
+          ? [
+              ...result.map(({ id }) => ({ type: "Message" as const, id })),
+              { type: "Message", id: `ROOM-LIST-${roomId}` },
+            ]
+          : [{ type: "Message", id: `ROOM-LIST-${roomId}` }],
+    }),
+    sendRoomMessage: builder.mutation<
+      ApiMessage,
+      { roomId: string; content: string }
+    >({
+      query: ({ roomId, content }) => ({
+        url: `rooms/${roomId}/messages`,
+        method: "POST",
+        body: { content },
+      }),
+      invalidatesTags: (result, error, { roomId }) => [
+        { type: "Message", id: `ROOM-LIST-${roomId}` },
+      ],
+    }),
+
     // ---------------------------
     // Presence subscription example
-    // (To show how we might tie presence into RTK Query)
     // ---------------------------
     getInitialPresence: builder.query<UserPresence[], void>({
       query: () => "presence",
@@ -174,7 +219,7 @@ export const api = createApi({
 
         const unsubscribePresence = ws.subscribe("presence", (payload) => {
           // payload might be a PresenceEvent
-          dispatch(presenceUpdated(payload));
+          dispatch(presenceUpdated({ type: WSEventType.PRESENCE, payload }));
         });
 
         await cacheEntryRemoved;
@@ -184,7 +229,7 @@ export const api = createApi({
   }),
 });
 
-// Auto-generated React hooks
+// Export auto-generated hooks
 export const {
   // Auth
   useLoginMutation,
@@ -196,13 +241,16 @@ export const {
   useGetHubsQuery,
   useGetHubQuery,
   useCreateHubMutation,
+  useGetHubMembersQuery,
   // Rooms
   useGetRoomsQuery,
   useGetRoomQuery,
   useCreateRoomMutation,
-  // Messages
+  // Send & fetch messages for Hubs or Rooms
   useGetHubMessagesQuery,
   useSendHubMessageMutation,
+  useGetRoomMessagesQuery,
+  useSendRoomMessageMutation,
   // Presence
   useGetInitialPresenceQuery,
 } = api;

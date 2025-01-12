@@ -2,7 +2,7 @@ import type { Message } from "@models/message";
 import type { User } from "@models/user";
 import type { Hub } from "@models/hub";
 import type { Room } from "@models/room";
-import { validateTimestamp } from "@types";
+import { isValidTimestamp } from "../utils/time";
 import { TimestampError } from "../utils/time";
 
 export type UserPresenceStatus = "online" | "offline" | "in_room";
@@ -246,13 +246,13 @@ export function validateMessage(data: unknown): data is WebSocketEvent {
     // Validate timestamps if present
     try {
       if ("createdAt" in message) {
-        message.createdAt = validateTimestamp(message.createdAt as number);
+        isValidTimestamp(message.createdAt as number);
       }
       if ("updatedAt" in message) {
-        message.updatedAt = validateTimestamp(message.updatedAt as number);
+        isValidTimestamp(message.updatedAt as number);
       }
       if ("deletedAt" in message && message.deletedAt !== null) {
-        message.deletedAt = validateTimestamp(message.deletedAt as number);
+        isValidTimestamp(message.deletedAt as number);
       }
     } catch (error) {
       if (error instanceof TimestampError) {
