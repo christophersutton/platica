@@ -4,6 +4,8 @@ import { BaseController, ApiError } from "../base-controller";
 import type { Database } from "bun:sqlite";
 import { AuthRepository } from "../../db/repositories/auth-repository.js";
 import { EmailService } from "../../services/email.js";
+import type { User } from "@models/user";
+import type { AuthTokenRow } from "@models/auth";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 const MAGIC_LINK_EXPIRY = 15 * 60; // 15 minutes in seconds
@@ -49,20 +51,9 @@ export class AuthController extends BaseController {
       // Generate magic link
       const magicLink = `${process.env.APP_URL}/auth/verify?token=${token}`;
 
-      // In development, return the token directly
-      // if (process.env.NODE_ENV === 'development') {
-      //   return {
-      //     message: 'Magic link generated (development mode)',
-      //     magicLink,
-      //     token
-      //   };
-      // }
-
-      // In production, send email
-      // if (process.env.NODE_ENV === 'production') {
-      // Send magic link via email
+      
       await EmailService.sendMagicLink(email, magicLink);
-      // }
+      
 
       return { message: "Magic link sent to your email" };
     });
@@ -70,37 +61,62 @@ export class AuthController extends BaseController {
 
   verifyToken = async (c: Context): Promise<Response> => {
     return this.handle(c, async () => {
-      const { token } = await this.requireBody<VerifyTokenBody>(c);
+      try {
+        console.log("Verifying token...");
+        const body = await c.req.json();
+        console.log("Request body:", body);
+        
+        if (!body || typeof body.token !== 'string') {
+          console.error("Invalid request body:", body);
+          throw new ApiError("Invalid token format", 400);
+        }
 
-      // Verify and consume token
-      const authToken = await this.authRepo.verifyAndConsumeToken(token);
-      if (!authToken) {
-        throw new ApiError("Invalid or expired token", 401);
+        const { token } = body;
+
+        // Verify and consume token
+        console.log("Verifying token with repository...");
+        const authToken = await this.authRepo.verifyAndConsumeToken(token);
+        if (!authToken) {
+          console.error("Token verification failed");
+          throw new ApiError("Invalid or expired token", 401);
+        }
+        console.log("Token verified successfully");
+
+        // Get user info
+        console.log("Fetching user...");
+        const user = await this.authRepo.findById(authToken.userId);
+        if (!user) {
+          console.error("User not found for token:", authToken);
+          throw new ApiError("User not found", 404);
+        }
+        console.log("User found:", user.id);
+
+        // Generate JWT
+        console.log("Generating JWT...");
+        const jwt = await sign(
+          {
+            id: user.id,
+            email: user.email,
+          },
+          JWT_SECRET
+        );
+        console.log("JWT generated successfully");
+
+        return {
+          token: jwt,
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+          },
+        };
+      } catch (error) {
+        console.error("Token verification error:", error);
+        if (error instanceof ApiError) {
+          throw error;
+        }
+        throw new ApiError("Failed to verify token", 500);
       }
-
-      // Get user
-      const user = await this.authRepo.findById(authToken.userId);
-      if (!user) {
-        throw new ApiError("User not found", 404);
-      }
-
-      // Generate JWT
-      const jwt = await sign(
-        {
-          id: user.id,
-          email: user.email,
-        },
-        JWT_SECRET
-      );
-
-      return {
-        token: jwt,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-        },
-      };
     });
   };
 

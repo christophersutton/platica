@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { api } from '@/lib/api';
-import type { ApiError } from '@types';
+import { api, type ApiError } from '@/lib/api';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
-  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'verifying'>('idle');
+  const [status, setStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
   const [error, setError] = useState<string | null>(null);
 
   const handleRequestMagicLink = async (e: React.FormEvent) => {
@@ -13,31 +12,11 @@ export function LoginPage() {
     setError(null);
 
     try {
-      const result = await api.auth.requestMagicLink(email);
+      await api.auth.requestMagicLink(email);
       setStatus('sent');
-      
-      // In development, we get the token directly
-      if (result.token) {
-        await handleVerifyToken(result.token);
-      }
     } catch (err) {
       const apiError = err as ApiError;
       setError(apiError.error || 'Failed to send magic link');
-      setStatus('idle');
-    }
-  };
-
-  const handleVerifyToken = async (token: string) => {
-    setStatus('verifying');
-    setError(null);
-
-    try {
-      const result = await api.auth.verifyToken(token);
-      localStorage.setItem('auth_token', result.token);
-      window.location.href = '/'; // Redirect to home page
-    } catch (err) {
-      const apiError = err as ApiError;
-      setError(apiError.error || 'Failed to verify token');
       setStatus('idle');
     }
   };
@@ -76,6 +55,16 @@ export function LoginPage() {
             </div>
           )}
 
+          {status === 'sent' && (
+            <div className="text-green-600 text-sm">
+              Check your email! We've sent you a magic link to sign in.
+              <br />
+              <span className="text-gray-500">
+                The link will expire in 15 minutes. If you don't see it, check your spam folder.
+              </span>
+            </div>
+          )}
+
           <div>
             <button
               type="submit"
@@ -85,7 +74,6 @@ export function LoginPage() {
               {status === 'idle' && 'Send Magic Link'}
               {status === 'sending' && 'Sending...'}
               {status === 'sent' && 'Check Your Email'}
-              {status === 'verifying' && 'Verifying...'}
             </button>
           </div>
         </form>

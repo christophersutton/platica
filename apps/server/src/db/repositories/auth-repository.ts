@@ -2,10 +2,16 @@ import { Database } from "bun:sqlite";
 import { BaseRepository } from "./base";
 import type { User } from '@models/user';
 import type { AuthToken, AuthTokenRow, UserCreateDTO, UserUpdateDTO } from '@models/auth';
+import { WorkspaceRepository } from "./workspace-repository";
+import { UserRole } from "@constants/enums";
+import { validateTimestamp } from "@types";
 
 export class AuthRepository extends BaseRepository<User, UserCreateDTO, UserUpdateDTO> {
+  private workspaceRepo: WorkspaceRepository;
+
   constructor(db: Database) {
     super(db);
+    this.workspaceRepo = new WorkspaceRepository(db);
   }
 
   getTableName(): string {
@@ -22,10 +28,45 @@ export class AuthRepository extends BaseRepository<User, UserCreateDTO, UserUpda
     const user = await this.findByEmail(email);
     if (user) return user;
 
-    return this.create({
-      email,
-      name: email.split('@')[0],
-      avatarUrl: null
+    return this.createNewUserWithWorkspace(email);
+  }
+
+  private async createNewUserWithWorkspace(email: string): Promise<User> {
+    console.log("Creating new user with workspace for:", email);
+    return this.transaction(async () => {
+      try {
+        // Create the user
+        console.log("Creating user...");
+        const user = await this.create({
+          email,
+          name: email.split('@')[0],
+          avatarUrl: null
+        });
+        console.log("User created:", user.id);
+
+        // Create their personal workspace
+        console.log("Creating personal workspace...");
+        const workspaceName = `${user.name}'s Workspace`;
+        const workspaceSlug = `${user.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${user.id}`;
+        
+        const workspace = await this.workspaceRepo.create({
+          name: workspaceName,
+          slug: workspaceSlug,
+          ownerId: user.id,
+          settings: {},
+        });
+        console.log("Workspace created:", workspace.id);
+
+        // Add them as an admin
+        console.log("Adding user as workspace admin...");
+        await this.workspaceRepo.addUser(workspace.id, user.id, UserRole.ADMIN);
+        console.log("User added as admin");
+
+        return user;
+      } catch (error) {
+        console.error("Failed to create user with workspace:", error);
+        throw error;
+      }
     });
   }
 
@@ -61,15 +102,15 @@ export class AuthRepository extends BaseRepository<User, UserCreateDTO, UserUpda
         WHERE token = ?
       `).run(now, token);
 
-      // Convert row to domain type
+      // Convert row to domain type with validated timestamps
       return {
         id: row.id,
         token: row.token,
         userId: row.user_id,
         expiresAt: row.expires_at,
         used: Boolean(row.used),
-        createdAt: row.created_at,
-        updatedAt: row.updated_at
+        createdAt: validateTimestamp(row.created_at),
+        updatedAt: validateTimestamp(row.updated_at)
       };
     });
   }

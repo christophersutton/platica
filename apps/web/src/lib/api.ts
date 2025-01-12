@@ -9,15 +9,22 @@ interface ApiResponse<T> {
   error?: string;
 }
 
-interface ApiError {
+export interface ApiError {
   error: string;
   status: number;
 }
 
 const API_BASE_URL = '/api';
 
+// List of endpoints that should not include auth header
+const PUBLIC_ENDPOINTS = [
+  '/auth/magic-link',
+  '/auth/verify'
+];
+
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = localStorage.getItem('auth_token');
+  const isPublicEndpoint = PUBLIC_ENDPOINTS.some(e => endpoint.startsWith(e));
+  const token = !isPublicEndpoint ? localStorage.getItem('auth_token') : null;
   
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
@@ -48,10 +55,11 @@ export const api = {
         body: JSON.stringify({ email }),
       }),
     
-    verifyToken: (token: string) =>
+    verifyToken: (token: string, options?: RequestInit) =>
       fetchApi<{ token: string; user: User }>('/auth/verify', {
         method: 'POST',
         body: JSON.stringify({ token }),
+        ...options,
       }),
       
     getProfile: () => 
@@ -122,4 +130,4 @@ export const api = {
 };
 
 // Export types that other components might need
-export type { ApiError, Message, User, Workspace, Channel, ApiWorkspaceUser };
+export type { Message, User, Workspace, Channel, ApiWorkspaceUser };
