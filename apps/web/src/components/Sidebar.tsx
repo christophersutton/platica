@@ -19,7 +19,7 @@ export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { workspaceId = "1", channelId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   // const { state } = useAppContext();
   const { channels, isLoadingChannels } = useChannels();
   
@@ -134,9 +134,17 @@ export function Sidebar() {
                 {!isCollapsed && <span className="ml-0">{u.id}</span>}
               </Button>
             ))} */}
+            
           </div>
         </div>
       </ScrollArea>
+      
+      <button 
+        onClick={logout} 
+        className="logout-button mt-auto p-2 bg-red-500 text-white rounded"
+      >
+        Logout
+      </button>
     </div>
   );
 }
