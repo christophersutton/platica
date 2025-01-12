@@ -33,8 +33,6 @@
   "dependencies": {
     "@reduxjs/toolkit": "^2.5.0",
     "hono": "^4.6.16",
-    "react-redux": "^9.2.0",
-    "resend": "^4.0.1",
-    "tailwindcss": "^3.4.17"
+    "react-redux": "^9.2.0"
   }
 }

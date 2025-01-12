@@ -15,7 +15,6 @@
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
-
     /* Path aliases */
     "baseUrl": "../..",
     "paths": {
@@ -27,7 +26,6 @@
       "@websocket/*": ["packages/shared/src/websocket/*"],
       "@types": ["packages/shared/src/types.ts"]
     },
-
     /* Linting */
     "strict": true,
     "noUnusedLocals": true,

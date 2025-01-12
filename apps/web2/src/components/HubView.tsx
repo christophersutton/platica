@@ -1,13 +1,11 @@
-import React from 'react';
 import { useGetHubQuery } from '../api';
+import { useParams } from 'react-router-dom';
 
-interface HubViewProps {
-  hubId: string;
-}
+export function HubView() {
+  const { hubId } = useParams<{ hubId: string }>();
+  const { data: hub, isLoading, isError } = useGetHubQuery(hubId || "");
 
-export function HubView({ hubId }: HubViewProps) {
-  const { data: hub, isLoading, isError } = useGetHubQuery(hubId);
-
+  if (!hubId) return <div>Invalid hub ID.</div>;
   if (isLoading) return <div>Loading Hub...</div>;
   if (isError || !hub) return <div>Failed to load this hub.</div>;
 

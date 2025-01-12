@@ -1,12 +1,11 @@
-import React from 'react';
-import { useGetRoomQuery } from '../api';
+import { useGetRoomQuery } from "../api";
+import { useParams } from "react-router-dom";
 
-interface RoomViewProps {
-  roomId: string;
-}
-
-export function RoomView({ roomId }: RoomViewProps) {
-  const { data: room, isLoading, isError } = useGetRoomQuery(roomId);
+export function RoomView() {
+  const { roomId } = useParams<{roomId: string}>();
+  const { data: room, isLoading, isError } = useGetRoomQuery(roomId || "");
+  if (!roomId) return <div>Invalid room ID.</div>;
+  
 
   if (isLoading) return <div>Loading Room...</div>;
   if (isError || !room) return <div>Failed to load this room.</div>;
@@ -14,7 +13,7 @@ export function RoomView({ roomId }: RoomViewProps) {
   return (
     <div className="p-4">
       <h2 className="text-xl font-bold mb-2">Room: {room.name}</h2>
-      <p className="mb-4">Belongs to Hub: {room.hubId}</p>
+      
       {/* Future: video/voice UI, secretary tasks, etc. */}
       <div>--- Room details go here ---</div>
     </div>

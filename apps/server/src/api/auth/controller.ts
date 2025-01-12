@@ -47,7 +47,7 @@ export class AuthController extends BaseController {
       const { email, workspaceId } = await this.requireBody<MagicLinkBody>(c);
 
       // Create or get user
-      const user = await this.userRepo.findOrCreate(email);
+      const user = await this.userRepo.findOrCreate(email, workspaceId ? parseInt(workspaceId, 10) : undefined);
 
       // Generate and store token with workspace context
       const token = await this.userRepo.createAuthToken({

@@ -28,13 +28,13 @@ export class UserRepository extends BaseRepository<User, UserCreateDTO, UserUpda
     return row ? this.deserializeRow(row) : undefined;
   }
 
-  async findOrCreate(email: string): Promise<User> {
+  async findOrCreate(email: string, workspaceId?: number): Promise<User> {
     const existing = await this.findByEmail(email);
     if (existing) return existing;
-    return this.createNewUserWithWorkspace(email);
+    return this.createNewUserWithWorkspace(email, workspaceId);
   }
 
-  private async createNewUserWithWorkspace(email: string): Promise<User> {
+  private async createNewUserWithWorkspace(email: string, workspaceId?: number): Promise<User> {
     console.log("Creating new user with workspace for:", email);
     return this.transaction(async () => {
       const user = await this.create({
@@ -43,7 +43,8 @@ export class UserRepository extends BaseRepository<User, UserCreateDTO, UserUpda
         avatarUrl: null,
       });
       console.log("User created:", user.id);
-
+      let workspace
+      if (!workspaceId) {
       // Create personal workspace
       const workspaceName = `${user.name}'s Workspace`;
       const workspaceSlug = `${user.name
@@ -54,10 +55,15 @@ export class UserRepository extends BaseRepository<User, UserCreateDTO, UserUpda
         name: workspaceName,
         slug: workspaceSlug,
         ownerId: user.id,
-        settings: {},
-      });
-      console.log("Workspace created:", workspace.id);
-
+          settings: {},
+        });
+        console.log("Workspace created:", workspace.id);
+      } else {
+        workspace = await this.workspaceRepo.findById(workspaceId);
+      }
+      if (!workspace) {
+        throw new Error("Workspace not found");
+      }
       // Add user as admin
       await this.workspaceRepo.addUser(workspace.id, user.id, UserRole.ADMINISTRATOR);
       console.log("User added as admin to workspace");

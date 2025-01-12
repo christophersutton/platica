@@ -183,6 +183,7 @@ CREATE TABLE IF NOT EXISTS hub_members (
   user_id INTEGER NOT NULL,
   role TEXT NOT NULL DEFAULT 'member',
   unread_mentions INTEGER NOT NULL DEFAULT 0,
+  last_read_at INTEGER DEFAULT NULL,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
   PRIMARY KEY (hub_id, user_id),

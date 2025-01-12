@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useSendMessageMutation } from '../api';
+import { useSendRoomMessageMutation } from '../api';
 
 interface MessageInputProps {
   roomId: string;
@@ -7,11 +7,11 @@ interface MessageInputProps {
 
 export function MessageInput({ roomId }: MessageInputProps) {
   const [content, setContent] = useState('');
-  const [sendMessage] = useSendMessageMutation();
+  const [sendRoomMessage] = useSendRoomMessageMutation();
 
   const handleSend = async () => {
     if (!content.trim()) return;
-    await sendMessage({ roomId, content });
+    await sendRoomMessage({ roomId, content });
     setContent('');
   };
 
