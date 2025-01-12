@@ -2,10 +2,9 @@ import type { Context } from "hono";
 import { sign } from "hono/jwt";
 import { BaseController, ApiError } from "../base-controller";
 import type { Database } from "bun:sqlite";
-import { AuthRepository } from "../../db/repositories/auth-repository.js";
+import { UserRepository } from "../../db/repositories/user-repository.js";
 import { EmailService } from "../../services/email.js";
-import type { User } from "@models/user";
-import type { AuthTokenRow } from "@models/auth";
+
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 const MAGIC_LINK_EXPIRY = 15 * 60; // 15 minutes in seconds
@@ -24,15 +23,15 @@ interface UpdateProfileBody {
 }
 
 export class AuthController extends BaseController {
-  private readonly authRepo: AuthRepository;
-
-  constructor(authRepo: AuthRepository) {
+  
+  private readonly userRepo: UserRepository;
+  constructor(userRepo: UserRepository) {
     super();
-    this.authRepo = authRepo;
+    this.userRepo = userRepo;
   }
 
   static create(db: Database): AuthController {
-    return new AuthController(new AuthRepository(db));
+    return new AuthController(new UserRepository(db));
   }
 
   requestMagicLink = async (c: Context): Promise<Response> => {
@@ -40,10 +39,10 @@ export class AuthController extends BaseController {
       const { email } = await this.requireBody<MagicLinkBody>(c);
 
       // Create or get user
-      const user = await this.authRepo.findOrCreate(email);
+      const user = await this.userRepo.findOrCreate(email);
 
       // Generate and store token
-      const token = await this.authRepo.createAuthToken({
+      const token = await this.userRepo.createAuthToken({
         userId: user.id,
         expiresAt: Math.floor(Date.now() / 1000) + MAGIC_LINK_EXPIRY,
       });
@@ -75,7 +74,7 @@ export class AuthController extends BaseController {
 
         // Verify and consume token
         console.log("Verifying token with repository...");
-        const authToken = await this.authRepo.verifyAndConsumeToken(token);
+        const authToken = await this.userRepo.verifyAndConsumeToken(token);
         if (!authToken) {
           console.error("Token verification failed");
           throw new ApiError("Invalid or expired token", 401);
@@ -84,7 +83,7 @@ export class AuthController extends BaseController {
 
         // Get user info
         console.log("Fetching user...");
-        const user = await this.authRepo.findById(authToken.userId);
+        const user = await this.userRepo.findById(authToken.userId);
         if (!user) {
           console.error("User not found for token:", authToken);
           throw new ApiError("User not found", 404);
@@ -123,7 +122,7 @@ export class AuthController extends BaseController {
   getProfile = async (c: Context): Promise<Response> => {
     return this.handle(c, async () => {
       const { userId } = c.get("user");
-      const user = await this.authRepo.findById(userId);
+      const user = await this.userRepo.findById(userId);
       if (!user) {
         throw new ApiError("User not found", 404);
       }
@@ -135,7 +134,7 @@ export class AuthController extends BaseController {
     return this.handle(c, async () => {
       const { userId } = c.get("user");
       const data = await this.requireBody<UpdateProfileBody>(c);
-      const user = await this.authRepo.update(userId, data);
+      const user = await this.userRepo.update(userId, data);
       if (!user) {
         throw new ApiError("Failed to update user", 500);
       }
