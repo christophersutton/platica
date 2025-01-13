@@ -44,6 +44,12 @@ export function setupHubRoutes(app: Hono, db: DatabaseProvider, auth: AuthMiddle
   // List workspace hubs
   workspaceHubs.get('/', controller.getWorkspaceHubs);
   
+  // Get single hub
+  workspaceHubs.get('/:hubId', controller.getHub);
+  
+  // Get hub messages
+  workspaceHubs.get('/:hubId/messages', controller.getHubMessages);
+  
   // Create hub in workspace
   workspaceHubs.post('/', controller.createHub);
 

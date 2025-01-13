@@ -1,7 +1,7 @@
 import type { Message } from "@models/message";
 import type { User } from "@models/user";
 import type { Hub } from "@models/hub";
-import type { Room } from "@models/room";
+import type { Room, RoomMemberState } from "@models/room";
 import { isValidTimestamp } from "../utils/time";
 import { TimestampError } from "../utils/time";
 
@@ -166,6 +166,20 @@ export interface HubMemberEvent {
 }
 
 /**
+ * Room Events
+ */
+export interface RoomEvent {
+  type: WSEventType.ROOM;
+  payload: {
+    room?: Room;
+    roomId?: number;
+    userId?: number;
+    roomEventType: RoomEventType;
+    state?: RoomMemberState;
+  };
+}
+
+/**
  * Union type of all possible WebSocket events
  */
 export type WebSocketEvent =
@@ -177,7 +191,8 @@ export type WebSocketEvent =
   | HubCreatedEvent
   | ErrorEvent
   | AuthEvent
-  | HubMemberEvent;
+  | HubMemberEvent
+  | RoomEvent;
 
 /**
  * Type guards for runtime type checking

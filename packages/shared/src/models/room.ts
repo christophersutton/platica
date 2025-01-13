@@ -139,7 +139,7 @@ export interface RoomMemberRow {
 /**
  * Required fields when creating a room
  */
-type RoomRequiredFields = 'workspaceId' | 'name' | 'scheduledStart' | 'scheduledEnd';
+type RoomRequiredFields = 'workspaceId' | 'name' | 'scheduledStart' | 'scheduledEnd' | 'status' | 'createdBy';
 
 /**
  * Optional fields when creating a room

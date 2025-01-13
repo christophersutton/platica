@@ -4,10 +4,9 @@ import type { Message } from '@models/message';
 import { validateTimestamp } from '@types';
 import type { MessageWithMeta } from '../../types/repository';
 import { TimestampError } from '@platica/shared/src/utils/time';
-
-// NEW: import the Zod schema for messages
 import { MessageSchema } from '@models/schemas'; 
 import { MessageType } from '@constants/enums';
+import type { ValidatedUnixTimestamp } from '@types';
 
 export type MessageCreateDTO = {
   workspaceId: number;
@@ -53,55 +52,49 @@ export class MessageRepository extends BaseRepository<Message, MessageCreateDTO,
   protected deserializeRow<D extends object>(data: D): Message {
     const deserialized = super.deserializeRow(data);
 
-    // Attempt Zod parse, ignoring the fact that in the DB 
-    // we store numeric timestamps vs. the Zod schema is typically strings
-    // We'll just do minimal bridging. 
-    // For each timestamp, we might convert to number -> string or vice versa.
+    // Ensure we have valid timestamps before proceeding
+    const createdAt = validateTimestamp((deserialized as any).createdAt);
+    const updatedAt = validateTimestamp((deserialized as any).updatedAt);
+    
+    if (!createdAt || !updatedAt) {
+      throw new TimestampError('Invalid timestamp in message row');
+    }
 
-    // Example:
-    // deserialized.createdAt = new Date(deserialized.createdAt * 1000).toISOString();
-    // but for now, we proceed carefully to see if the domain wants numeric or string.
-
-    // Convert to a shape that matches the schema
+    // Convert to a shape that matches the schema for validation
     const schemaCandidate = {
       id: String(deserialized.id),
       workspaceId: String(deserialized.workspaceId),
-      hubId: deserialized.hubId ? String(deserialized.hubId) : undefined,
-      roomId: undefined, // If implementing room messages, you'd add that 
+      hubId: String(deserialized.hubId || ''), // Convert to empty string if null/undefined
+      roomId: null,
       senderId: String((deserialized as any).senderId),
-      threadId: deserialized.threadId ? String(deserialized.threadId) : undefined,
+      threadId: deserialized.threadId ? String(deserialized.threadId) : null,
       content: deserialized.content,
-      type: (deserialized).type || MessageType.TEXT,
-      attachments: deserialized.attachments 
-        ? JSON.parse(String(deserialized.attachments)) 
-        : [],
+      type: (deserialized as any).type || 'text',
       isEdited: !!deserialized.isEdited,
       editedAt: null,
       deletedAt: null, 
-      createdAt: new Date((deserialized as any).createdAt * 1000).toISOString(),
-      updatedAt: new Date((deserialized as any).updatedAt * 1000).toISOString(),
+      createdAt: new Date(createdAt * 1000).toISOString(),
+      updatedAt: new Date(updatedAt * 1000).toISOString(),
     };
 
     try {
-      // parse with Zod
+      // Validate with Zod schema
       const parsed = MessageSchema.parse(schemaCandidate);
-      // Now map it back to domain if needed
+
       return {
-        ...deserialized,
-        // Overwrite the date fields with validated data
-        id: parsed.id,
+        id: Number(parsed.id),
         workspaceId: Number(parsed.workspaceId),
-        hubId: parsed.hubId ? Number(parsed.hubId) : undefined,
+        hubId: Number(parsed.hubId), // hubId is required
         content: parsed.content,
-        type: parsed.type,
-        attachments: parsed.attachments, // array 
+        threadId: parsed.threadId ? Number(parsed.threadId) : undefined,
         isEdited: parsed.isEdited,
-        createdAt: (deserialized as any).createdAt,  // keep numeric if domain requires numeric
-        updatedAt: (deserialized as any).updatedAt,
+        createdAt,
+        updatedAt,
         deletedAt: null,
-      } as Message;
+        sender: {} as any // Will be populated by join queries
+      };
     } catch (error) {
-      console.error('Failed to Zod-parse message row:', error);
+      console.error('Failed to validate message:', error);
       throw error;
     }
   }
@@ -133,12 +126,11 @@ export class MessageRepository extends BaseRepository<Message, MessageCreateDTO,
         avatarUrl: row.avatar_url as string | null
       },
       reactionCount: Number(row.reaction_count),
-      hasThread: (row.has_thread as number) === 1,
+      hasThread: Number(row.has_thread) as 0 | 1
     } as MessageWithMeta;
   }
 
   async findByHub(hubId: number, limit?: number, before?: number): Promise<MessageWithMeta[]> {
-    // Example usage. We'll keep the basic structure, but parse results with Zod. 
     let query = `
       SELECT 
         m.*,
@@ -176,7 +168,7 @@ export class MessageRepository extends BaseRepository<Message, MessageCreateDTO,
           avatarUrl: row.avatar_url as string | null
         },
         reactionCount: Number(row.reaction_count),
-        hasThread: (row.has_thread as number) === 1
+        hasThread: Number(row.has_thread) as 0 | 1
       } as MessageWithMeta;
     });
   }

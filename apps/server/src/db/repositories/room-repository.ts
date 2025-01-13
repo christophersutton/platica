@@ -6,10 +6,18 @@ import type {
   ApiRoom, 
   ApiRoomMember,
   CreateRoomDTO, 
-  UpdateRoomDTO 
+  UpdateRoomDTO,
+  RoomMemberRole,
+  RoomMemberState
 } from "@models/room";
 import { RoomSchema } from "@models/schemas"; // NEW
 import { ApiError } from "../../api/base-controller";
+
+interface RoomWithMetaRow extends Record<string, any> {
+  current_members: string | number;
+  total_joined: string | number;
+  role?: string;
+}
 
 export class RoomRepository extends BaseRepository<Room, CreateRoomDTO, UpdateRoomDTO> {
   constructor(db: Database) {
@@ -85,10 +93,9 @@ export class RoomRepository extends BaseRepository<Room, CreateRoomDTO, UpdateRo
     `;
 
     const params = userId ? [userId, roomId] : [roomId];
-    const result = this.db.prepare(query).get(...params);
+    const result = this.db.prepare(query).get(...params) as RoomWithMetaRow | undefined;
     if (!result) return undefined;
 
-    // parse row
     const deserialized = this.deserializeRow(result);
     return {
       ...deserialized,
@@ -148,9 +155,16 @@ export class RoomRepository extends BaseRepository<Room, CreateRoomDTO, UpdateRo
     }));
   }
 
-  async addMember(roomId: number, userId: number, role: RoomMember["role"]): Promise<void> {
+  async addMember(roomId: number, userId: number, role: RoomMemberRole): Promise<void> {
     const now = Math.floor(Date.now() / 1000);
-    // Add checks if user can only be in one active room, etc.
+    const initialState: RoomMemberState = {
+      online: true,
+      audio: false,
+      video: false,
+      sharing: false,
+      handRaised: false
+    };
+
     this.db.transaction(() => {
       this.db.prepare(`
         INSERT INTO room_members (
@@ -161,17 +175,26 @@ export class RoomRepository extends BaseRepository<Room, CreateRoomDTO, UpdateRo
         userId,
         role,
         now,
-        JSON.stringify({
-          online: true,
-          audio: false,
-          video: false,
-          sharing: false,
-          handRaised: false,
-        }),
+        JSON.stringify(initialState),
         now,
         now
       );
     })();
+  }
+
+  async getMemberRole(roomId: number, userId: number): Promise<RoomMemberRole | null> {
+    const row = this.db.prepare(
+      'SELECT role FROM room_members WHERE room_id = ? AND user_id = ? AND deleted_at IS NULL'
+    ).get(roomId, userId) as { role: RoomMemberRole } | undefined;
+    
+    return row?.role ?? null;
+  }
+
+  async removeMember(roomId: number, userId: number): Promise<void> {
+    const now = Math.floor(Date.now() / 1000);
+    this.db.prepare(
+      'UPDATE room_members SET deleted_at = ? WHERE room_id = ? AND user_id = ?'
+    ).run(now, roomId, userId);
   }
 
   async updateMemberState(

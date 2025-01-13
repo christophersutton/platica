@@ -83,7 +83,7 @@ export class RoomController extends BaseController {
         payload: { 
           room: newRoom,
           roomEventType: RoomEventType.ROOM_CREATED
-         }
+        }
       } as RoomEvent);
 
       return { room: newRoom };
@@ -127,8 +127,11 @@ export class RoomController extends BaseController {
       }
 
       this.wsService.broadcastToRoom(roomId, {
-        type: WSEventType.ROOM_UPDATED,
-        payload: { room: updated }
+        type: WSEventType.ROOM,
+        payload: { 
+          room: updated,
+          roomEventType: RoomEventType.ROOM_DETAILS
+        }
       } as RoomEvent);
 
       return { room: updated };
@@ -144,8 +147,12 @@ export class RoomController extends BaseController {
       const members = await this.roomRepo.getRoomMembers(roomId);
 
       this.wsService.broadcastToRoom(roomId, {
-        type: WSEventType.ROOM_MEMBER_JOINED,
-        payload: { roomId, userId }
+        type: WSEventType.ROOM,
+        payload: { 
+          roomId,
+          userId,
+          roomEventType: RoomEventType.ROOM_MEMBER_ADDED
+        }
       } as RoomEvent);
 
       return { room: { ...room, members } };
@@ -159,7 +166,11 @@ export class RoomController extends BaseController {
       await this.roomRepo.removeMember(roomId, userId);
       this.wsService.broadcastToRoom(roomId, {
         type: WSEventType.ROOM,
-        payload: { roomId, userId, roomEventType: RoomEventType.ROOM_MEMBER_REMOVED }
+        payload: { 
+          roomId,
+          userId,
+          roomEventType: RoomEventType.ROOM_MEMBER_REMOVED
+        }
       } as RoomEvent);
       return { success: true };
     });
@@ -176,7 +187,12 @@ export class RoomController extends BaseController {
       }
       this.wsService.broadcastToRoom(roomId, {
         type: WSEventType.ROOM,
-        payload: { roomId, userId, roomEventType: RoomEventType.ROOM_MEMBER_UPDATED, state: updated.state }
+        payload: { 
+          roomId,
+          userId,
+          roomEventType: RoomEventType.ROOM_MEMBER_UPDATED,
+          state: updated.state
+        }
       } as RoomEvent);
       return { state: updated.state };
     });

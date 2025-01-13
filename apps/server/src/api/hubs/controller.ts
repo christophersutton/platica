@@ -60,6 +60,38 @@ export class HubController extends BaseController {
     });
   };
 
+  getHub = async (c: Context): Promise<Response> => {
+    return this.handle(c, async () => {
+      const workspaceId = this.requireNumberParam(c, 'workspaceId');
+      const hubId = this.requireNumberParam(c, 'hubId');
+      const { userId } = this.requireUser(c);
+
+      // Check workspace membership
+      const workspaceRepo = new WorkspaceRepository(this.hubRepo['db']);
+      const memberRole = await workspaceRepo.getMemberRole(workspaceId, userId);
+      if (!memberRole) {
+        throw new ApiError('Not a member of this workspace', 403);
+      }
+
+      // Get the hub and verify it belongs to the workspace
+      const hub = await this.hubRepo.findById(hubId);
+      if (!hub) {
+        throw new ApiError('Hub not found', 404);
+      }
+      if (hub.workspaceId !== workspaceId) {
+        throw new ApiError('Hub not found in this workspace', 404);
+      }
+
+      // Check hub membership
+      const hubMemberRole = await this.hubRepo.getMemberRole(hubId, userId);
+      if (!hubMemberRole) {
+        throw new ApiError('Not a member of this hub', 403);
+      }
+
+      return { hub };
+    });
+  };
+
   getHubMessages = async (c: Context): Promise<Response> => {
     return this.handle(c, async () => {
       const hubId = this.requireNumberParam(c, 'hubId');

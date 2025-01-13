@@ -9,10 +9,10 @@ DROP TABLE IF EXISTS messages;
 DROP TABLE IF EXISTS channel_members;
 DROP TABLE IF EXISTS channels;
 DROP TABLE IF EXISTS workspace_users;
-DROP TABLE IF EXISTS auth_tokens;
+
 DROP TABLE IF EXISTS workspace_invites;
 DROP TABLE IF EXISTS channel_invites;
-DROP TABLE IF EXISTS users;
+
 DROP TABLE IF EXISTS workspaces;
 DROP TABLE IF EXISTS rooms;
 DROP TABLE IF EXISTS room_members;
@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS secretaries (
 );
 
 -- Auth tokens table (depends on users)
-CREATE TABLE auth_tokens (
+CREATE TABLE IF NOT EXISTS auth_tokens (
     id INTEGER PRIMARY KEY,
     token TEXT UNIQUE NOT NULL,
     user_id INTEGER NOT NULL,
@@ -155,7 +155,7 @@ CREATE TABLE IF NOT EXISTS hubs (
   updated_at TEXT NOT NULL,
   expiration_policy TEXT NOT NULL DEFAULT 'never', -- example default
   secretary_enabled BOOLEAN NOT NULL DEFAULT 1,
-  
+  is_archived BOOLEAN NOT NULL DEFAULT 0,
   assigned_secretary_id INTEGER, -- optional
 
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,

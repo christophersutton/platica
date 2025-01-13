@@ -37,4 +37,15 @@ export function setupMessageRoutes(app: Hono, db: DatabaseProvider, auth: AuthMi
 
   // Mount message routes
   app.route('/messages', messages);
+
+  // Add workspace-specific hub message routes
+  const workspaceHubMessages = new Hono();
+  workspaceHubMessages.use('/*', auth.jwtAuth);
+  workspaceHubMessages.use('/*', auth.workspaceAuth);
+
+  // Create message in workspace hub
+  workspaceHubMessages.post('/', controller.createMessage);
+
+  // Mount workspace hub message routes
+  app.route('/workspaces/:workspaceId/hubs/:hubId/messages', workspaceHubMessages);
 } 
