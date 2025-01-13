@@ -235,6 +235,7 @@ CREATE TABLE IF NOT EXISTS messages (
   thread_id INTEGER, -- for threaded replies
   content TEXT,
   type TEXT DEFAULT 'text',
+  is_edited BOOLEAN NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   updated_at TEXT,
   deleted_at TEXT,
