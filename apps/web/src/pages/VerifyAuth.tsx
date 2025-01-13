@@ -2,13 +2,8 @@ import { useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { loginStart, loginSuccess, loginFailure, selectAuth } from '../store/authSlice';
-import type { User } from '@platica/shared/src/models/user';
 
-interface VerifyTokenResponse {
-  token: string;
-  user: User;
-  workspaceId?: string;
-}
+
 
 export function VerifyAuth() {
   const [searchParams] = useSearchParams();
@@ -41,21 +36,27 @@ export function VerifyAuth() {
 
     // Do the verification
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-    fetch(`${API_URL}/auth/verify?token=${encodeURIComponent(token)}`)
+    fetch(`${API_URL}/auth/verify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ token }),
+    })
       .then(response => {
         if (!response.ok) throw new Error('Verification failed');
-        return response.json() as Promise<VerifyTokenResponse>;
+        return response.json() 
       })
       .then(result => {
         // Store the token
-        localStorage.setItem('auth_token', result.token);
+        localStorage.setItem('auth_token', result.data.token);
         
         // Update auth state
-        dispatch(loginSuccess({ user: result.user, token: result.token }));
+        dispatch(loginSuccess({ user: result.data.user, token: result.data.token }));
 
         // Navigate to appropriate page
-        if (result.workspaceId) {
-          navigate(`/w/${result.workspaceId}`, { replace: true });
+        if (result.data.workspaceId) {
+          navigate(`/w/${result.data.workspaceId}`, { replace: true });
         } else {
           navigate('/', { replace: true });
         }

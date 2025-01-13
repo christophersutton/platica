@@ -1,7 +1,12 @@
 import { Database } from "bun:sqlite";
 import { BaseRepository } from "./base";
 import type { User } from "@models/user";
-import type { AuthToken, AuthTokenRow, UserCreateDTO, UserUpdateDTO } from "@models/auth";
+import type {
+  AuthToken,
+  AuthTokenRow,
+  UserCreateDTO,
+  UserUpdateDTO,
+} from "@models/auth";
 import { WorkspaceRepository } from "./workspace-repository";
 import { UserRole } from "@constants/enums";
 import { validateTimestamp } from "@types";
@@ -9,7 +14,11 @@ import { validateTimestamp } from "@types";
 /**
  * UserRepository: manages user records and auth tokens in the DB.
  */
-export class UserRepository extends BaseRepository<User, UserCreateDTO, UserUpdateDTO> {
+export class UserRepository extends BaseRepository<
+  User,
+  UserCreateDTO,
+  UserUpdateDTO
+> {
   private workspaceRepo: WorkspaceRepository;
 
   constructor(db: Database) {
@@ -29,50 +38,72 @@ export class UserRepository extends BaseRepository<User, UserCreateDTO, UserUpda
   }
 
   async findOrCreate(email: string, workspaceId?: number): Promise<User> {
+    console.log("findOrCreate", email, workspaceId);
     const existing = await this.findByEmail(email);
     if (existing) return existing;
     return this.createNewUserWithWorkspace(email, workspaceId);
   }
 
-  private async createNewUserWithWorkspace(email: string, workspaceId?: number): Promise<User> {
-    console.log("Creating new user with workspace for:", email);
+  private async createNewUserWithWorkspace(
+    email: string,
+    workspaceId?: number
+  ): Promise<User> {
+    console.log("Creating new user with workspace for:", email, workspaceId);
     return this.transaction(async () => {
       const user = await this.create({
         email,
         name: email.split("@")[0],
-        avatarUrl: null,
+        avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${email}`,
       });
       console.log("User created:", user.id);
-      let workspace
-      if (!workspaceId) {
-      // Create personal workspace
-      const workspaceName = `${user.name}'s Workspace`;
-      const workspaceSlug = `${user.name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")}-${user.id}`;
+      let workspace;
+      console.log("workspaceId", workspaceId);
+      console.log("!workspaceId", !workspaceId);
+      console.log("workspaceId === undefined", workspaceId === undefined);
+      if (workspaceId === undefined) {
+        // Create personal workspace
+        console.log("Creating personal workspace FOR IDIOT");
+        const workspaceName = `${user.name}'s Workspace`;
+        const workspaceSlug = `${user.name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")}-${user.id}`;
 
-      const workspace = await this.workspaceRepo.create({
-        name: workspaceName,
-        slug: workspaceSlug,
-        ownerId: user.id,
+        workspace = await this.workspaceRepo.create({
+          name: workspaceName,
+          slug: workspaceSlug,
+          ownerId: user.id,
           settings: {},
         });
         console.log("Workspace created:", workspace.id);
+        await this.workspaceRepo.addUser(
+          workspace.id,
+          user.id,
+          UserRole.ADMINISTRATOR
+        );
+        console.log("User added as admin to workspace");
       } else {
         workspace = await this.workspaceRepo.findById(workspaceId);
+        console.log("Workspace found:", workspace);
+        if (!workspace) {
+          throw new Error("Workspace not found");
+        }
+        await this.workspaceRepo.addUser(
+          workspace.id,
+          user.id,
+          UserRole.MEMBER
+        );
+        console.log("User added as member to workspace");
       }
-      if (!workspace) {
-        throw new Error("Workspace not found");
-      }
-      // Add user as admin
-      await this.workspaceRepo.addUser(workspace.id, user.id, UserRole.ADMINISTRATOR);
-      console.log("User added as admin to workspace");
 
       return user;
     });
   }
 
-  async createAuthToken(data: { userId: number; expiresAt: number; workspaceId?: number }): Promise<string> {
+  async createAuthToken(data: {
+    userId: number;
+    expiresAt: number;
+    workspaceId?: number;
+  }): Promise<string> {
     const token = crypto.randomUUID();
     const now = Math.floor(Date.now() / 1000);
 
@@ -81,7 +112,14 @@ export class UserRepository extends BaseRepository<User, UserCreateDTO, UserUpda
         `INSERT INTO auth_tokens (token, user_id, expires_at, workspace_id, used, created_at, updated_at)
          VALUES (?, ?, ?, ?, 0, ?, ?)`
       )
-      .run(token, data.userId, data.expiresAt, data.workspaceId || null, now, now);
+      .run(
+        token,
+        data.userId,
+        data.expiresAt,
+        data.workspaceId || null,
+        now,
+        now
+      );
 
     return token;
   }
@@ -123,8 +161,6 @@ export class UserRepository extends BaseRepository<User, UserCreateDTO, UserUpda
 
   async deleteExpiredTokens(): Promise<void> {
     const now = Math.floor(Date.now() / 1000);
-    this.db
-      .prepare(`DELETE FROM auth_tokens WHERE expires_at < ?`)
-      .run(now);
+    this.db.prepare(`DELETE FROM auth_tokens WHERE expires_at < ?`).run(now);
   }
 }

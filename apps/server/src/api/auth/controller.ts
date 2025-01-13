@@ -47,6 +47,8 @@ export class AuthController extends BaseController {
       const { email, workspaceId } = await this.requireBody<MagicLinkBody>(c);
 
       // Create or get user
+      console.log("requestMagicLink", email, workspaceId);
+      console.log("param",c.req.param("workspaceId"));
       const user = await this.userRepo.findOrCreate(email, workspaceId ? parseInt(workspaceId, 10) : undefined);
 
       // Generate and store token with workspace context
@@ -96,12 +98,6 @@ export class AuthController extends BaseController {
           throw new ApiError("User not found", 404);
         }
         console.log("User found:", user.id);
-
-        // If this is a workspace invite, add user to workspace
-        if (authToken.workspaceId) {
-          console.log("Adding user to workspace:", authToken.workspaceId);
-          await this.workspaceRepo.addUser(authToken.workspaceId, user.id);
-        }
 
         // Generate JWT
         console.log("Generating JWT...");

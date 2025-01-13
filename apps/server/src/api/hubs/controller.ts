@@ -82,29 +82,48 @@ export class HubController extends BaseController {
         throw new ApiError('Hub not found in this workspace', 404);
       }
 
-      // Check hub membership
+      // Get hub membership status (but don't require it)
       const hubMemberRole = await this.hubRepo.getMemberRole(hubId, userId);
-      if (!hubMemberRole) {
-        throw new ApiError('Not a member of this hub', 403);
-      }
 
-      return { hub };
+      return { 
+        hub,
+        memberStatus: hubMemberRole ? 'member' : null 
+      };
     });
   };
 
   getHubMessages = async (c: Context): Promise<Response> => {
     return this.handle(c, async () => {
+      const workspaceId = this.requireNumberParam(c, 'workspaceId');
       const hubId = this.requireNumberParam(c, 'hubId');
       const { userId } = this.requireUser(c);
-      // check membership
-      const memberRole = await this.hubRepo.getMemberRole(hubId, userId);
+
+      // Check workspace membership
+      const workspaceRepo = new WorkspaceRepository(this.hubRepo['db']);
+      const memberRole = await workspaceRepo.getMemberRole(workspaceId, userId);
       if (!memberRole) {
-        throw new ApiError('Not a member of this hub', 403);
+        throw new ApiError('Not a member of this workspace', 403);
       }
+
+      // Get the hub and verify it belongs to the workspace
+      const hub = await this.hubRepo.findById(hubId);
+      if (!hub) {
+        throw new ApiError('Hub not found', 404);
+      }
+      if (hub.workspaceId !== workspaceId) {
+        throw new ApiError('Hub not found in this workspace', 404);
+      }
+
       const messages = await this.messageRepo.findByHub(hubId, 50);
-      await this.hubRepo.updateMember(hubId, userId, {
-        lastReadAt: Math.floor(Date.now() / 1000)
-      });
+      
+      // Only update last read if they're a hub member
+      const hubMemberRole = await this.hubRepo.getMemberRole(hubId, userId);
+      if (hubMemberRole) {
+        await this.hubRepo.updateMember(hubId, userId, {
+          lastReadAt: Math.floor(Date.now() / 1000)
+        });
+      }
+
       return { messages };
     });
   };

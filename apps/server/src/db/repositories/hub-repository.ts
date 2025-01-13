@@ -78,35 +78,28 @@ export class HubRepository extends BaseRepository<
           (SELECT COUNT(*) FROM hub_members cm WHERE cm.hub_id = c.id) as member_count,
           (SELECT COUNT(*) FROM messages m WHERE m.hub_id = c.id AND m.deleted_at IS NULL) as message_count,
           (SELECT MAX(created_at) FROM messages m WHERE m.hub_id = c.id AND m.deleted_at IS NULL) as last_message_at
-          ${
-            userId
-              ? `
-                  ,CASE WHEN EXISTS(
-                    SELECT 1 FROM messages m 
-                    LEFT JOIN hub_members cm ON cm.hub_id = c.id AND cm.user_id = ?
-                    WHERE m.hub_id = c.id 
-                    AND m.deleted_at IS NULL
-                    AND (
-                      cm.last_read_at IS NULL 
-                      OR m.created_at > cm.last_read_at
-                    )
-                  ) THEN 1 ELSE 0 END as has_unread
-                  ,CASE 
-                    WHEN EXISTS(SELECT 1 FROM hub_members WHERE hub_id = c.id AND user_id = ?) THEN 'member'
-                    ELSE NULL
-                  END as member_status
-                `
-              : ""
-          }
+          ${userId ? `
+            ,CASE WHEN EXISTS(
+              SELECT 1 FROM messages m 
+              LEFT JOIN hub_members cm ON cm.hub_id = c.id AND cm.user_id = ?
+              WHERE m.hub_id = c.id 
+              AND m.deleted_at IS NULL
+              AND (
+                cm.last_read_at IS NULL 
+                OR m.created_at > cm.last_read_at
+              )
+            ) THEN 1 ELSE 0 END as has_unread
+            ,CASE 
+              WHEN EXISTS(SELECT 1 FROM hub_members WHERE hub_id = c.id AND user_id = ?) THEN 'member'
+              ELSE NULL
+            END as member_status
+          ` : ""}
         FROM hubs c
         WHERE c.workspace_id = ?
-        ${userId ? "AND EXISTS(SELECT 1 FROM hub_members WHERE hub_id = c.id AND user_id = ?)" : ""}
         ORDER BY c.name ASC
       `;
 
-      const params = userId
-        ? [userId, userId, workspaceId, userId]
-        : [workspaceId];
+      const params = userId ? [userId, userId, workspaceId] : [workspaceId];
 
       const rows = this.db.prepare(query).all(...params) as (HubWithMeta &
         Record<string, any>)[];
